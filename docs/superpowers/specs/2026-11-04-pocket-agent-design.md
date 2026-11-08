@@ -255,7 +255,7 @@ Rules:
 - **Model requirements:** a model must support tool calling, and setup verifies this with a test request. Image input is optional: a per-provider `supportsImages` flag decides whether the `screenshot` tool is offered at all.
 - **Tool choice:** `auto`. `strict: true` is used where the provider supports it. Forced tool choice is never used, because Opus 5.5 returns a 400 for it and other providers vary. The system prompt requires exactly one tool call per step, and a reply without one counts as an invalid call.
 - **Parallel tools:** disabled where the provider allows it. If a model returns several calls anyway, the client keeps only the first, because phone actions must run in order.
-- **History:** append-only, kept inside each client in the provider's own format. For Anthropic, thinking blocks are passed back unchanged. The 25-step cap keeps the history small, so v0.1 does not trim it.
+- **History:** append-only, kept inside each client in the provider's own format. For Anthropic, thinking blocks are passed back unchanged. Trimming is decided per client, as described in section 5 of `2026-11-08-security-privacy-scenarios.md`.
 - **Caching:** Anthropic only: prompt caching on the stable system prompt and tool list. Other providers cache automatically or not at all, and their clients do nothing special.
 - **Refusals (Anthropic client):** check `stop_reason` before reading content. Server-side fallback is enabled with `fallbacks: "default"` and the beta header `server-side-fallback-2026-07-01`. A fallback model cannot read Opus 5.5 thinking blocks, so it continues without them. If a request is still refused, the task stops and the user is told why. Prompt caching needs no beta header. A content-filter finish reason from another provider maps to the same refusal result.
 - **Validation:** every tool input is parsed and checked before use. An invalid call returns a tool error, and two invalid calls in a row stop the task.
@@ -275,6 +275,7 @@ Screen content is untrusted. A message or web page can contain instructions aime
 7. **Password fields:** the agent never reads or types in them.
 8. **Confirmations:** the card shows the action, target and app. No answer within 120 seconds counts as declining, and declining returns a tool error so the agent can choose another path or finish.
 9. **Self-protection:** Pocket Agent's windows are excluded from observations, and any action targeting them is rejected.
+10. **More rules:** rules 10 to 15 in section 3 of `2026-11-08-security-privacy-scenarios.md` apply equally. They block system Settings, installers and system UI, reject coordinate taps inside Pocket Agent's own windows, show typed text on confirmation cards, re-check targets before acting, confirm generic "OK" buttons near money, and restrict `open_app` to app names. That document also holds the threat model, privacy rules and scenario table, and wins wherever it disagrees with this one.
 
 **Known limit:** label matching can miss unusual wording, other languages and icon-only buttons. The README must state this plainly.
 
@@ -306,7 +307,7 @@ The README also documents the install steps for Android's developer verification
 | Language | Kotlin with coroutines |
 | Minimum Android | 11 (API 30) |
 | Build | Gradle Kotlin DSL, version catalog |
-| Screens | Jetpack Compose, for setup and the task screen |
+| Screens | Platform Android `View`s for setup and the task screen. No Compose and no Material library, to keep the APK small (decided 2026-11-08) |
 | Bubble and cards | Android `View`s in `TYPE_ACCESSIBILITY_OVERLAY` windows |
 | Quick Settings | Deferred to v0.2 (In-app toggle in setup for v0.1) |
 | Voice | Android `SpeechRecognizer`, in the task screen |

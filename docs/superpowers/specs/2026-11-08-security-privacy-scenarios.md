@@ -1,6 +1,6 @@
 # Pocket Agent: Security, Privacy and Scenarios
 
-**Status:** draft for review
+**Status:** approved 2026-11-08
 **Date:** 2026-11-08
 **Applies to:** the v0.1 design (`2026-11-04-pocket-agent-design.md`). Where this document disagrees with it, this document wins. Section 10 lists every change to existing documents.
 
@@ -166,7 +166,7 @@ An agent that can read and operate a phone is a powerful thing to install. The p
 - **A4, Task 8:** `open_app` stays name-only, with a test.
 - **A5, Task 9:** `ConfirmRequest` gains `detail`, with a test that it carries the last typed text.
 
-**Decisions needed from you**
+**Decisions (all three approved 2026-11-08, recommendations accepted)**
 
 1. **Plain Views or Compose.** I recommend plain Views. The app has two simple screens and the bubble already needs Views, so Compose would add 4 to 5 MB for little gain. Compose is friendlier to some contributors, so say if you want it.
 2. **Block Settings, system UI and installers outright.** I recommend yes. The cost is that the agent cannot toggle Wi-Fi or change a setting for you, which is the safer default for v0.1.
