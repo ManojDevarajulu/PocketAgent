@@ -16,6 +16,9 @@ import okio.Buffer
 /**
  * The only class that touches OkHttp. Redirects are never followed (so a key is never sent to a
  * second host), nothing is logged, and error messages never include request data.
+ *
+ * Read and write timeouts are disabled on purpose: a non-streaming model reply can take most of
+ * a minute to start, so the call timeout is the single time budget for the whole call.
  */
 class OkHttpTransport(
     callTimeoutMs: Long = 90_000,
@@ -28,6 +31,8 @@ class OkHttpTransport(
         .retryOnConnectionFailure(false)
         .callTimeout(callTimeoutMs, TimeUnit.MILLISECONDS)
         .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .writeTimeout(0, TimeUnit.MILLISECONDS)
         .build()
 
     override suspend fun post(url: String, headers: Map<String, String>, body: String): HttpResponse {

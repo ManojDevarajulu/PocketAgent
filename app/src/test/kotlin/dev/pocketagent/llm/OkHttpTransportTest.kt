@@ -3,6 +3,7 @@ package dev.pocketagent.llm
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.concurrent.CopyOnWriteArrayList
@@ -115,15 +116,29 @@ class OkHttpTransportTest {
     @Test
     fun stalledServerTimesOutAsIOException() = runBlocking {
         val release = CountDownLatch(1)
-        val server = serve { release.await(10, TimeUnit.SECONDS) }
+        val server = serve { release.await(30, TimeUnit.SECONDS) }
         try {
-            assertFailsWith<IOException> {
+            val start = System.nanoTime()
+            assertFailsWith<InterruptedIOException> {
                 OkHttpTransport(callTimeoutMs = 300).post(server.url(), emptyMap(), "{}")
             }
+            val elapsedMs = (System.nanoTime() - start) / 1_000_000
+            assertTrue(elapsedMs < 5_000, "took $elapsedMs ms")
         } finally {
             release.countDown()
         }
         Unit
+    }
+
+    @Test
+    fun slowReplyWithinTheCallTimeoutSucceeds() = runBlocking {
+        val server = serve { ex ->
+            Thread.sleep(1_500)
+            ex.reply(200, "slow")
+        }
+        val response = OkHttpTransport(callTimeoutMs = 10_000).post(server.url(), emptyMap(), "{}")
+        assertEquals(200, response.status)
+        assertEquals("slow", response.body)
     }
 
     @Test
