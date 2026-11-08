@@ -407,15 +407,14 @@ class OpenAiCompatClientTest {
     @Test
     fun extraContentOnAToolCallIsReplayedIntact() = runTest {
         val a = replayed(
-            """{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":null,
-            "tool_calls":[{"id":"c1","type":"function","extra_content":{"google":{"thought_signature":"sig=="}},
+            """{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"reasoning":"hmm",
+            "tool_calls":[{"id":"c1","type":"function","index":0,"extra_content":{"google":{"thought_signature":"sig=="}},
             "function":{"name":"back","arguments":"{}"}}]}}]}""",
         )
+        assertFalse("reasoning" in a)
         val call = a.getValue("tool_calls").jsonArray.single().jsonObject
-        assertEquals(
-            "sig==",
-            call.getValue("extra_content").jsonObject.getValue("google").jsonObject.getValue("thought_signature").jsonPrimitive.content,
-        )
+        assertEquals(setOf("id", "type", "function", "extra_content"), call.keys)
+        assertEquals("""{"google":{"thought_signature":"sig=="}}""", call.getValue("extra_content").toString())
     }
 
     @Test
