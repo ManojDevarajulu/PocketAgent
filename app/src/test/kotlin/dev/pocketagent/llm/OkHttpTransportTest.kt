@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -219,5 +220,17 @@ class OkHttpTransportTest {
                 t = t.cause
             }
         }
+    }
+
+    @Test
+    fun aNonIoFailureWhileReadingTheReplyEndsThePostWithAnIOException() = runBlocking {
+        val server = serve { ex -> ex.reply(200, "{}") }
+        val transport = OkHttpTransport()
+        transport.readHook = { throw IllegalStateException("Bearer sk-SUPERSECRET-123") }
+        // withTimeout turns a coroutine that never resumes into a failure instead of a hang.
+        val e = assertFailsWith<IOException> {
+            withTimeout(5_000) { transport.post(server.url(), emptyMap(), "{}") }
+        }
+        assertEquals("Could not read the provider's reply", e.message)
     }
 }

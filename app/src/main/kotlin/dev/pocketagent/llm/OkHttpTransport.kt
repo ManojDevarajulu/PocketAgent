@@ -2,7 +2,6 @@ package dev.pocketagent.llm
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
@@ -35,6 +34,9 @@ class OkHttpTransport(
         .writeTimeout(0, TimeUnit.MILLISECONDS)
         .build()
 
+    /** Test seam: runs first when a reply is read, so a test can make reading fail with any exception. */
+    internal var readHook: (() -> Unit)? = null
+
     override suspend fun post(url: String, headers: Map<String, String>, body: String): HttpResponse {
         val request = buildRequest(url, headers, body)
         return suspendCancellableCoroutine { continuation ->
@@ -46,11 +48,17 @@ class OkHttpTransport(
                 }
 
                 override fun onResponse(call: Call, response: Response) {
-                    try {
-                        continuation.resume(response.use { readResponse(it) })
+                    // Any exception escaping here would end the process on Android and leave the coroutine waiting,
+                    // so everything becomes an IOException. Other exceptions get a fixed message: theirs could
+                    // carry header values. Resuming an already cancelled continuation does nothing.
+                    val result = try {
+                        Result.success(response.use { readResponse(it) })
                     } catch (e: IOException) {
-                        continuation.resumeWithException(e)
+                        Result.failure(e)
+                    } catch (_: Throwable) {
+                        Result.failure(IOException("Could not read the provider's reply"))
                     }
+                    continuation.resumeWith(result)
                 }
             })
         }
@@ -68,6 +76,7 @@ class OkHttpTransport(
     }
 
     private fun readResponse(response: Response): HttpResponse {
+        readHook?.invoke()
         val responseHeaders = HashMap<String, String>()
         for (i in 0 until response.headers.size) {
             val name = response.headers.name(i).lowercase()
