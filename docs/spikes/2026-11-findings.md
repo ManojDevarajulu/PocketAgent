@@ -1,0 +1,67 @@
+# Feasibility spike findings (2026-11-08)
+
+**Test phone:** Nothing phone, Android 16 (API 36), India region, with a work profile, a Private Space and DualApps installed.
+**Spike app:** throwaway, kept out of the repo. Source lived in `spikes/spike-app/`.
+
+## Verdict: Go, with three conditions
+
+Accessibility can be enabled, two of the three demo apps expose usable screens (the third partly), and the bubble and task screen work. Conditions:
+
+1. Spike 3 (model call from the phone) must pass before Plan 2 starts.
+2. Swiggy's cart and checkout screens must be checked before demo task 2 is committed to.
+3. The install route must be tested before the launch docs are written (spike 1).
+
+## Spike 1: restricted settings and installing
+
+| Observation | Result |
+|---|---|
+| Install an APK that declares an accessibility service from the Google Files app | **Hard-blocked by Play Protect**, with no way past |
+| Install the identical app without the service from the same app | Installs normally |
+| Install the accessibility build with `adb install` | Works |
+| Enabling the service after an `adb` install | Refused until "Allow restricted settings" is allowed in App info. `adb` does not skip this step |
+
+**Cause:** consistent with Google's enhanced fraud protection pilot, which blocks sideloaded apps that request accessibility in India. One device and one run, so treat it as likely, not proven.
+
+**Decisions:**
+- The README cannot say "download the APK and install it". It needs a routes section: `adb install`, and an app-store route if one is exempt.
+- The release spec (S6) tests F-Droid or IzzyOnDroid, and verified-developer registration, on this phone before promising either.
+- The setup screen must walk users through "Allow restricted settings", with the phone-specific path.
+- No Advanced Protection message was reported on this phone.
+
+## Spike 2: screen trees
+
+| App | Result |
+|---|---|
+| WhatsApp | Rich: about 150 nodes on the chat list and 47 in a chat, with labels and stable resource IDs. Message box is editable |
+| Google Maps | Usable: 43 nodes, 16 labelled, including "Search here" and "Voice search". The map itself is unlabelled |
+| Swiggy | Partial. Browsing and the item sheet are readable ("Add Item \| ₹249", "add one more"). One capture was **empty**, probably cart or checkout, and is still to be checked |
+| Settings | Readable, so blocking by package works |
+| Pocket Agent's own windows | Captured too, so excluding them is mandatory |
+
+**Decisions:**
+- The serializer lets an unlabelled tappable node borrow the label of its nearest labelled ancestor, shown as `in "<label>"` (Plan 1, Task 4).
+- Screen text can carry account details. Maps exposes the signed-in email, so the privacy notice says so.
+- If Swiggy blocks cart and checkout, demo task 2 uses another food app or stops at the cart.
+
+## Spike 3: model call from the phone
+
+**Pending.** Needs an API key. The test sends one tool-calling request to Anthropic and one to an OpenAI-compatible endpoint with OkHttp.
+
+## Spike 5: bubble and task screen
+
+| Check | Result |
+|---|---|
+| `TYPE_ACCESSIBILITY_OVERLAY` bubble draws, drags and takes taps | Works |
+| Hide, read tree, show | 0 to 5 ms each, far under the 50 ms target |
+| Task screen opens translucent over another app | Works |
+
+**Bug found and fixed:** the task screen shared the app's task, so a tap sometimes surfaced Accessibility settings. Giving it its own empty `taskAffinity` fixed it, confirmed over 10 taps.
+
+**Decisions for the device-layer spec (S3):**
+- The task screen must have its own task.
+- Ignore bubble taps while a task is running or a task screen is open. A second tap stacked another screen.
+- Do not rely on logcat for diagnosis: it rolls over within minutes on this phone.
+
+## Scenarios to add
+
+Work profile, Private Space and DualApps are all present on a normal phone. Act only in the user the service runs in.
