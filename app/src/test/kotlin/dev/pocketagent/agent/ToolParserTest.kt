@@ -1,0 +1,196 @@
+package dev.pocketagent.agent
+
+import dev.pocketagent.device.Direction
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class ToolParserTest {
+    private fun json(text: String): JsonObject = Json.parseToJsonElement(text).jsonObject
+    private fun parse(tool: String, text: String = "{}") = Tools.parse(tool, json(text))
+    private fun message(result: Result<ToolCall>) = result.exceptionOrNull()?.message.orEmpty()
+
+    private fun assertRejected(result: Result<ToolCall>, expected: String) {
+        assertTrue(result.isFailure, "expected a failure but got ${result.getOrNull()}")
+        assertTrue(message(result).contains(expected), "message \"${message(result)}\" should mention \"$expected\"")
+    }
+
+    // ---- tap ----
+
+    @Test
+    fun parsesTapByNode() {
+        assertEquals(ToolCall.Tap("a3", null, null, false), parse("tap", """{"node_id":"a3"}""").getOrThrow())
+    }
+
+    @Test
+    fun parsesTapByCoordinatesWithIrreversible() {
+        assertEquals(ToolCall.Tap(null, 10, 20, true), parse("tap", """{"x":10,"y":20,"irreversible":true}""").getOrThrow())
+    }
+
+    @Test
+    fun rejectsTapWithBothNodeAndCoordinates() {
+        assertRejected(parse("tap", """{"node_id":"a3","x":10,"y":20}"""), "either node_id or x and y")
+    }
+
+    @Test
+    fun rejectsTapWithNeither() {
+        assertRejected(parse("tap", """{"irreversible":false}"""), "either node_id or x and y")
+    }
+
+    @Test
+    fun rejectsTapWithOnlyOneCoordinate() {
+        assertRejected(parse("tap", """{"x":10}"""), "either node_id or x and y")
+        assertRejected(parse("tap", """{"node_id":"a3","x":10}"""), "either node_id or x and y")
+        assertRejected(parse("tap", """{"node_id":"a3","y":10}"""), "either node_id or x and y")
+    }
+
+    @Test
+    fun rejectsNegativeAndNonIntegerCoordinates() {
+        assertRejected(parse("tap", """{"x":-1,"y":5}"""), "x must be an integer")
+        assertRejected(parse("tap", """{"x":10.5,"y":5}"""), "x must be an integer")
+        assertRejected(parse("tap", """{"x":"10","y":5}"""), "x must be an integer")
+    }
+
+    @Test
+    fun rejectsBadNodeIds() {
+        assertRejected(parse("tap", """{"node_id":""}"""), "node_id must be 1 to 20 characters")
+        assertRejected(parse("tap", """{"node_id":"${"a".repeat(21)}"}"""), "node_id must be 1 to 20 characters")
+        assertRejected(parse("tap", """{"node_id":12}"""), "node_id must be a string")
+        assertRejected(parse("tap", """{"node_id":null}"""), "node_id must be a string")
+        assertRejected(parse("tap", """{"node_id":{"id":"a1"}}"""), "node_id must be a string")
+    }
+
+    @Test
+    fun irreversibleMustBeABoolean() {
+        assertRejected(parse("tap", """{"node_id":"a1","irreversible":"true"}"""), "irreversible must be true or false")
+    }
+
+    // ---- type, scroll, open_app, wait, ask_user, done ----
+
+    @Test
+    fun parsesTypeAndEnforcesLengths() {
+        assertEquals(ToolCall.TypeText("a1", "hello"), parse("type", """{"node_id":"a1","text":"hello"}""").getOrThrow())
+        assertTrue(parse("type", """{"node_id":"a1","text":"${"x".repeat(1000)}"}""").isSuccess)
+        assertRejected(parse("type", """{"node_id":"a1","text":""}"""), "text must be 1 to 1000 characters")
+        assertRejected(parse("type", """{"node_id":"a1","text":"${"x".repeat(1001)}"}"""), "text must be 1 to 1000 characters")
+        assertRejected(parse("type", """{"text":"hello"}"""), "missing field: node_id")
+    }
+
+    @Test
+    fun parsesScrollInEveryDirection() {
+        mapOf("up" to Direction.UP, "down" to Direction.DOWN, "left" to Direction.LEFT, "right" to Direction.RIGHT).forEach { (word, direction) ->
+            assertEquals(ToolCall.Scroll(direction, null), parse("scroll", """{"direction":"$word"}""").getOrThrow())
+        }
+        assertEquals(ToolCall.Scroll(Direction.DOWN, "a7"), parse("scroll", """{"direction":"down","node_id":"a7"}""").getOrThrow())
+    }
+
+    @Test
+    fun rejectsBadScrollDirection() {
+        assertRejected(parse("scroll", """{"direction":"diagonal"}"""), "direction must be one of up, down, left, right")
+        assertRejected(parse("scroll", """{"direction":"UP"}"""), "direction must be one of")
+        assertRejected(parse("scroll", "{}"), "missing field: direction")
+    }
+
+    @Test
+    fun parsesOpenAppAndEnforcesLength() {
+        assertEquals(ToolCall.OpenApp("WhatsApp"), parse("open_app", """{"name":"WhatsApp"}""").getOrThrow())
+        assertRejected(parse("open_app", """{"name":""}"""), "name must be 1 to 100 characters")
+        assertRejected(parse("open_app", """{"name":"${"x".repeat(101)}"}"""), "name must be 1 to 100 characters")
+    }
+
+    @Test
+    fun openAppRejectsPackageUrlAndIntentFields() {
+        listOf("package", "url", "intent").forEach { field ->
+            assertRejected(parse("open_app", """{"name":"WhatsApp","$field":"x"}"""), "unexpected field: $field")
+        }
+    }
+
+    @Test
+    fun rejectsWaitOutOfRange() {
+        assertRejected(parse("wait", """{"seconds":0}"""), "seconds must be an integer from 1 to 5")
+        assertRejected(parse("wait", """{"seconds":6}"""), "seconds must be an integer from 1 to 5")
+        assertRejected(parse("wait", """{"seconds":"3"}"""), "seconds must be an integer from 1 to 5")
+        assertEquals(ToolCall.Wait(1), parse("wait", """{"seconds":1}""").getOrThrow())
+        assertEquals(ToolCall.Wait(5), parse("wait", """{"seconds":5}""").getOrThrow())
+    }
+
+    @Test
+    fun parsesAskUserAndDone() {
+        assertEquals(ToolCall.AskUser("Which Mom?"), parse("ask_user", """{"question":"Which Mom?"}""").getOrThrow())
+        assertRejected(parse("ask_user", """{"question":"${"q".repeat(501)}"}"""), "question must be 1 to 500 characters")
+        assertEquals(ToolCall.Done("Sent it", true), parse("done", """{"summary":"Sent it","success":true}""").getOrThrow())
+        assertRejected(parse("done", """{"summary":"Sent it"}"""), "missing field: success")
+        assertRejected(parse("done", """{"summary":"","success":true}"""), "summary must be 1 to 500 characters")
+    }
+
+    @Test
+    fun toolsWithoutInputsTakeNoFields() {
+        assertEquals(ToolCall.Back, parse("back").getOrThrow())
+        assertEquals(ToolCall.Home, parse("home").getOrThrow())
+        assertEquals(ToolCall.Screenshot, parse("screenshot").getOrThrow())
+        assertRejected(parse("back", """{"x":1}"""), "unexpected field: x")
+    }
+
+    @Test
+    fun rejectsUnknownTool() {
+        assertRejected(parse("swipe"), "unknown tool: swipe")
+    }
+
+    // ---- definitions ----
+
+    @Test
+    fun definitionNamesMatchSpec() {
+        val names = Tools.definitions.map { it.name }
+        assertEquals(10, names.size)
+        assertEquals(setOf("tap", "type", "scroll", "back", "home", "open_app", "screenshot", "wait", "ask_user", "done"), names.toSet())
+    }
+
+    @Test
+    fun everyDefinitionIsStrictCompatible() {
+        val unsupported = setOf("minLength", "maxLength", "minimum", "maximum", "pattern", "format", "oneOf", "anyOf", "allOf")
+        Tools.definitions.forEach { def ->
+            val schema = def.inputSchema
+            assertEquals("object", schema.getValue("type").jsonPrimitive.content, def.name)
+            assertFalse(schema.getValue("additionalProperties").jsonPrimitive.boolean, "${def.name} must forbid extra fields")
+            val properties = schema.getValue("properties").jsonObject
+            schema.getValue("required").jsonArray.forEach {
+                assertTrue(it.jsonPrimitive.content in properties, "${def.name}: required ${it.jsonPrimitive.content} is not a property")
+            }
+            assertTrue(def.description.isNotBlank(), "${def.name} needs a description")
+            assertTrue(unsupported.none { "\"$it\":" in schema.toString() }, "${def.name} uses a keyword strict mode does not support")
+        }
+    }
+
+    @Test
+    fun everySchemaPropertyIsAcceptedByTheParser() {
+        Tools.definitions.forEach { def ->
+            val properties = def.inputSchema.getValue("properties").jsonObject
+            properties.forEach { (field, spec) ->
+                val sample: JsonPrimitive = when (spec.jsonObject.getValue("type").jsonPrimitive.content) {
+                    "integer" -> JsonPrimitive(1)
+                    "boolean" -> JsonPrimitive(true)
+                    else -> JsonPrimitive(spec.jsonObject["enum"]?.jsonArray?.first()?.jsonPrimitive?.content ?: "a1")
+                }
+                val result = Tools.parse(def.name, JsonObject(mapOf(field to sample)))
+                assertFalse(message(result).contains("unexpected field"), "${def.name}.$field is in the schema but the parser rejects it")
+            }
+        }
+    }
+
+    @Test
+    fun requiredListMatchesWhatTheParserRequires() {
+        val tap = Tools.definitions.single { it.name == "tap" }
+        assertEquals(JsonArray(emptyList()), tap.inputSchema.getValue("required"), "tap fields are all optional individually")
+        val done = Tools.definitions.single { it.name == "done" }
+        assertEquals(setOf("summary", "success"), done.inputSchema.getValue("required").jsonArray.map { it.jsonPrimitive.content }.toSet())
+    }
+}
