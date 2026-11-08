@@ -1,0 +1,1 @@
+{"id":"msg_03","type":"message","role":"assistant","content":[{"type":"text","text":"Two things."},{"type":"tool_use","id":"toolu_A","name":"tap","input":{"node_id":"a1"}},{"type":"tool_use","id":"toolu_B","name":"back","input":{}},{"type":"tool_use","id":"toolu_C","name":"home","input":{}}],"stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1}}

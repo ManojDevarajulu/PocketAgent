@@ -6,6 +6,8 @@ Pocket Agent is an open-source Android app: an AI agent that lives on your phone
 
 > **Status: work in progress.** There is nothing to install yet. This repository currently holds the design and the tested core of the agent.
 
+The Anthropic client is verified against recorded replies only, until the live check has run with a real key (see [docs/TESTING.md](docs/TESTING.md)).
+
 ## Principles
 
 - **You start every task.** No remote control, no scheduling, no background tasks.

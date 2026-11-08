@@ -1,0 +1,1 @@
+{"id":"gen-2","object":"chat.completion","model":"m","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"tool_calls":[{"id":"call_back1","type":"function","function":{"name":"back","arguments":"{}"}}]}}],"usage":{"prompt_tokens":10,"completion_tokens":5}}

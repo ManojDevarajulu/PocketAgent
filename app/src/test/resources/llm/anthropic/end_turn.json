@@ -1,0 +1,1 @@
+{"id":"msg_04","type":"message","role":"assistant","content":[{"type":"text","text":"I am done talking."}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}

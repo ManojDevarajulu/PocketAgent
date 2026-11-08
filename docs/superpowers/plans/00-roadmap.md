@@ -9,7 +9,7 @@
 |---|---|---|---|---|---|
 | 0 | Toolchain and feasibility spikes | Done (main spec §12) | Plan 1, Tasks 1 to 2 | none | Findings say Go on Android 16 |
 | 1 | Core agent: screen model, serializer, safety gate, loop, runner | Done, plus amendments A1 to A5 | Plan 1, Tasks 3 to 10 | 0 | JVM suite green in CI |
-| 2 | Providers: Anthropic and OpenAI-compatible clients, presets, validation, history | **S2, to write** | Plan 2 | 1, spike 3 | Recorded-response tests pass for both formats; setup tool-call test works against a real model |
+| 2 | Providers: Anthropic and OpenAI-compatible clients, presets, validation, history | Done (`specs/2026-11-08-s2-providers.md`) | Plan 2 (`plans/2026-11-08-plan-2-providers.md`) | 1, spike 3 | Recorded-response tests pass for both formats; setup tool-call test works against a real model |
 | 3 | Device layer: accessibility service, `DevicePort`, bubble, captions, confirmation card, task screen | **S3, to write** | Plan 3 | 1, spikes 1, 2, 5 | Demo task 3 (address to Maps) runs end to end on the test phone |
 | 4 | Setup, key storage, notices, OEM guidance, voice | **S4, to write** | Plan 4 | 2, 3 | A fresh install reaches a finished first task using only the setup screen |
 | 5 | Playbooks and benchmarks: contributor guide, CI checks, method, scoreboard | **S5, to write** | Plan 5 | 3, 4 | Five playbooks valid; three demo tasks at 9 of 10 or the failures published |

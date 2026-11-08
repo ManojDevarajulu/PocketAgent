@@ -10,10 +10,15 @@ import dev.pocketagent.device.Screen
 import dev.pocketagent.llm.LlmClient
 import dev.pocketagent.llm.LlmResult
 import dev.pocketagent.llm.LlmSession
+import dev.pocketagent.llm.TokenUsage
 import dev.pocketagent.llm.Turn
 
 /** Replays a scripted list of results and records every session and every turn it was sent. */
-class FakeLlm(private val script: List<LlmResult>, override val supportsImages: Boolean = true) : LlmClient {
+class FakeLlm(
+    private val script: List<LlmResult>,
+    override val supportsImages: Boolean = true,
+    private val usage: TokenUsage = TokenUsage(),
+) : LlmClient {
     var sessions = 0
         private set
     var systemPrompt: String? = null
@@ -26,7 +31,9 @@ class FakeLlm(private val script: List<LlmResult>, override val supportsImages: 
         sessions++
         this.systemPrompt = systemPrompt
         this.tools = tools
+        val reported = usage
         return object : LlmSession {
+            override val usage: TokenUsage get() = reported
             override suspend fun send(turn: Turn): LlmResult {
                 turns += turn
                 check(turns.size <= script.size) { "FakeLlm script exhausted after ${script.size} results" }

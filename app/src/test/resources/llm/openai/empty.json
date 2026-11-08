@@ -1,0 +1,1 @@
+{"id":"gen-9","object":"chat.completion","model":"m","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":""}}],"usage":{"prompt_tokens":10,"completion_tokens":0}}

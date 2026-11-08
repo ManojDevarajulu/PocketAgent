@@ -1,0 +1,1 @@
+{"id":"msg_02","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_02","name":"back","input":{}}],"stop_reason":"tool_use","usage":{"input_tokens":200,"cache_read_input_tokens":115,"output_tokens":10}}

@@ -9,6 +9,7 @@ import dev.pocketagent.fakes.FakeUi
 import dev.pocketagent.llm.LlmClient
 import dev.pocketagent.llm.LlmResult
 import dev.pocketagent.llm.LlmSession
+import dev.pocketagent.llm.TokenUsage
 import dev.pocketagent.llm.Turn
 import dev.pocketagent.playbook.PlaybookStore
 import dev.pocketagent.safety.BlockedApps
@@ -47,6 +48,7 @@ class AgentRunnerTest {
         var cancelled = false
         override val supportsImages = true
         override fun newSession(systemPrompt: String, tools: List<ToolDefinition>) = object : LlmSession {
+            override val usage = TokenUsage()
             override suspend fun send(turn: Turn): LlmResult {
                 try {
                     awaitCancellation()
