@@ -39,6 +39,7 @@ class PlaybookStore private constructor(private val byPackage: Map<String, Playb
             require(bytes <= MAX_BYTES) { "is $bytes bytes, the limit is $MAX_BYTES" }
             require(normalized.none { it.isISOControl() && it != '\n' && it != '\t' }) { "contains a control character" }
             require("screen_data" !in normalized) { "must not mention the screen_data wrapper" }
+            require("app_tips" !in normalized) { "must not mention the app_tips wrapper" }
 
             val lines = normalized.split('\n')
             require(lines.first().trim() == "---") { "must start with a --- line" }

@@ -11,6 +11,9 @@ interface LlmClient {
 
 interface LlmSession {
     suspend fun send(turn: Turn): LlmResult
+
+    /** Running totals for this session. */
+    val usage: TokenUsage
 }
 
 /** The answer to a tool call. [callId] is the id of the call it answers. */
