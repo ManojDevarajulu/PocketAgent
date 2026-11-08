@@ -32,5 +32,8 @@ secrets.properties
 # Throwaway spikes stay out of history
 spikes/
 
-# Logs
+# Logs and temp files
 *.log
+*.tmp
+*.bak
+*~
