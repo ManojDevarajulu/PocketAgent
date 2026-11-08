@@ -4,6 +4,7 @@ import kotlin.math.abs
 
 /** What the device saw when it refreshed the live node. Null instead of this means the refresh failed. */
 data class LiveNodeState(
+    /** Must use [ScreenNode.label] semantics: text then description, trimmed, blank becomes null. */
     val label: String?,
     val bounds: Bounds,
     val visibleToUser: Boolean,
@@ -16,7 +17,7 @@ class Revalidator(private val ownPackage: String, private val tolerancePx: Int =
     fun nodeStillMatches(observed: ScreenNode, live: LiveNodeState?): Boolean {
         if (live == null) return false
         if (!live.visibleToUser || !live.inActiveWindow) return false
-        if (live.packageName == ownPackage) return false
+        if (live.packageName == ownPackage || live.packageName != observed.packageName) return false
         if (live.label != observed.label()) return false
         val a = observed.bounds
         val b = live.bounds

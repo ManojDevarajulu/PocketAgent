@@ -20,23 +20,24 @@ class RevalidatorTest {
 
     @Test fun labelChangedFails() = assertFalse(revalidator.nodeStillMatches(observed, live(label = "Delete")))
 
-    @Test fun boundsMovedBy3pxPasses() {
+    private fun shifted(d: Int): List<Bounds> {
         val b = observed.bounds
-        listOf(
-            b.copy(left = b.left + 3), b.copy(top = b.top - 3), b.copy(right = b.right + 3), b.copy(bottom = b.bottom - 3),
-        ).forEach { assertTrue(revalidator.nodeStillMatches(observed, live(bounds = it)), "$it") }
+        return listOf(
+            b.copy(left = b.left + d), b.copy(left = b.left - d), b.copy(top = b.top + d), b.copy(top = b.top - d),
+            b.copy(right = b.right + d), b.copy(right = b.right - d), b.copy(bottom = b.bottom + d), b.copy(bottom = b.bottom - d),
+        )
     }
 
-    @Test fun boundsMovedBy4pxPasses() {
-        assertTrue(revalidator.nodeStillMatches(observed, live(bounds = observed.bounds.copy(left = observed.bounds.left + 4))))
-    }
+    @Test fun boundsMovedBy3pxPasses() =
+        shifted(3).forEach { assertTrue(revalidator.nodeStillMatches(observed, live(bounds = it)), "$it") }
 
-    @Test fun boundsMovedBy5pxFails() {
-        val b = observed.bounds
-        listOf(
-            b.copy(left = b.left + 5), b.copy(top = b.top - 5), b.copy(right = b.right + 5), b.copy(bottom = b.bottom - 5),
-        ).forEach { assertFalse(revalidator.nodeStillMatches(observed, live(bounds = it)), "$it") }
-    }
+    @Test fun boundsMovedBy4pxPasses() =
+        shifted(4).forEach { assertTrue(revalidator.nodeStillMatches(observed, live(bounds = it)), "$it") }
+
+    @Test fun boundsMovedBy5pxFails() =
+        shifted(5).forEach { assertFalse(revalidator.nodeStillMatches(observed, live(bounds = it)), "$it") }
+
+    @Test fun differentPackageFails() = assertFalse(revalidator.nodeStillMatches(observed, live(pkg = "com.other")))
 
     @Test fun refreshFailureFails() = assertFalse(revalidator.nodeStillMatches(observed, null))
 
