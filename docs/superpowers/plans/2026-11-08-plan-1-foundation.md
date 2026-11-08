@@ -331,7 +331,7 @@ Check rules, in order. The first match wins.
 The first call sets the baseline. `afterAction` returns true on the third repeat after the baseline.
 
 - [ ] **Step 2: Run to fail** — `--tests "*StuckDetectorTest"` → FAIL.
-- [ ] **Step 3: Implement** by comparing the screens' `hashCode()`s.
+- [ ] **Step 3: Implement** by comparing the screens as text, not by hash: different strings can share a hash (`"Aa"` and `"BB"`), and a false "stuck" would end a task wrongly.
 - [ ] **Step 4: Run to pass** → PASS.
 - [ ] **Step 5: Commit** — `git commit -m "Add stuck detector for repeated unchanged screens"`
 
