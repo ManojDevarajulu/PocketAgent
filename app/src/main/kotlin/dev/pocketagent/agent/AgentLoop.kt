@@ -3,6 +3,7 @@ package dev.pocketagent.agent
 import dev.pocketagent.device.ActionResult
 import dev.pocketagent.device.DeviceAction
 import dev.pocketagent.device.DevicePort
+import dev.pocketagent.device.DeviceUnavailable
 import dev.pocketagent.device.Screen
 import dev.pocketagent.device.ScreenNode
 import dev.pocketagent.device.ScreenSerializer
@@ -83,7 +84,11 @@ class AgentLoop(
                 is LlmResult.Refused -> return end(EndReason.REFUSED, result.explanation ?: "The model declined this task.")
                 is LlmResult.Failed -> return end(if (result.kind == FailureKind.AUTH) EndReason.AUTH_ERROR else EndReason.LLM_ERROR, result.message)
                 is LlmResult.NoCall -> invalid(run, null, "Reply with exactly one tool call.")
-                is LlmResult.Call -> handle(run, result)
+                is LlmResult.Call -> try {
+                    handle(run, result)
+                } catch (e: DeviceUnavailable) {
+                    return end(EndReason.DEVICE_UNAVAILABLE, e.reason)
+                }
             }
             when (step) {
                 is Step.End -> return step.outcome
@@ -191,7 +196,7 @@ class AgentLoop(
     private suspend fun askUser(run: Run, call: LlmResult.Call, tool: ToolCall.AskUser): Step {
         ui.onWaitingForUser(true)
         val answer = try {
-            ui.ask(tool.question)
+            withTimeoutOrNull(confirmTimeoutMs) { ui.ask(tool.question) }
         } finally {
             ui.onWaitingForUser(false)
         }
