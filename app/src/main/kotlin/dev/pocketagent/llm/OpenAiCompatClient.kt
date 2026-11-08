@@ -159,13 +159,14 @@ class OpenAiCompatClient(private val config: ProviderConfig, private val caller:
 
         private fun stubbed(message: JsonObject): JsonObject {
             val parts = (message["content"] as? JsonArray) ?: return message
-            val kept = parts.filter { (it as? JsonObject)?.str("type") != "image_url" }.map { part ->
+            // An image becomes a placeholder, so a trimmed user message is never empty.
+            val kept = parts.map { part ->
                 val obj = part as? JsonObject
                 val text = obj?.str("text")
-                if (obj != null && text != null) {
-                    textPart(text.replace(SCREEN_DATA, OMITTED))
-                } else {
-                    part
+                when {
+                    obj?.str("type") == "image_url" -> textPart(SCREENSHOT_OMITTED)
+                    obj != null && text != null -> textPart(text.replace(SCREEN_DATA, OMITTED))
+                    else -> part
                 }
             }
             return userMessage(kept)
@@ -213,10 +214,34 @@ class OpenAiCompatClient(private val config: ProviderConfig, private val caller:
 
             history += sent
             pending = emptyList()
-            history += JsonObject(message + ("role" to JsonPrimitive("assistant")))
+            history += assistantMessage(text, calls)
             unanswered = calls.drop(1).map { it.str("id")!! }
             usageTotal += usageDelta
             return result
+        }
+
+        /** Only standard fields are replayed (plus Gemini's `extra_content`); reasoning and the rest are dropped. */
+        private fun assistantMessage(text: String, calls: List<JsonObject>) = buildJsonObject {
+            put("role", "assistant")
+            put("content", if (text.isNotEmpty()) JsonPrimitive(text) else JsonNull)
+            if (calls.isNotEmpty()) {
+                putJsonArray("tool_calls") {
+                    for (call in calls) {
+                        val function = call["function"] as JsonObject
+                        add(
+                            buildJsonObject {
+                                put("id", call.str("id")!!)
+                                put("type", "function")
+                                putJsonObject("function") {
+                                    put("name", function.str("name")!!)
+                                    put("arguments", function["arguments"] ?: JsonPrimitive(""))
+                                }
+                                call["extra_content"]?.let { put("extra_content", it) }
+                            },
+                        )
+                    }
+                }
+            }
         }
 
         /** The arguments arrive as a JSON string; anything that is not a JSON object becomes an empty input. */
@@ -255,6 +280,7 @@ class OpenAiCompatClient(private val config: ProviderConfig, private val caller:
         const val OPENAI_HOST = "api.openai.com"
         const val IGNORED = "ignored: one action per step"
         const val OMITTED = "[earlier screen omitted]"
+        const val SCREENSHOT_OMITTED = "[earlier screenshot omitted]"
         const val CHARS_PER_TOKEN = 3
         const val TRIM_THRESHOLD = 0.7
         val SCREEN_DATA = Regex("<screen_data.*?</screen_data>", RegexOption.DOT_MATCHES_ALL)

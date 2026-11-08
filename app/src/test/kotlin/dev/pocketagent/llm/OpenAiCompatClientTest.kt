@@ -343,10 +343,11 @@ class OpenAiCompatClientTest {
             roles(t.requests[2]),
         )
         val first = m[1].parts()
-        assertEquals(listOf("text"), first.map { it.type() })
+        assertEquals(listOf("text", "text"), first.map { it.type() })
         assertEquals("Task: do x\n[earlier screen omitted]", first[0].text())
+        assertEquals("[earlier screenshot omitted]", first[1].text())
         val second = m[4].parts()
-        assertEquals(listOf("text"), second.map { it.type() })
+        assertEquals(listOf("text", "text"), second.map { it.type() })
         assertEquals("two\n[earlier screen omitted]", second[0].text())
         // tool messages, assistant messages and the latest user message are untouched
         assertTrue(m[3].jsonObject.getValue("content").jsonPrimitive.content.contains("<screen_data"))
@@ -360,6 +361,68 @@ class OpenAiCompatClientTest {
         assertTrue(last[0].text().contains("</screen_data>"))
         // trimming is applied to a copy: the first request still carried the full screen
         assertTrue(t.requests[0].messages[1].parts()[0].text().contains("zzz"))
+    }
+
+    @Test
+    fun aScreenshotOnlyMessageKeepsAPlaceholderWhenTrimmed() = runTest {
+        val t = FakeTransport(listOf(reply("tool_calls"), reply("tool_calls_2"), reply("stop")))
+        val s = session(t, config(contextTokens = 4000))
+        s.send(Turn("Task: do x"))
+        s.send(Turn("", ToolResult("call_abc1", "screenshot attached", false), image = ByteArray(9000)))
+        s.send(Turn("three", ToolResult("call_back1", "r2", false)))
+        val m = t.requests[2].messages
+        assertEquals("user", m[4].role())
+        val old = m[4].parts()
+        assertEquals(listOf("text"), old.map { it.type() })
+        assertEquals("[earlier screenshot omitted]", old.single().text())
+        for (msg in m) {
+            val c = msg.jsonObject.getValue("content")
+            if (c is JsonArray) assertTrue(c.isNotEmpty())
+        }
+    }
+
+    private suspend fun replayed(body: String): JsonObject {
+        val t = FakeTransport(listOf(HttpResponse(200, emptyMap(), body), reply("stop")))
+        val s = session(t)
+        s.send(Turn("a"))
+        s.send(Turn("b"))
+        return t.requests[1].messages[2].jsonObject
+    }
+
+    @Test
+    fun onlyWhitelistedAssistantFieldsAreReplayed() = runTest {
+        val a = replayed(
+            """{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":"","refusal":null,
+            "reasoning":"hmm","reasoning_content":"x","annotations":[],"audio":null,
+            "tool_calls":[{"id":"c1","type":"function","index":0,"function":{"name":"tap","arguments":"{\"node_id\":\"a1\"}"}}]}}]}""",
+        )
+        assertEquals(setOf("role", "content", "tool_calls"), a.keys)
+        assertTrue(a.getValue("content") is kotlinx.serialization.json.JsonNull)
+        val call = a.getValue("tool_calls").jsonArray.single().jsonObject
+        assertEquals(setOf("id", "type", "function"), call.keys)
+        assertEquals(setOf("name", "arguments"), call.getValue("function").jsonObject.keys)
+        assertEquals("""{"node_id":"a1"}""", call.getValue("function").jsonObject.getValue("arguments").jsonPrimitive.content)
+    }
+
+    @Test
+    fun extraContentOnAToolCallIsReplayedIntact() = runTest {
+        val a = replayed(
+            """{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":null,
+            "tool_calls":[{"id":"c1","type":"function","extra_content":{"google":{"thought_signature":"sig=="}},
+            "function":{"name":"back","arguments":"{}"}}]}}]}""",
+        )
+        val call = a.getValue("tool_calls").jsonArray.single().jsonObject
+        assertEquals(
+            "sig==",
+            call.getValue("extra_content").jsonObject.getValue("google").jsonObject.getValue("thought_signature").jsonPrimitive.content,
+        )
+    }
+
+    @Test
+    fun aTextOnlyReplyIsReplayedWithoutToolCalls() = runTest {
+        val a = replayed("""{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"hi","tool_calls":[],"reasoning":"r"}}]}""")
+        assertEquals(setOf("role", "content"), a.keys)
+        assertEquals("hi", a.getValue("content").jsonPrimitive.content)
     }
 
     @Test
