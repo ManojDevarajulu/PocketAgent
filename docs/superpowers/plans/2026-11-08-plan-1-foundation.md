@@ -4,14 +4,14 @@
 
 **Goal:** Prove on the user's Android 16 phone that the design is buildable, then build the phone-independent core: screen model, serializer, safety gate, stuck detector, playbook store, tool parsing, captions, agent loop and runner, all unit-tested on the JVM.
 
-**Architecture:** One Gradle `app` module. Everything in this plan lives in packages that import no `android.*` types (`agent`, `llm`, `safety`, `playbook`, `device`), so it runs under `testDebugUnitTest` with fakes. The Claude client and every Android-facing class come in Plan 2.
+**Architecture:** One Gradle `app` module. Everything in this plan lives in packages that import no `android.*` types (`agent`, `llm`, `safety`, `playbook`, `device`), so it runs under `testDebugUnitTest` with fakes. The provider clients (Anthropic and OpenAI-compatible) and every Android-facing class come in Plan 2.
 
 **Tech Stack:** Kotlin, coroutines, kotlinx.serialization JSON, JUnit 4, kotlinx-coroutines-test, Gradle Kotlin DSL with a version catalog.
 
 **Spec:** `docs/superpowers/specs/2026-11-04-pocket-agent-design.md`
 
 **Later plans (not in this one):**
-- Plan 2: `ClaudeClient`, `AccessibilityDevice`, accessibility service, bubble, captions overlay, confirmation card, task screen.
+- Plan 2: `AnthropicClient`, `OpenAiCompatClient`, provider presets, `AccessibilityDevice`, accessibility service, bubble, captions overlay, confirmation card, task screen.
 - Plan 3: setup screen, voice, Keystore key storage, five playbooks, spike 4, demo tuning, benchmark and scoreboard, release signing, launch assets.
 
 ## Global Constraints
@@ -68,7 +68,7 @@ Expected: `16`
 - Create (untracked): `spikes/spike-app/` — a minimal Android app made with Android Studio's "Empty Views Activity" template, package `dev.pocketagent.spike`
 - Create (tracked): `docs/spikes/2026-11-findings.md`
 
-The spike app contains: an accessibility service that dumps the active window tree to logcat on demand, a `TYPE_ACCESSIBILITY_OVERLAY` bubble added from that service, and an activity with an API-key text field (held in memory only, never saved) and a "Call Claude" button that uses the official Anthropic Java SDK (`com.anthropic:anthropic-java`, latest).
+The spike app contains: an accessibility service that dumps the active window tree to logcat on demand, a `TYPE_ACCESSIBILITY_OVERLAY` bubble added from that service, and an activity with an API-key text field (held in memory only, never saved) a provider picker (Anthropic, or a custom OpenAI-compatible base URL plus model name) and a "Call model" button that sends one tool-calling request with OkHttp.
 
 - [ ] **Step 1: Spike 1, restricted settings on Android 16.** Build a debug APK. Copy it to the phone's Downloads and install it **from the phone's file manager**, not `adb install`, because `adb install` skips the restriction that real users hit. Try to enable the service in Settings → Accessibility. Record: whether the switch is greyed out, the exact path to "Allow restricted settings" on this phone, and whether Advanced Protection (Settings → Security & privacy) blocks the service when switched on.
 - [ ] **Step 2: Spike 2, UI trees.** For WhatsApp (a chat with an address), Swiggy (a restaurant menu and cart) and Google Maps (search and directions), trigger the service's dump and save it.
@@ -76,7 +76,7 @@ The spike app contains: an accessibility service that dumps the active window tr
 Run: `adb logcat -d -s PocketSpike > spikes/trees/<app>.txt`
 Expected: the trees contain the labels a person would use (chat names, "Add", search fields). Record, for each app, whether it has usable labels, has only canvas/empty nodes, or blocks accessibility. Copy one redacted tree per app (personal names and numbers replaced) to `app/src/test/resources/trees/` later in Task 4, so it can serve as a test fixture.
 
-- [ ] **Step 3: Spike 3, Java SDK on Android.** Paste an API key, send one message to `claude-haiku-5-5` with `max_tokens` 64, and check that a reply arrives. Record: success or failure, the stack trace on failure, and the APK size increase. If it fails on anything other than a fixable R8/ProGuard rule, record the decision "use OkHttp + kotlinx.serialization" for Plan 2.
+- [ ] **Step 3: Spike 3, provider calls from the phone.** With OkHttp, send one request that defines a trivial `tap` tool and asks the model to call it, first to Anthropic with `claude-haiku-5-5`, then to an OpenAI-compatible endpoint (OpenRouter with a free model, or another provider the user has a key for). Record for each: whether a tool call comes back and parses, the latency, any provider quirks (field names, finish reasons, what a missing tool call looks like), and whether a model without tool calling fails clearly. Record the decision for Plan 2: confirm the two-client design or change it.
 - [ ] **Step 4: Spike 5, overlay and task screen.** Check that the bubble appears over WhatsApp, can be dragged, hides and shows within 50 ms, and that tapping it opens a translucent activity on top of the current app. Record the results.
 - [ ] **Step 5: Write `docs/spikes/2026-11-findings.md`** with one section per spike: what was tried, the result, and the decision it forces. End with **Go / Rethink**. Rethink if accessibility cannot be enabled on Android 16, or if two of the three demo apps expose no usable tree. In that case, stop this plan and return to the spec with the user.
 - [ ] **Step 6: Commit the findings only**
@@ -425,7 +425,7 @@ Captions: `Tapping <label>`, `Typing into <label>`, `Scrolling <direction>`, `Go
 - Produces:
 ```kotlin
 // llm/LlmClient.kt — provider-agnostic; the session owns provider-native, append-only history
-interface LlmClient { fun newSession(systemPrompt: String, tools: List<ToolDefinition>): LlmSession }
+interface LlmClient { val supportsImages: Boolean; fun newSession(systemPrompt: String, tools: List<ToolDefinition>): LlmSession }
 interface LlmSession { suspend fun send(turn: Turn): LlmResult }
 data class ToolResult(val callId: String, val text: String, val isError: Boolean)
 data class Turn(val text: String, val toolResult: ToolResult? = null, val image: ByteArray? = null, val systemNote: String? = null)
@@ -456,14 +456,14 @@ const val SYSTEM_PROMPT: String   // in AgentLoop.kt
 ```
 
 Loop behaviour (the spec's section 6, made exact):
-1. If `gate.checkApp(initialScreen)` is `Block`, return `BLOCKED_APP` **before** `newSession`.
+1. If `gate.checkApp(initialScreen)` is `Block`, return `BLOCKED_APP` **before** `newSession`. Otherwise call `newSession(SYSTEM_PROMPT, tools)` with `Tools.definitions`, minus `screenshot` when `llm.supportsImages` is false.
 2. The first turn has `text = "Task: <task>\n\n" + serializer.serialize(initialScreen)` and `systemNote` = the initial app's playbook body, if there is one. That package is marked as seen.
 3. Each step calls `send` once, up to `maxSteps`. `Refused` → `REFUSED`, with the explanation as the summary. `Failed(AUTH)` → `AUTH_ERROR`. Other `Failed` → `LLM_ERROR`.
 4. `NoCall`, or `Call` whose parse fails, counts as invalid. Two in a row → `INVALID_CALLS`. After a `Call` with a parse error, the next turn is a `ToolResult(isError = true)` carrying the error. After `NoCall`, the next turn is plain text: `"Reply with exactly one tool call."`
 5. Node IDs are resolved against the **latest** screen only. An unknown ID → tool error `"node <id> is not on the current screen; read the latest observation"`.
 6. Gate verdicts: `Block` → tool error with the reason. `Confirm` → call `onWaitingForUser(true)`, then `withTimeoutOrNull(confirmTimeoutMs) { ui.confirm(...) } ?: false`, then `onWaitingForUser(false)`. A decline → tool error `"user declined"`.
 7. Before `device.perform`, call `ui.onCaption(Captions.forAction(...))`. After it, call `readScreen()`. A blocked foreground app → `BLOCKED_APP`. If `StuckDetector.afterAction(serialized)` returns true → `STUCK`. On the first visit to a package with a playbook, add it as the `systemNote`. The next turn is a `ToolResult(text = "ok" or the failure reason)` with `text` = the new observation.
-8. `Screenshot` → `device.screenshot()`. A null result → tool error `"screenshot blocked by a secure window"`. `Wait` → `delay(seconds * 1000L)` and a fresh observation. `AskUser` → `ui.ask`, with `"(no answer)"` when null. `Done` → `DONE` with its summary and success.
+8. `Screenshot` → if `!llm.supportsImages`, a tool error `"this model cannot receive images"` and no device call; otherwise `device.screenshot()`. A null result → tool error `"screenshot blocked by a secure window"`. `Wait` → `delay(seconds * 1000L)` and a fresh observation. `AskUser` → `ui.ask`, with `"(no answer)"` when null. `Done` → `DONE` with its summary and success.
 9. After `maxSteps` calls without `Done` → `STEP_LIMIT`.
 10. `CancellationException` is never caught here.
 
@@ -489,6 +489,13 @@ Loop behaviour (the spec's section 6, made exact):
 @Test fun playbookAddedOnceOnFirstVisit()                  // two observations in pkg X -> only first turn after entering X has systemNote
 @Test fun screenTextIsWrappedAsData()                      // first turn text contains "<screen_data"
 @Test fun systemPromptIsStable()                           // SYSTEM_PROMPT identical across two loops; contains "<screen_data>" and "irreversible"
+```
+
+- [ ] **Step 1b: Add two failing tests for models without image support**
+
+```kotlin
+@Test fun screenshotToolOmittedWhenModelHasNoImageSupport()   // FakeLlm(supportsImages=false): tools passed to newSession lack "screenshot"
+@Test fun screenshotCallOnTextOnlyModelReturnsToolError()      // scripted screenshot call: toolResult isError "this model cannot receive images"; FakeDevice.screenshotCalls == 0
 ```
 
 - [ ] **Step 2: Run to fail** — `--tests "*AgentLoopTest"` → FAIL.
@@ -543,4 +550,4 @@ The runner passes the loop a wrapping `AgentUi` that forwards every call to `ui`
 - `docs/spikes/2026-11-findings.md` says **Go**.
 - `./gradlew :app:testDebugUnitTest` passes locally and in CI.
 - `git log` shows one focused commit per task, and `git status` is clean, with `spikes/` untracked.
-- Next: write Plan 2 (Claude client and Android integration), using the spike findings.
+- Next: write Plan 2 (provider clients and Android integration), using the spike findings.

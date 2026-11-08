@@ -26,7 +26,7 @@ The project's aim is GitHub stars and personal recognition, not revenue, so deci
 2. Android developers
 3. India's developer community
 
-All of them are expected to be comfortable sideloading an APK and bringing their own Claude API key.
+All of them are expected to be comfortable sideloading an APK and bringing their own LLM API key, or running a local model.
 
 ### Success criteria
 
@@ -84,7 +84,7 @@ Gemini's own screen automation was reported in March 2026 as a beta on Galaxy S2
 - Floating bubble with in-app toggle in setup screen
 - Voice and text task input
 - On-screen tasks that use the screen visible when the bubble was tapped
-- Agent loop with Claude (Haiku, Sonnet, Opus)
+- Agent loop with any model that supports tool calling, through two providers: Anthropic, and any OpenAI-compatible endpoint (OpenRouter, OpenAI, Gemini, DeepSeek, Groq, a local Ollama server and others)
 - Community app playbooks bundled with the app (trusted first-party guidance)
 - Live on-screen captions
 - Safety gate with confirmations and an app block list
@@ -98,11 +98,10 @@ Gemini's own screen automation was reported in March 2026 as a beta on Galaxy S2
 - iOS or a Mac controller
 - Quick Settings tile (first item for v0.2)
 - A persistent notification (the accessibility service does not need one)
-- Gemini or other LLM providers (the `LlmClient` interface leaves room for them)
 - Task history
 - User-written permission rules
 - MCP, share-sheet entry and scheduled tasks
-- Hindi and Hinglish voice support (first priority after launch, with a second LLM provider)
+- Hindi and Hinglish voice support (first priority after launch)
 - Downloading playbooks at runtime
 - A chat interface
 - Accessibility claims, until tested with disabled users
@@ -151,7 +150,7 @@ Bubble / task screen / setup
         AgentRunner  (starts, cancels and reports one task)
              │
              ▼
-        AgentLoop ──► LlmClient ──► ClaudeClient ──► Claude API
+        AgentLoop ──► LlmClient ──► AnthropicClient / OpenAiCompatClient ──► model API
              │
              ├──► SafetyGate
              ├──► PlaybookStore  (bundled Markdown files)
@@ -165,7 +164,7 @@ app/src/main/
   assets/playbooks/   one Markdown file per app
   java/.../pocketagent/
     agent/     AgentLoop, AgentRunner, AgentState, StuckDetector, Tools
-    llm/       LlmClient, ClaudeClient
+    llm/       LlmClient, AnthropicClient, OpenAiCompatClient, ProviderPresets
     safety/    SafetyGate, BlockedApps, RiskyLabels
     playbook/  Playbook, PlaybookStore
     device/    DevicePort, ScreenNode, ScreenSerializer
@@ -181,7 +180,8 @@ benchmarks/           task list, results and scoreboard source
 | `AgentLoop` | Runs observe, decide, check, act until the task ends | `LlmClient`, `SafetyGate`, `DevicePort` |
 | `AgentRunner` | Allows one task at a time, owns cancellation, publishes state | `AgentLoop` |
 | `LlmClient` | Takes the conversation and tools, returns the next action | Nothing |
-| `ClaudeClient` | Implements `LlmClient` for the Claude API | Claude SDK or HTTP |
+| `AnthropicClient` | Implements `LlmClient` for the Anthropic Messages API | OkHttp |
+| `OpenAiCompatClient` | Implements `LlmClient` for any OpenAI-compatible Chat Completions endpoint, using a configurable base URL, key and model | OkHttp |
 | `SafetyGate` | Allows, blocks or requests confirmation for an action | Plain rules only |
 | `StuckDetector` | Spots repeated actions that change nothing | Nothing |
 | `PlaybookStore` | Finds and validates the playbook for an app package | Nothing |
@@ -197,7 +197,7 @@ A task ends after 25 steps at most. The first observation is the screen saved wh
 2. Hide the bubble, read the UI tree and show the bubble again.
 3. Serialise visible nodes, leaving out password fields and Pocket Agent's own windows.
 4. If an app with a playbook is in the foreground for the first time in this task, add its playbook.
-5. Send the observation to Claude.
+5. Send the observation to the model.
 6. Validate the returned tool call.
 7. Pass the action through `SafetyGate`.
 8. Hide the bubble, perform the action and show the bubble again.
@@ -250,16 +250,17 @@ Rules:
 
 ### LLM integration
 
-- **Model:** `claude-opus-5-5` at `low` effort by default. Setup offers `claude-sonnet-5-5` and `claude-haiku-5-5` as cheaper, faster options. Spike 4 will evaluate Haiku as a primary candidate for near-zero cost and fast step latency.
-- **API access:** use the official Java SDK if it builds and runs on Android 11. If spike 3 in section 12 fails, call the Messages API directly with OkHttp + Kotlinx.Serialization.
-- **Tool choice:** `auto` with `strict: true` tools. Forced tool choice returns a 400 on this model, so the system prompt requires exactly one tool call per step.
-- **Parallel tools:** disabled, because phone actions must run in order.
-- **History:** append-only. Thinking blocks are passed back unchanged. The 25-step cap keeps the history small, so v0.1 does not trim it.
-- **Caching:** prompt caching on the stable system prompt and tool list.
-- **Refusals:** check `stop_reason` before reading content. Server-side fallback is enabled with `fallbacks: "default"` and the beta header `server-side-fallback-2026-07-01`. A fallback model cannot read Opus 5.5 thinking blocks, so it continues without them. If a request is still refused, the task stops and the user is told why. Prompt caching needs no beta header.
+- **Model:** chosen by the user in setup from provider presets, or typed in freely. The README recommends whichever models score best on the scoreboard. The Anthropic client sends `low` effort, set explicitly because Opus 5.5 otherwise defaults to `medium`. Spike 4 compares Claude models with at least one free OpenRouter model and one other provider.
+- **Providers:** two clients sit behind `LlmClient`. `AnthropicClient` speaks the Messages API. `OpenAiCompatClient` speaks the Chat Completions format with a configurable base URL, API key and model name, which covers OpenRouter, OpenAI, Gemini's OpenAI-compatible endpoint, DeepSeek, Groq and local servers such as Ollama. Both use OkHttp and kotlinx.serialization with no provider SDK, which keeps the APK small and the HTTP code in one place. Spike 3 confirms this on a real phone.
+- **Model requirements:** a model must support tool calling, and setup verifies this with a test request. Image input is optional: a per-provider `supportsImages` flag decides whether the `screenshot` tool is offered at all.
+- **Tool choice:** `auto`. `strict: true` is used where the provider supports it. Forced tool choice is never used, because Opus 5.5 returns a 400 for it and other providers vary. The system prompt requires exactly one tool call per step, and a reply without one counts as an invalid call.
+- **Parallel tools:** disabled where the provider allows it. If a model returns several calls anyway, the client keeps only the first, because phone actions must run in order.
+- **History:** append-only, kept inside each client in the provider's own format. For Anthropic, thinking blocks are passed back unchanged. The 25-step cap keeps the history small, so v0.1 does not trim it.
+- **Caching:** Anthropic only: prompt caching on the stable system prompt and tool list. Other providers cache automatically or not at all, and their clients do nothing special.
+- **Refusals (Anthropic client):** check `stop_reason` before reading content. Server-side fallback is enabled with `fallbacks: "default"` and the beta header `server-side-fallback-2026-07-01`. A fallback model cannot read Opus 5.5 thinking blocks, so it continues without them. If a request is still refused, the task stops and the user is told why. Prompt caching needs no beta header. A content-filter finish reason from another provider maps to the same refusal result.
 - **Validation:** every tool input is parsed and checked before use. An invalid call returns a tool error, and two invalid calls in a row stop the task.
 
-Provisional cost, to be measured in spike 4: about $0.05 on Haiku 5.5, $0.30 on Sonnet and $0.60 on Opus for a full 25-step task.
+Provisional cost, to be measured in spike 4: about $0.05 on Haiku 5.5, $0.30 on Sonnet and $0.60 on Opus for a full 25-step task. Free OpenRouter models and local models cost nothing per task but are expected to be less reliable, and the scoreboard will show by how much.
 
 ## 7. Safety and privacy
 
@@ -279,7 +280,7 @@ Screen content is untrusted. A message or web page can contain instructions aime
 
 **Privacy:**
 
-- First run explains that screen text, and screenshots when requested, go directly to Anthropic.
+- First run explains that screen text, and screenshots when requested, go directly to the provider the user chose, and nowhere else. With a custom base URL that is whatever server the user typed in, and the notice says so.
 - No telemetry, no analytics, no backend.
 - Nothing from the screen is stored after a task ends.
 - The API key is encrypted with an Android Keystore key and never logged.
@@ -289,8 +290,8 @@ Screen content is untrusted. A message or web page can contain instructions aime
 `SetupActivity` is a single checklist that detects each step's state and updates when the user returns:
 
 1. Read the privacy notice.
-2. Paste an API key, which is verified with one small request.
-3. Choose a model.
+2. Choose a provider preset (Anthropic, OpenRouter, OpenAI, Gemini, DeepSeek, Groq or Ollama) or enter a custom base URL, then paste an API key if the provider needs one.
+3. Enter a model name. A test request verifies that the model answers and makes a tool call, and the screen says clearly if it does not.
 4. Enable accessibility. If the switch is greyed out, the screen shows the phone-specific **Allow restricted settings** steps and opens the app info page.
 5. Grant microphone access (optional).
 6. Turn on the floating bubble.
@@ -345,8 +346,8 @@ Every ending shows a summary card, and no failure is silent.
 
 1. On a real phone, complete restricted-settings setup, including Android 15+ if available.
 2. Check that WhatsApp, Swiggy and Google Maps expose usable UI trees.
-3. Run the Java SDK on Android 11. This decides the API access in section 6.
-4. Measure latency and cost per step for Opus 5.5, Sonnet 5.5 and Haiku 5.5 on the demo tasks. This confirms the default model.
+3. From the phone, send a tool-calling request with OkHttp to Anthropic and to an OpenAI-compatible endpoint. This confirms the two-client design in section 6.
+4. Measure latency and cost per step for Opus 5.5, Sonnet 5.5, Haiku 5.5, a free OpenRouter model and one other provider on the demo tasks. This decides which models the README recommends.
 5. Confirm that `TYPE_ACCESSIBILITY_OVERLAY` works for the bubble and cards, and that the task screen can open from it.
 
 **Automated tests:**
@@ -370,7 +371,7 @@ Every ending shows a summary card, and no failure is silent.
 
 1. Run spikes 1 to 3, and stop to rethink the design if a blocker appears.
 2. Build `DevicePort`, the accessibility service and the serializer.
-3. Build the agent loop, Claude client and safety gate, with their tests.
+3. Build the agent loop, the two provider clients and the safety gate, with their tests.
 4. Add the bubble, captions, confirmation cards and task screen, including the saved screen at bubble tap.
 5. Add playbook support and the first five playbooks.
 6. Add setup and voice input.
@@ -386,7 +387,7 @@ Every ending shows a summary card, and no failure is silent.
 | Demo apps change or block accessibility | Three tasks across different apps, with a replacement allowed |
 | Prompt injection | Rules in section 7, with the limits documented |
 | Latency makes the demo feel slow | Spike 4; an uncut video stays honest, so speed must be real |
-| Claude-only support limits adoption | `LlmClient` interface; a second provider is the first post-launch item |
+| Weak or non-tool-calling models fail tasks and make the app look bad | Setup test checks tool calling; the scoreboard scores each model separately; the README recommends models that did well |
 | A competitor ships the same experience first | Launch early; keep v0.1 small |
 | Developer verification reaches all users in 2027 | Decide whether to register before the global rollout |
 | Banking or payment apps are misclassified | Block by pattern as well as by list, and accept some over-blocking |
@@ -401,7 +402,7 @@ The aim is for people to remember the work and its author, as well as to star th
 
 ### Scoreboard
 
-`benchmarks/` holds a fixed list of tasks and a results file, published in the README as a table. Each row shows the app, task, successes out of 10, phone, Android version, model, app version and test date. Failures stay visible. Runs are manual in v0.1, and each result follows the written method in `benchmarks/README.md`.
+`benchmarks/` holds a fixed list of tasks and a results file, published in the README as a table. Each row shows the app, task, successes out of 10, phone, Android version, model, app version and test date. Failures stay visible, and each model gets its own rows so people can see which models work well. Runs are manual in v0.1, and each result follows the written method in `benchmarks/README.md`.
 
 ### Assets
 
