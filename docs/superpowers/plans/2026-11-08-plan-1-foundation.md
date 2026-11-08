@@ -356,7 +356,7 @@ class PlaybookStore private constructor(private val byPackage: Map<String, Playb
     }
 }
 ```
-A valid file has YAML-style frontmatter between `---` lines, with exactly the keys `app`, `package` and `tested_version`. Values may be quoted, and the quotes are stripped. The body after the frontmatter must not be blank. The whole file is at most 2048 UTF-8 bytes, the file name equals `<package>.md`, and the package is not blocked. A package may appear only once. No YAML library: parse `key: value` lines.
+A valid file has YAML-style frontmatter between `---` lines, with exactly the keys `app`, `package` and `tested_version`. Values may be quoted, and the quotes are stripped. The body after the frontmatter must not be blank. The whole file is at most 2048 UTF-8 bytes, the file name equals `<package>.md`, and the package is not blocked. A package may appear only once. No YAML library: parse `key: value` lines. Also: the package must look like a package name (`a.b.c`); the file may contain no control characters other than newline and tab, and must not mention `screen_data`, so a playbook cannot confuse the screen-data wrapper; line endings are normalised before parsing, and the size limit applies to the normalised text.
 
 - [ ] **Step 1: Write the failing tests**
 
