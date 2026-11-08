@@ -46,7 +46,14 @@ Accessibility can be enabled, two of the three demo apps expose usable screens (
 
 ## Spike 3: model call from the phone
 
-**Pending.** Needs an API key. The test sends one tool-calling request to Anthropic and one to an OpenAI-compatible endpoint with OkHttp.
+Run from the development PC with `curl`, not from the phone. That keeps the API key off the phone and tests the wire format, which was the open question. The first on-phone call becomes part of Plan 2's integration test.
+
+**OpenAI-compatible side (OpenRouter, free model):** passed. HTTP 200 in 3.4 s for one step. The model picked `tap` with `node_id` `a1` for "open Settings", `finish_reason` was `tool_calls`, and the cost was 0. Quirks the client must handle:
+- `tool_calls[].function.arguments` is a JSON **string** and must be parsed and validated.
+- The reply may carry a `reasoning` field that is not part of the tool call.
+- Each call has an `id`, which the tool-result message must echo.
+
+**Anthropic side:** not tested live (no Anthropic key). The request and response shapes come from the current API documentation. The first live call is part of Plan 2's integration test.
 
 ## Spike 5: bubble and task screen
 
