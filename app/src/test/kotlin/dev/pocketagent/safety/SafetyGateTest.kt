@@ -21,6 +21,7 @@ class SafetyGateTest {
         gate.check(DeviceAction.TapAt(x, y), screen, irreversible)
 
     private val payBounds = Bounds(100, 100, 300, 200)
+    private val FULL_SCREEN = Bounds(0, 0, 1080, 2400)
     private fun payScreen() = screenOf(
         node("a1", role = "button", text = "Pay now", clickable = true, bounds = payBounds),
         node("a2", role = "text", text = "Hello", bounds = Bounds(400, 100, 600, 200)),
@@ -174,6 +175,43 @@ class SafetyGateTest {
             ownWindowBounds = listOf(Bounds(0, 1800, 1080, 2400)),
         )
         assertEquals(Verdict.Allow, tapAt(screen, 5000, 500))
+    }
+
+    @Test
+    fun coordinateTapThroughAnUnlabelledOverlayOntoPayNeedsConfirmation() {
+        // Content holds "Pay now"; a full-size unlabelled sibling (a popup host, say) comes later in the tree.
+        val screen = screenOf(
+            node("a1", bounds = FULL_SCREEN, children = listOf(node("a2", role = "button", text = "Pay now", clickable = true, bounds = payBounds))),
+            node("a3", bounds = FULL_SCREEN),
+        )
+        assertIs<Verdict.Confirm>(tapAt(screen, 150, 150))
+    }
+
+    @Test
+    fun coordinateTapOnAnUnlabelledIconNeedsConfirmationWhileAPayButtonIsVisible() {
+        val screen = screenOf(
+            node("a1", role = "button", text = "Pay now", clickable = true, bounds = payBounds),
+            node("a2", role = "icon", clickable = true, bounds = Bounds(400, 100, 600, 200)),
+        )
+        assertIs<Verdict.Confirm>(tapAt(screen, 500, 150))
+    }
+
+    @Test
+    fun coordinateTapOnAnUnlabelledIconIsAllowedWhenNothingRiskyIsVisible() {
+        val screen = screenOf(
+            node("a1", role = "button", text = "Add to cart", clickable = true, bounds = payBounds),
+            node("a2", role = "icon", clickable = true, bounds = Bounds(400, 100, 600, 200)),
+        )
+        assertEquals(Verdict.Allow, tapAt(screen, 500, 150))
+    }
+
+    @Test
+    fun unlabelledContainerHoldingContinueOnAMoneyScreenNeedsConfirmation() {
+        val screen = screenOf(
+            node("a1", role = "text", text = "Total ₹450"),
+            node("a2", role = "group", clickable = true, children = listOf(node("a3", role = "text", text = "Continue"))),
+        )
+        assertIs<Verdict.Confirm>(tap(screen, "a2"))
     }
 
     // ---- typing, scrolling, navigating ----

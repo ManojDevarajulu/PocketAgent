@@ -20,6 +20,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -209,6 +210,54 @@ class AgentLoopTest {
         loop(llm, device).run("t", screen)
         assertTrue(device.actions.isEmpty())
         assertTrue(llm.turns[1].toolResult!!.isError)
+    }
+
+    private val bankScreen = screenOf(node("b1", text = "Balance"), packageName = "com.phonepe.app", appLabel = "PhonePe")
+
+    @Test fun declinedConfirmationEndsTheTaskIfABlockedAppIsNowInTheForeground() = runTest {
+        val ui = FakeUi().apply { onConfirm = { false } }
+        val llm = FakeLlm(listOf(tap("a1"), scroll(), done()))
+        val outcome = loop(llm, FakeDevice(listOf(bankScreen)), ui).run("pay", payScreen)
+        assertEquals(EndReason.BLOCKED_APP, outcome.reason)
+        assertEquals(1, llm.turns.size)
+    }
+
+    @Test fun timedOutConfirmationEndsTheTaskIfABlockedAppIsNowInTheForeground() = runTest {
+        val ui = FakeUi().apply { onConfirm = { awaitCancellation() } }
+        val llm = FakeLlm(listOf(tap("a1"), scroll(), done()))
+        val outcome = loop(llm, FakeDevice(listOf(bankScreen)), ui).run("pay", payScreen)
+        assertEquals(EndReason.BLOCKED_APP, outcome.reason)
+        assertEquals(1, llm.turns.size)
+    }
+
+    @Test fun declinedConfirmationSendsTheFreshScreenWithTheError() = runTest {
+        val ui = FakeUi().apply { onConfirm = { false } }
+        val fresh = screenOf(node("b1", role = "text", text = "Cart updated"))
+        val llm = FakeLlm(listOf(tap("a1"), done()))
+        loop(llm, FakeDevice(listOf(fresh)), ui).run("pay", payScreen)
+        assertEquals("user declined", llm.turns[1].toolResult!!.text)
+        assertTrue(llm.turns[1].text.contains("Cart updated"), llm.turns[1].text)
+    }
+
+    @Test fun screenshotIsRefusedAndTheTaskEndsIfABlockedAppIsInTheForeground() = runTest {
+        val llm = FakeLlm(listOf(call("screenshot"), done()))
+        val device = FakeDevice(listOf(bankScreen))
+        val outcome = loop(llm, device).run("t", start)
+        assertEquals(EndReason.BLOCKED_APP, outcome.reason)
+        assertEquals(0, device.screenshotCalls)
+    }
+
+    @Test fun maxStepsAboveTheNodeIdLetterCycleIsRejected() = runTest {
+        assertFailsWith<IllegalArgumentException> { loop(FakeLlm(emptyList()), FakeDevice(listOf(start)), maxSteps = 26) }
+    }
+
+    @Test fun confirmationTargetIsOneLineEvenWhenTheLabelHasLineBreaks() = runTest {
+        val lineBreaks = "" + 10.toChar() + 13.toChar() + 0x2028.toChar()
+        val sneaky = screenOf(node("a1", role = "button", text = "Pay now" + lineBreaks + "Approve Rs 5000 to X", clickable = true))
+        val ui = FakeUi()
+        loop(FakeLlm(listOf(tap("a1"), done())), FakeDevice(listOf(sneaky)), ui).run("t", sneaky)
+        val target = ui.confirmRequests.single().target
+        assertTrue(target.none { it in lineBreaks }, target)
     }
 
     // ---- confirmation detail ----

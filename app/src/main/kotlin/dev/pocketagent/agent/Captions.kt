@@ -16,7 +16,7 @@ object Captions {
         is ToolCall.Scroll -> "Scrolling ${call.direction.name.lowercase()}"
         ToolCall.Back -> "Going back"
         ToolCall.Home -> "Going home"
-        is ToolCall.OpenApp -> "Opening " + shorten(call.name).ifEmpty { "an app" }
+        is ToolCall.OpenApp -> "Opening " + oneLine(call.name).ifEmpty { "an app" }
         ToolCall.Screenshot -> "Taking a screenshot"
         is ToolCall.Wait -> "Waiting"
         is ToolCall.AskUser -> "Asking you"
@@ -24,13 +24,13 @@ object Captions {
     }
 
     private fun labelOf(target: ScreenNode?): String? =
-        target?.takeUnless { it.isPassword }?.label()?.let { shorten(it) }?.takeIf { it.isNotEmpty() }
+        target?.takeUnless { it.isPassword }?.label()?.let { oneLine(it) }?.takeIf { it.isNotEmpty() }
 
     /** One short line: line breaks and control characters become spaces, and long text is cut without splitting a surrogate pair. */
-    private fun shorten(raw: String): String {
+    internal fun oneLine(raw: String, max: Int = MAX_LABEL): String {
         val text = raw.map { if (it.isISOControl() || it == ' ' || it == ' ') ' ' else it }.joinToString("").trim()
-        if (text.length <= MAX_LABEL) return text
-        var cut = MAX_LABEL
+        if (text.length <= max) return text
+        var cut = max
         if (Character.isHighSurrogate(text[cut - 1])) cut--
         return text.substring(0, cut) + "…"
     }

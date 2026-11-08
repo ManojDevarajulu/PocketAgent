@@ -45,8 +45,20 @@ class SafetyGate(private val blocked: BlockedApps, private val ownPackage: Strin
         if (screen.all().none { it.label() != null }) {
             return Verdict.Confirm("this screen has no readable labels, so the tap cannot be checked")
         }
+        // Judge every element under the point, not only one of them: overlapping windows decide which element
+        // really receives the touch, and a screen's tree order does not tell us that.
+        screen.all().filter { it.bounds.contains(x, y) }.firstNotNullOfOrNull { riskyOnPath(it, screen) }
+            ?.let { return Verdict.Confirm("\"$it\" looks like it pays, sends or deletes") }
         val target = screen.deepestAt(x, y)
-        if (target != null) return checkTap(target, screen, irreversible)
+        if (target != null) {
+            val verdict = checkTap(target, screen, irreversible)
+            val blindTap = target.label() == null && screen.all().any { RiskyLabels.isRisky(it.label()) }
+            return if (verdict == Verdict.Allow && blindTap) {
+                Verdict.Confirm("an unlabelled element was tapped while a risky button is visible")
+            } else {
+                verdict
+            }
+        }
         return when {
             irreversible -> Verdict.Confirm("the agent marked this action as irreversible")
             screen.all().any { RiskyLabels.isRisky(it.label()) } -> Verdict.Confirm("a risky button is visible and the tap is not on a known element")
@@ -58,7 +70,7 @@ class SafetyGate(private val blocked: BlockedApps, private val ownPackage: Strin
         if (node.packageName == ownPackage) return OWN_WINDOW
         if (irreversible) return Verdict.Confirm("the agent marked this action as irreversible")
         riskyLabelNear(node, screen)?.let { return Verdict.Confirm("\"$it\" looks like it pays, sends or deletes") }
-        if (isGenericAffirmative(node) && screen.showsMoney()) {
+        if ((sequenceOf(node) + descendants(node)).any { isGenericAffirmative(it) } && screen.showsMoney()) {
             return Verdict.Confirm("a generic confirmation button on a screen that shows an amount")
         }
         return Verdict.Allow
@@ -68,6 +80,18 @@ class SafetyGate(private val blocked: BlockedApps, private val ownPackage: Strin
     private fun riskyLabelNear(node: ScreenNode, screen: Screen): String? {
         val inside = sequenceOf(node) + descendants(node)
         inside.mapNotNull { it.label() }.firstOrNull { RiskyLabels.isRisky(it) }?.let { return it }
+        var ancestor = screen.parentOf(node)
+        while (ancestor != null) {
+            val label = ancestor.label()
+            if (label != null) return label.takeIf { RiskyLabels.isRisky(it) }
+            ancestor = screen.parentOf(ancestor)
+        }
+        return null
+    }
+
+    /** The risky label on the node itself or on its nearest labelled ancestor, or null. */
+    private fun riskyOnPath(node: ScreenNode, screen: Screen): String? {
+        node.label()?.takeIf { RiskyLabels.isRisky(it) }?.let { return it }
         var ancestor = screen.parentOf(node)
         while (ancestor != null) {
             val label = ancestor.label()

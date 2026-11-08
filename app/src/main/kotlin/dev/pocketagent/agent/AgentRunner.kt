@@ -39,7 +39,7 @@ class AgentRunner(
                 newLoop(forwardingUi(token)).run(task, screen)
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // The text is deliberately generic: internal error messages are not shown to the user.
                 TaskOutcome(EndReason.LLM_ERROR, false, "Something went wrong inside the app. Please try again.")
             }

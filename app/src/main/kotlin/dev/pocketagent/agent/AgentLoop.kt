@@ -45,6 +45,12 @@ class AgentLoop(
     private val maxSteps: Int = 25,
     private val confirmTimeoutMs: Long = 120_000,
 ) {
+    init {
+        // Node ids carry one letter per observation. With more than 25 steps a letter could repeat, and an old
+        // id could then match a different node on a newer screen.
+        require(maxSteps in 1..MAX_STEPS_LIMIT) { "maxSteps must be 1 to $MAX_STEPS_LIMIT" }
+    }
+
     /** The state of one task. A new loop run starts from scratch. */
     private class Run(val session: LlmSession, var screen: Screen) {
         val stuck = StuckDetector()
@@ -117,11 +123,12 @@ class AgentLoop(
             is Verdict.Confirm -> {
                 val request = ConfirmRequest(
                     action = Captions.forAction(tool, resolved.target),
-                    target = resolved.target?.takeUnless { it.isPassword }?.label()?.take(MAX_TARGET) ?: "a position on the screen",
+                    target = resolved.target?.takeUnless { it.isPassword }?.label()?.let { Captions.oneLine(it, MAX_TARGET) }?.takeIf { it.isNotEmpty() }
+                        ?: "a position on the screen",
                     app = screen.appLabel ?: screen.packageName,
                     detail = run.lastTyped,
                 )
-                if (!confirmed(request)) return Step.Next(toolError(call, "user declined"))
+                if (!confirmed(request)) return afterWaiting(run, toolError(call, "user declined"))
             }
         }
 
@@ -140,6 +147,17 @@ class AgentLoop(
         return Step.Next(Turn(next.text, toolResult, systemNote = next.note))
     }
 
+    /**
+     * The user may have switched apps while a card was open, so read the screen again before the model acts:
+     * a blocked app ends the task, and the model gets the fresh screen with the error.
+     */
+    private suspend fun afterWaiting(run: Run, error: Turn): Step {
+        val next = observe(run) ?: return Step.End(end(EndReason.BLOCKED_APP, "The task moved into an app that is on the block list."))
+        run.stuck.reset()
+        run.stuck.afterAction(forComparison(next.text))
+        return Step.Next(error.copy(text = next.text, systemNote = next.note))
+    }
+
     private suspend fun confirmed(request: ConfirmRequest): Boolean {
         ui.onWaitingForUser(true)
         try {
@@ -151,6 +169,10 @@ class AgentLoop(
 
     private suspend fun screenshot(call: LlmResult.Call): Step {
         if (!llm.supportsImages) return Step.Next(toolError(call, "this model cannot receive images"))
+        // A screenshot is a picture of whatever is in front, so check the foreground app first.
+        if (gate.checkApp(device.readScreen()) is Verdict.Block) {
+            return Step.End(end(EndReason.BLOCKED_APP, "The task moved into an app that is on the block list."))
+        }
         val png = device.screenshot() ?: return Step.Next(toolError(call, "screenshot blocked by a secure window"))
         return Step.Next(Turn("", ToolResult(call.callId, "screenshot attached", isError = false), image = png))
     }
@@ -221,6 +243,7 @@ class AgentLoop(
     private fun forComparison(serialized: String): String = NODE_ID.replace(serialized, "[")
 
     private companion object {
+        const val MAX_STEPS_LIMIT = 25
         const val MAX_DETAIL = 200
         const val MAX_TARGET = 60
         const val STUCK_LIMIT = 3

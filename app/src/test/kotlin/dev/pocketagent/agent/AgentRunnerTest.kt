@@ -181,6 +181,17 @@ class AgentRunnerTest {
         r.runner.cancel()
     }
 
+    @Test fun aStackOverflowInsideTheLoopAlsoEndsTheTask() = runTest {
+        val deep = object : LlmClient {
+            override val supportsImages = true
+            override fun newSession(systemPrompt: String, tools: List<ToolDefinition>): LlmSession = throw StackOverflowError()
+        }
+        val r = rig(deep)
+        r.runner.start("t", payScreen)
+        runCurrent()
+        assertIs<AgentState.Finished>(r.runner.state.value)
+    }
+
     @Test fun captionsAndQuestionsReachTheRealUi() = runTest {
         val ui = FakeUi().apply { onAsk = { "blue" } }
         val r = rig(FakeLlm(listOf(call("ask_user", "question" to "Colour?"), tapPay, done)), ui)
