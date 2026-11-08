@@ -1,7 +1,7 @@
 # S3: Device layer
 
 **Date:** 2026-11-08
-**Status:** Draft, awaiting the user's review. The design was approved section by section on 2026-11-08.
+**Status:** Approved 2026-11-08 (the user confirmed the whole spec before Plan 3 was written).
 **Builds on:** main spec §4 to §7 and §11, security spec §2 (T3 to T5, T9, T10, T14), §3 (rules 10 to 16) and §6, spike findings 1, 2 and 5.
 **Implements:** `DevicePort` from Plan 1, Task 4, and `AgentUi` from Plan 1, Task 9, on a real phone.
 
