@@ -30,7 +30,7 @@ keystore.properties
 secrets.properties
 
 # Throwaway spikes stay out of history
-spikes/
+/spikes/
 
 # Logs and temp files
 *.log
