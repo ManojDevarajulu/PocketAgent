@@ -89,6 +89,13 @@ class ProviderConfigTest {
     }
 
     @Test
+    fun keyWithInvisibleOrNonAsciiCharactersIsRejected() {
+        for (k in listOf("sk-abc​", "﻿sk-abc", "sk-abcé")) {
+            assertFalse(config(apiKey = k).validate().ok, "key with char code ${k.first { it !in '!'..'~' }.code}")
+        }
+    }
+
+    @Test
     fun emptyKeyAllowedOnlyForPlainHttpLocal() {
         assertTrue(config("http://localhost:11434/v1", apiKey = "").validate().ok)
         assertFalse(config("https://api.example.com", apiKey = "").validate().ok)

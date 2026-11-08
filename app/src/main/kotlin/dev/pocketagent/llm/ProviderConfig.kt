@@ -82,8 +82,8 @@ data class ProviderConfig(
     private fun checkKey(errors: MutableList<String>, plainHttpLocal: Boolean) {
         if (apiKey.isEmpty()) {
             if (!plainHttpLocal) errors += "An API key is required unless the server is a local plain-http server."
-        } else if (apiKey.any { it.isWhitespace() || it.isISOControl() }) {
-            errors += "API key must not contain spaces, line breaks or control characters."
+        } else if (apiKey.any { it !in '!'..'~' }) {
+            errors += "API key may only contain printable ASCII characters, with no spaces."
         }
     }
 
