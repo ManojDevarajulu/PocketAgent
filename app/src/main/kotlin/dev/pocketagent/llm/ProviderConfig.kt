@@ -106,6 +106,7 @@ data class ProviderConfig(
             val o = host.split('.').map { it.toInt() }
             if (o.any { it > 255 }) return false
             return o[0] == 10 ||
+                o[0] == 127 ||
                 (o[0] == 172 && o[1] in 16..31) ||
                 (o[0] == 192 && o[1] == 168) ||
                 (o[0] == 100 && o[1] in 64..127)

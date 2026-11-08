@@ -15,7 +15,7 @@
 - Carried from Plan 1: Kotlin only; packages `agent`, `llm`, `safety`, `playbook`, `device` import no `android.*`; no telemetry; the API key is never logged or committed; a task ends after 25 steps; commits are small, imperative, and end with the `Co-Authored-By` line; run `git status` before each commit.
 - Runtime dependencies stay exactly: `kotlinx-coroutines-android`, `kotlinx-serialization-json`, `okhttp`, `androidx-core-ktx`. Test dependencies stay `junit`, `kotlin-test`, `kotlinx-coroutines-test`. `dependenciesMatchAllowlist` must keep passing. No provider SDKs.
 - Only package `llm` imports `okhttp3`. Only `OkHttpTransport` uses it.
-- HTTPS only, except plain `http` for `localhost`, `*.local` and 10/8, 172.16/12, 192.168/16, 100.64/10, with a warning. No credentials in URLs. Redirects off. Key only in a header, never in a URL, error message, `toString()` or log.
+- HTTPS only, except plain `http` for `localhost`, `*.local` and 127/8, 10/8, 172.16/12, 192.168/16, 100.64/10, with a warning. No credentials in URLs. Redirects off. Key only in a header, never in a URL, error message, `toString()` or log.
 - Call timeout 90 s, connect timeout 15 s, response body cap 2 MB, `maxOutputTokens` 512 to 8,192 (default 4,096).
 - Retries: two, after 1 s then 3 s, only for 429, 5xx, 529 and I/O errors. `Retry-After` honoured up to 10 s. Never retry 401 or 403. Cancellation is never swallowed.
 - Anthropic: `anthropic-version: 2023-06-01`; never send `temperature`, `top_p`, `top_k`, `thinking`, or a forced `tool_choice`; never send an empty text block; store and replay each assistant reply's whole `content` array unchanged.
@@ -77,7 +77,7 @@ data class ConfigCheck(val errors: List<String>, val warnings: List<String>) { v
 ```kotlin
 @Test fun httpsUrlIsValid()
 @Test fun httpToPublicHostIsRejected()                 // http://example.com
-@Test fun httpToLocalhostAndPrivateRangesIsAllowedWithWarning() // localhost, foo.local, 10.1.2.3, 172.16.0.1, 172.31.255.1, 192.168.1.5, 100.64.0.1 -> ok + 1 warning
+@Test fun httpToLocalhostAndPrivateRangesIsAllowedWithWarning() // localhost, foo.local, 127.0.0.1, 127.255.255.254, 10.1.2.3, 172.16.0.1, 172.31.255.1, 192.168.1.5, 100.64.0.1 -> ok + 1 warning
 @Test fun httpToJustOutsideThePrivateRangesIsRejected() // 172.32.0.1, 100.128.0.1, 192.169.0.1
 @Test fun credentialsInUrlAreRejected()                // https://user:pw@host
 @Test fun userinfoLookAlikeIsRejected()                // https://api.anthropic.com@evil.test (a credentials part) is rejected

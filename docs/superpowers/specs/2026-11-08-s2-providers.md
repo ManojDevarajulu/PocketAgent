@@ -30,7 +30,7 @@ data class ProviderConfig(
 ```
 
 `validate()` rules (security spec §5):
-- `https` only. Plain `http` is allowed for `localhost`, `*.local` and the private ranges 10/8, 172.16/12, 192.168/16 and 100.64/10, and the result carries a warning the UI must show.
+- `https` only. Plain `http` is allowed for `localhost`, `*.local` and the loopback range 127/8 and the private ranges 10/8, 172.16/12, 192.168/16 and 100.64/10, and the result carries a warning the UI must show.
 - Reject credentials in the URL (`user:pass@host`), any other scheme, an empty host, and a query string or fragment on the base URL.
 - Model name: 1 to 100 characters, no control characters. Key: no whitespace or control characters (a pasted newline is the usual cause of 401s). It may be empty only for a plain-`http` local server.
 - `contextTokens` 4,000 to 2,000,000. `maxOutputTokens` 512 to 8,192 (T13); the default is 4,096 because current Claude models think before they call a tool, and 1,024 can cut a reply off. `effort`, when set, is one of `low`, `medium`, `high`, `xhigh`, `max`. The Anthropic preset sets `low`.

@@ -67,7 +67,7 @@ An agent that can read and operate a phone is a powerful thing to install. The p
 
 ## 5. Provider hardening
 
-- **URL rules** (`ProviderConfig.validate`): `https` required. Plain `http` only for `localhost`, `*.local` and private ranges (10/8, 172.16/12, 192.168/16, 100.64/10), with a visible warning. Reject URLs with embedded credentials and any other scheme.
+- **URL rules** (`ProviderConfig.validate`): `https` required. Plain `http` only for `localhost`, `*.local` and the loopback range (127/8) and private ranges (10/8, 172.16/12, 192.168/16, 100.64/10), with a visible warning. Reject URLs with embedded credentials and any other scheme.
 - **Auth:** the key goes only in a header, to the configured host. No query-string keys. Redirects are disabled.
 - **Limits:** connect timeout 15 s, whole call 90 s, response body capped at 2 MB, `max_tokens` capped per call.
 - **Errors:** messages never contain the key or screen text.

@@ -42,6 +42,18 @@ class ProviderConfigTest {
     }
 
     @Test
+    fun httpToTheLoopbackRangeIsAllowedWithOneWarning() {
+        for (h in listOf("127.0.0.1:11434/v1", "127.255.255.254")) {
+            val check = config("http://$h").validate()
+            assertEquals(Pair(true, 1), Pair(check.ok, check.warnings.size), "host $h: ${check.errors}")
+        }
+        assertTrue(config("http://127.0.0.1:11434/v1", apiKey = "").validate().ok)
+        for (h in listOf("128.0.0.1", "0x7f000001", "2130706433", "0177.0.0.1")) {
+            assertFalse(config("http://$h").validate().ok, "host $h")
+        }
+    }
+
+    @Test
     fun httpToJustOutsideThePrivateRangesIsRejected() {
         for (h in listOf("172.32.0.1", "100.128.0.1", "192.169.0.1")) {
             assertFalse(config("http://$h").validate().ok, "host $h")
