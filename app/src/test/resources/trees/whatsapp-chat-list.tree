@@ -1,0 +1,149 @@
+# depth<TAB>role<TAB>flags(c,e,s,p)<TAB>text<TAB>description<TAB>l,t,r,b  (redacted, see README.md)
+0	group	-			0,0,1080,2392
+1	group	s			0,126,1080,2118
+2	group	-			0,126,1080,2118
+3	group	c		label 1	32,284,1048,410
+4	image	-			74,294,179,399
+4	text	-	label 1		179,316,1048,377
+3	list	s		label 2	0,431,1080,2118
+4	group	-			0,431,1080,452
+5	group	-			0,452,1080,452
+4	group	-			0,452,1080,599
+5	group	-		label 3	0,452,1080,599
+6	list	s			0,452,1080,578
+7	group	c		label 4	42,452,149,578
+7	group	c		label 5	164,452,432,578
+7	group	c		label 6	447,452,695,578
+7	group	c		label 7	710,452,957,578
+7	group	c		label 8	972,452,1066,578
+4	group	-			0,599,1080,599
+4	group	-			0,599,1080,725
+5	group	-			0,599,1080,725
+6	button	c			0,599,1080,725
+7	text	-	label 9		189,599,373,725
+7	text	-	label 10		983,634,1038,689
+4	group	c		label 11	0,725,1080,926
+5	group	c			0,736,189,915
+6	image	c		label 12	26,757,162,893
+5	text	-	label 13		189,761,595,822
+5	text	-	label 14	label 14	953,768,1038,815
+5	text	-	label 15		189,827,680,889
+5	text	-	label 16		680,827,910,889
+5	image	-		label 17	921,831,974,884
+5	group	-		label 18	985,831,1038,884
+4	group	c		label 11	0,926,1080,1127
+5	group	c			0,937,189,1116
+6	image	c		label 19	26,958,162,1094
+5	text	-	label 20		189,962,628,1023
+5	text	-	label 21	label 21	958,969,1038,1016
+5	text	-	label 22		189,1028,346,1090
+5	text	-	label 23		402,1028,860,1090
+5	image	-		label 17	871,1032,924,1085
+5	group	-		label 24	935,1032,1038,1085
+4	group	c		label 11	0,1127,1080,1328
+5	group	c			0,1138,189,1317
+6	group	-		label 25	0,1164,189,1290
+5	button	-		label 26	189,1160,1038,1221
+6	text	-	label 25		189,1160,699,1221
+6	group	-		label 27	904,1164,1038,1217
+5	text	-	label 28		189,1229,417,1291
+5	text	-	label 29		502,1229,1038,1291
+4	group	c		label 11	0,1328,1080,1529
+5	group	c			0,1339,189,1518
+6	image	c		label 30	26,1360,162,1496
+5	text	-	label 31		189,1364,578,1425
+5	text	-	label 32	label 32	951,1371,1038,1418
+5	text	-	label 33		189,1430,467,1492
+5	text	-	label 34		523,1430,704,1492
+5	image	-		label 17	846,1434,899,1487
+5	image	-		label 35	910,1434,963,1487
+5	group	-		label 36	977,1434,1038,1487
+4	group	c		label 11	0,1529,1080,1730
+5	group	c			0,1540,189,1719
+6	image	c		label 37	26,1561,162,1697
+5	text	-	label 38		189,1565,680,1626
+5	text	-	label 39	label 39	957,1572,1038,1619
+5	text	-	label 40		189,1631,476,1693
+5	text	-	label 41		476,1631,972,1693
+5	group	-		label 42	983,1635,1038,1688
+4	group	c		label 11	0,1730,1080,1931
+5	group	c			0,1741,189,1920
+6	image	c		label 43	26,1762,162,1898
+5	text	-	label 44		189,1766,488,1827
+5	text	-	label 45	label 45	954,1773,1038,1820
+5	text	-	label 46		189,1832,390,1894
+5	text	-	label 47		446,1832,592,1894
+5	group	-		label 48	985,1836,1038,1889
+4	group	c		label 11	0,1931,1080,2118
+5	group	c			0,1942,189,2118
+6	group	-		label 49	0,1968,189,2094
+5	button	-		label 50	189,1964,1038,2025
+6	text	-	label 49		189,1964,947,2025
+6	group	-		label 51	947,1968,1038,2021
+5	text	-	label 52		189,2033,497,2095
+5	text	-	label 53		638,2033,1024,2095
+2	list	s			1080,126,1080,2118
+3	group	-			1080,274,1080,394
+4	text	-	Status		1122,306,1080,383
+3	group	-			1080,394,1080,834
+4	list	s			1080,420,1080,834
+5	group	c		label 54	1122,420,1080,834
+6	text	-	label 55		1122,766,1080,834
+5	group	c		label 56	1371,420,1080,834
+6	image	-			1387,436,1080,572
+6	text	-	label 57		1371,745,1080,834
+5	group	c		label 58	1620,420,1080,834
+6	image	-			1636,436,1080,572
+6	text	-	label 59		1620,706,1080,834
+5	group	c		label 60	1869,420,1080,834
+6	image	-			1885,436,1080,572
+6	text	-	label 61		1869,706,1080,834
+5	group	c		label 62	2118,420,1080,834
+6	image	-			2134,436,1080,572
+6	text	-	label 63		2118,706,1080,834
+3	group	-			1080,855,1080,855
+3	group	-			1080,855,1080,992
+4	text	-	label 64		1122,887,1080,964
+4	button	c	label 65		1895,876,1080,981
+3	group	c			1080,992,1080,1192
+4	text	-	label 66		1290,1028,1080,1089
+4	text	-	label 67	label 67	2020,1035,1080,1082
+4	text	-	label 68		1290,1094,1080,1156
+4	group	-		label 69	2015,1098,1080,1151
+3	group	c			1080,1192,1080,1392
+4	text	-	label 70		1290,1228,1080,1289
+4	text	-	label 71	label 71	2027,1235,1080,1282
+4	text	-	label 72		1290,1294,1080,1356
+4	group	-		label 73	2045,1298,1080,1351
+3	group	c			1080,1392,1080,1592
+4	text	-	label 74		1290,1428,1080,1489
+4	text	-	label 75	label 75	2034,1435,1080,1482
+4	text	-	label 76		1346,1494,1080,1556
+4	group	-		label 77	2058,1498,1080,1551
+3	group	c			1080,1592,1080,1792
+4	text	-	label 78		1290,1628,1080,1689
+4	text	-	label 79	label 79	1950,1635,1080,1682
+4	text	-	label 80		1290,1694,1080,1756
+4	group	-		label 81	2050,1698,1080,1751
+3	group	c			1080,1792,1080,1992
+4	text	-	label 82		1290,1828,1080,1889
+4	text	-	label 79	label 79	1950,1835,1080,1882
+4	text	-	label 83		1346,1894,1080,1956
+4	group	-		label 84	2038,1898,1080,1951
+3	group	c			1080,1992,1080,2118
+4	text	-	label 85		1290,2028,1080,2089
+4	text	-	label 86	label 87	1932,2035,1080,2082
+4	text	-	label 88		1290,2094,1080,2118
+4	group	-		label 89	2058,2098,1080,2118
+1	group	-		label 90	42,126,567,273
+1	button	c		label 91	721,136,848,262
+1	button	c		Camera	848,136,975,262
+1	image	c		More options	975,136,1080,262
+1	group	c		label 92	677,1771,1017,1876
+2	text	-	label 93		777,1797,991,1850
+1	button	c		New chat	891,1929,1038,2076
+1	group	-			0,2119,1080,2329
+2	group	-		label 94	0,2119,270,2329
+2	group	c		Updates	270,2119,540,2329
+2	group	c		Communities	540,2119,810,2329
+2	group	c		Calls	810,2119,1080,2329
