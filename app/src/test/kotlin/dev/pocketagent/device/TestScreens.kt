@@ -21,7 +21,8 @@ internal fun screenOf(
     vararg children: ScreenNode,
     appLabel: String? = "App",
     packageName: String = "com.app",
-) = Screen(0, packageName, appLabel, node("a0", children = children.toList()))
+    ownWindowBounds: List<Bounds> = emptyList(),
+) = Screen(0, packageName, appLabel, node("a0", children = children.toList()), ownWindowBounds)
 
 internal fun screenWithText(text: String) = screenOf(node("a1", role = "text", text = text))
 
