@@ -37,10 +37,18 @@ class AnthropicClient(private val config: ProviderConfig, private val caller: Ht
         /** Set once a retry without the optional fields succeeded; they are then never sent again. */
         private var optionalFieldsRejected = false
 
+        /** User blocks whose request got an empty reply; they go first in the next user message. */
+        private var pendingBlocks: List<JsonObject> = emptyList()
+
         override val usage: TokenUsage get() = usageTotal
 
         override suspend fun send(turn: Turn): LlmResult {
-            val userMessage = userMessage(turn) ?: return LlmResult.Failed(FailureKind.OTHER, "Nothing to send")
+            val blocks = mergeBlocks(pendingBlocks, userBlocks(turn))
+            if (blocks.isEmpty()) return LlmResult.Failed(FailureKind.OTHER, "Nothing to send")
+            val userMessage = buildJsonObject {
+                put("role", "user")
+                put("content", JsonArray(blocks))
+            }
             val messages = history + userMessage
 
             val withOptional = !optionalFieldsRejected && hasOptionalFields()
@@ -53,7 +61,7 @@ class AnthropicClient(private val config: ProviderConfig, private val caller: Ht
                 is HttpOutcome.Failure -> return LlmResult.Failed(outcome.kind, outcome.message)
                 is HttpOutcome.Success -> outcome.body
             }
-            return parseReply(body, userMessage)
+            return parseReply(body, userMessage, blocks)
         }
 
         private suspend fun post(messages: List<JsonObject>, withOptional: Boolean): HttpOutcome {
@@ -107,8 +115,13 @@ class AnthropicClient(private val config: ProviderConfig, private val caller: Ht
             }
         }
 
-        /** Null when the turn has nothing to send (the API rejects empty content). */
-        private fun userMessage(turn: Turn): JsonObject? {
+        /** Every tool_result stays ahead of any other block; order is otherwise kept. */
+        private fun mergeBlocks(first: List<JsonObject>, second: List<JsonObject>): List<JsonObject> {
+            val all = first + second
+            return all.filter { it.str("type") == "tool_result" } + all.filter { it.str("type") != "tool_result" }
+        }
+
+        private fun userBlocks(turn: Turn): List<JsonObject> {
             val blocks = buildJsonArray {
                 turn.toolResult?.let { r ->
                     add(toolResult(r.callId, r.text, r.isError))
@@ -130,11 +143,7 @@ class AnthropicClient(private val config: ProviderConfig, private val caller: Ht
                 turn.systemNote?.takeIf { it.isNotEmpty() }?.let { add(textBlock("<app_tips>$it</app_tips>")) }
                 if (turn.text.isNotEmpty()) add(textBlock(turn.text))
             }
-            if (blocks.isEmpty()) return null
-            return buildJsonObject {
-                put("role", "user")
-                put("content", blocks)
-            }
+            return blocks.map { it as JsonObject }
         }
 
         private fun toolResult(id: String, text: String, isError: Boolean) = buildJsonObject {
@@ -149,23 +158,32 @@ class AnthropicClient(private val config: ProviderConfig, private val caller: Ht
             put("text", text)
         }
 
-        private fun parseReply(body: String, userMessage: JsonObject): LlmResult {
+        private fun parseReply(body: String, userMessage: JsonObject, sentBlocks: List<JsonObject>): LlmResult {
             val malformed = LlmResult.Failed(FailureKind.OTHER, "The provider's reply could not be read")
             val reply = try {
                 Json.parseToJsonElement(body) as? JsonObject
             } catch (_: SerializationException) {
                 null
             } ?: return malformed
+            val stopReason = reply.str("stop_reason")
+            if (stopReason == "refusal") {
+                usageTotal += usageOf(reply["usage"] as? JsonObject)
+                return LlmResult.Refused((reply["stop_details"] as? JsonObject)?.str("explanation"))
+            }
             val content = reply["content"] as? JsonArray ?: return malformed
-            if (content.isEmpty() || content.any { it !is JsonObject }) return malformed
+            if (content.isEmpty()) {
+                // An empty assistant message is invalid on replay: keep the unsent user blocks for the next send.
+                pendingBlocks = sentBlocks
+                unanswered = emptyList()
+                usageTotal += usageOf(reply["usage"] as? JsonObject)
+                return LlmResult.NoCall("")
+            }
+            if (content.any { it !is JsonObject }) return malformed
             val blocks = content.map { it as JsonObject }
             val toolUses = blocks.filter { it.str("type") == "tool_use" }
             if (toolUses.any { it.str("id") == null || it.str("name") == null }) return malformed
 
-            val stopReason = reply.str("stop_reason")
             val result: LlmResult = when {
-                stopReason == "refusal" ->
-                    LlmResult.Refused((reply["stop_details"] as? JsonObject)?.str("explanation"))
                 toolUses.isNotEmpty() -> {
                     val first = toolUses.first()
                     LlmResult.Call(
@@ -178,6 +196,7 @@ class AnthropicClient(private val config: ProviderConfig, private val caller: Ht
             }
 
             history += userMessage
+            pendingBlocks = emptyList()
             history += buildJsonObject {
                 put("role", "assistant")
                 put("content", content)

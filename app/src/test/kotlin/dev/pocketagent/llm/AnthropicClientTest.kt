@@ -399,4 +399,36 @@ class AnthropicClientTest {
         testScheduler.advanceUntilIdle()
         assertTrue(job.isCompleted)
     }
+
+    @Test
+    fun refusalWithEmptyContentIsStillRefused() = runTest {
+        val s = session(FakeTransport(listOf(reply("refusal_empty"))))
+        assertEquals(LlmResult.Refused("Declined, empty."), s.send(Turn("a")))
+    }
+
+    @Test
+    fun emptyEndTurnIsNoCallAndItsUserBlocksAreCarriedForward() = runTest {
+        val t = FakeTransport(listOf(reply("tool_use"), reply("empty_end_turn"), reply("tool_use_2")))
+        val s = session(t)
+        s.send(Turn("Task: x"))
+        assertEquals(LlmResult.NoCall(""), s.send(Turn("screen", ToolResult("toolu_01", "tapped", false))))
+        assertEquals(TokenUsage(inputTokens = 127, outputTokens = 30, cachedInputTokens = 5), s.usage)
+        assertIs<LlmResult.Call>(s.send(Turn("Reply with exactly one tool call.")))
+        val messages = t.requests[2].messages.map { it.jsonObject }
+        assertEquals(listOf("user", "assistant", "user"), messages.map { it.getValue("role").jsonPrimitive.content })
+        val blocks = messages.last().getValue("content").jsonArray.map { it.jsonObject }
+        assertEquals(listOf("tool_result", "text", "text"), blocks.map { it.getValue("type").jsonPrimitive.content })
+        assertEquals("toolu_01", blocks[0].getValue("tool_use_id").jsonPrimitive.content)
+        assertEquals("screen", blocks[1].getValue("text").jsonPrimitive.content)
+        assertEquals("Reply with exactly one tool call.", blocks[2].getValue("text").jsonPrimitive.content)
+        for (m in messages) assertTrue(m.getValue("content").jsonArray.isNotEmpty())
+    }
+
+    @Test
+    fun refusalWithContentIsStillRefused() = runTest {
+        assertEquals(
+            LlmResult.Refused(null),
+            session(FakeTransport(listOf(reply("refusal_bare")))).send(Turn("a")),
+        )
+    }
 }
