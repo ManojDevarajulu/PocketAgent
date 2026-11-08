@@ -1,0 +1,36 @@
+# Gradle and build output
+.gradle/
+build/
+**/build/
+.kotlin/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# IDE and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local machine config (SDK paths, signing)
+local.properties
+*.jks
+*.keystore
+keystore.properties
+
+# Secrets
+.env
+.env.*
+*.pem
+secrets.properties
+
+# Throwaway spikes stay out of history
+spikes/
+
+# Logs
+*.log
