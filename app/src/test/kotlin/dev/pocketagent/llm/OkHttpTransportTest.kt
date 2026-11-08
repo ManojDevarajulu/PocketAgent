@@ -131,6 +131,18 @@ class OkHttpTransportTest {
     }
 
     @Test
+    fun timeoutsAreTheCallBudgetOnly() {
+        val client = OkHttpTransport().client
+        assertEquals(0, client.readTimeoutMillis)
+        assertEquals(0, client.writeTimeoutMillis)
+        assertEquals(90_000, client.callTimeoutMillis)
+        assertEquals(15_000, client.connectTimeoutMillis)
+        assertFalse(client.followRedirects)
+        assertFalse(client.followSslRedirects)
+        assertFalse(client.retryOnConnectionFailure)
+    }
+
+    @Test
     fun slowReplyWithinTheCallTimeoutSucceeds() = runBlocking {
         val server = serve { ex ->
             Thread.sleep(1_500)

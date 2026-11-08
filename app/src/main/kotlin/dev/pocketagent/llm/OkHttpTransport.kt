@@ -25,7 +25,7 @@ class OkHttpTransport(
     connectTimeoutMs: Long = 15_000,
     private val maxBodyBytes: Long = 2_000_000,
 ) : HttpTransport {
-    private val client: OkHttpClient = OkHttpClient.Builder()
+    internal val client: OkHttpClient = OkHttpClient.Builder()
         .followRedirects(false)
         .followSslRedirects(false)
         .retryOnConnectionFailure(false)
