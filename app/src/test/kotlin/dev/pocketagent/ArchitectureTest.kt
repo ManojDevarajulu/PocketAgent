@@ -80,4 +80,37 @@ class ArchitectureTest {
         val modules = Regex("""module\s*=\s*"([^"]+)"""").findAll(libraries).map { it.groupValues[1] }.toSet()
         assertEquals(emptySet(), modules - allowed, "dependencies outside the allowlist")
     }
+
+    @Test
+    fun onlyOkHttpTransportImportsOkHttp() {
+        val offenders = mainSources()
+            .filterNot { it.invariantSeparatorsPath.endsWith("/dev/pocketagent/llm/OkHttpTransport.kt") }
+            .filter { f -> codeLines(f).any { it.startsWith("import okhttp3") } }
+        assertEquals(emptyList(), offenders.map { it.path })
+    }
+
+    /**
+     * Beyond the AppLog guard: in llm/ main sources the key must not be interpolated into any string except the
+     * "Bearer" header value, and only the client, config and preset files may mention `apiKey` at all.
+     */
+    @Test
+    fun noProviderCodeLogsOrPrintsTheKey() {
+        val allowedFiles = setOf("AnthropicClient.kt", "OpenAiCompatClient.kt", "ProviderConfig.kt", "ProviderPresets.kt")
+        val interpolated = Regex("""[$]\{[^}]*apiKey|[$]apiKey""")
+        val llmSources = mainSources().filter { it.invariantSeparatorsPath.contains("/dev/pocketagent/llm/") }
+        val mentions = llmSources.filter { f -> codeLines(f).any { it.contains("apiKey") } && f.name !in allowedFiles }
+        assertEquals(emptyList(), mentions.map { it.path }, "unexpected files mention apiKey")
+        val leaks = llmSources.flatMap { f ->
+            codeLines(f).filter { interpolated.containsMatchIn(it) && !it.contains("Bearer \${config.apiKey}") }.map { "${f.name}: $it" }
+        }
+        assertEquals(emptyList(), leaks, "apiKey interpolated into a string")
+    }
+
+    /** Test sources are excluded because they hold fake keys. Matches `sk-...` and Anthropic's `sk-ant-...`. */
+    @Test
+    fun noHardcodedKeysInMainSources() {
+        val key = Regex("""sk-[A-Za-z0-9_-]{20,}""")
+        val offenders = File("src/main").walk().filter { it.isFile }.filter { key.containsMatchIn(it.readText()) }.toList()
+        assertEquals(emptyList(), offenders.map { it.path })
+    }
 }
