@@ -208,12 +208,26 @@ class OpenAiCompatClientTest {
             val r = assertIs<LlmResult.Call>(s.send(Turn("a")))
             assertEquals(LlmResult.Call(id, "tap", JsonObject(emptyMap())), r)
             s.send(Turn("", ToolResult(id, "error", true)))
-            // the assistant message is replayed with the original arguments string
+            // a string that is not a JSON object is replayed as "{}", so strict servers accept the history
             val assistant = t.requests[1].messages[2].jsonObject
             val args = assistant.getValue("tool_calls").jsonArray[0].jsonObject.getValue("function").jsonObject
                 .getValue("arguments").jsonPrimitive.content
-            assertEquals(if (name == "bad_arguments") "not json" else "[1]", args)
+            assertEquals("{}", args)
         }
+    }
+
+    @Test
+    fun validArgumentsAreReplayedByteForByte() = runTest {
+        val spaced = """{ "node_id" :  "a1" }"""
+        val body = """{"id":"g","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":null,
+            "tool_calls":[{"id":"c1","type":"function","function":{"name":"tap","arguments":"{ \"node_id\" :  \"a1\" }"}}]}}]}"""
+        val t = FakeTransport(listOf(HttpResponse(200, emptyMap(), body), reply("stop")))
+        val s = session(t)
+        s.send(Turn("a"))
+        s.send(Turn("", ToolResult("c1", "ok", false)))
+        val args = t.requests[1].messages[2].jsonObject.getValue("tool_calls").jsonArray[0].jsonObject
+            .getValue("function").jsonObject.getValue("arguments").jsonPrimitive.content
+        assertEquals(spaced, args)
     }
 
     @Test

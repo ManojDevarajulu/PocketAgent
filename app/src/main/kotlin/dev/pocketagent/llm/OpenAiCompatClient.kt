@@ -234,7 +234,7 @@ class OpenAiCompatClient(private val config: ProviderConfig, private val caller:
                                 put("type", "function")
                                 putJsonObject("function") {
                                     put("name", function.str("name")!!)
-                                    put("arguments", function["arguments"] ?: JsonPrimitive(""))
+                                    put("arguments", replayableArguments(function["arguments"]))
                                 }
                                 call["extra_content"]?.let { put("extra_content", it) }
                             },
@@ -242,6 +242,21 @@ class OpenAiCompatClient(private val config: ProviderConfig, private val caller:
                     }
                 }
             }
+        }
+
+        /**
+         * Strict servers parse the replayed arguments, so a string that is not a JSON object is replayed as "{}".
+         * A valid one is kept byte for byte.
+         */
+        private fun replayableArguments(arguments: JsonElement?): JsonPrimitive {
+            if (arguments is JsonObject) return JsonPrimitive(arguments.toString())
+            val raw = (arguments as? JsonPrimitive)?.takeIf { it.isString }
+            val isObject = raw != null && try {
+                Json.parseToJsonElement(raw.content) is JsonObject
+            } catch (_: SerializationException) {
+                false
+            }
+            return if (isObject) raw!! else JsonPrimitive("{}")
         }
 
         /** The arguments arrive as a JSON string; anything that is not a JSON object becomes an empty input. */
