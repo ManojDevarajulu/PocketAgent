@@ -1,0 +1,1 @@
+{"id":"msg_08","type":"message","role":"assistant","content":[{"type":"text","text":"Paused."}],"stop_reason":"pause_turn","usage":{"input_tokens":1,"output_tokens":1}}
