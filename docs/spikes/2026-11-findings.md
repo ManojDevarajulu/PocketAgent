@@ -7,8 +7,8 @@
 
 Accessibility can be enabled, two of the three demo apps expose usable screens (the third partly), and the bubble and task screen work. Conditions:
 
-1. Spike 3 (model call from the phone) must pass before Plan 2 starts.
-2. Swiggy's cart and checkout screens must be checked before demo task 2 is committed to.
+1. ~~Spike 3.~~ The OpenAI-compatible side passed. The Anthropic side and the first on-phone call are still to be checked, in Plan 2's integration test.
+2. ~~Check Swiggy's cart.~~ Done: it is unreadable. Demo task 2 must change before it is built (see spike 2).
 3. The install route must be tested before the launch docs are written (spike 1).
 
 ## Spike 1: restricted settings and installing
@@ -34,14 +34,15 @@ Accessibility can be enabled, two of the three demo apps expose usable screens (
 |---|---|
 | WhatsApp | Rich: about 150 nodes on the chat list and 47 in a chat, with labels and stable resource IDs. Message box is editable |
 | Google Maps | Usable: 43 nodes, 16 labelled, including "Search here" and "Voice search". The map itself is unlabelled |
-| Swiggy | Partial. Browsing and the item sheet are readable ("Add Item \| ₹249", "add one more"). One capture was **empty**, probably cart or checkout, and is still to be checked |
+| Swiggy | Partial. Browsing and the item sheet are readable ("Add Item \| ₹249", "add one more"). The cart and checkout screen returned a single empty node with no labels on all three tries, so "Place order" is invisible to the agent |
 | Settings | Readable, so blocking by package works |
 | Pocket Agent's own windows | Captured too, so excluding them is mandatory |
 
 **Decisions:**
 - The serializer lets an unlabelled tappable node borrow the label of its nearest labelled ancestor, shown as `in "<label>"` (Plan 1, Task 4).
 - Screen text can carry account details. Maps exposes the signed-in email, so the privacy notice says so.
-- If Swiggy blocks cart and checkout, demo task 2 uses another food app or stops at the cart.
+- Swiggy's cart and checkout cannot be read (confirmed three times). Demo task 2 either stops at the cart so the user pays, or moves to another app. Zomato is installed on the test phone and is the first one to check.
+- An unreadable screen means the safety gate cannot recognise a risky button. Every coordinate tap on a screen with no labelled nodes needs confirmation (security spec rule 16).
 
 ## Spike 3: model call from the phone
 

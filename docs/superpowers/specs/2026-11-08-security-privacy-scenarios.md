@@ -43,6 +43,7 @@ An agent that can read and operate a phone is a powerful thing to install. The p
 13. **Re-validate before acting** (T3). A stale or changed target returns `ActionResult.Failed("screen changed")`.
 14. **Affirmative buttons near money need confirmation.** If a tapped label is a generic affirmative (OK, Yes, Continue, Proceed, Done, Submit) and the screen shows a currency symbol or the words total, order, pay, amount, the tap needs confirmation.
 15. **`open_app` takes an app name only.** It is matched against the installed launcher apps. The model cannot supply package names, URLs or intents. An ambiguous name triggers `ask_user`.
+16. **Unreadable screens confirm every tap.** If no node on the screen has a label (Swiggy's cart and checkout are like this, found in the spikes), every coordinate tap needs confirmation, because the gate cannot classify a button it cannot read.
 
 ## 4. Privacy
 
