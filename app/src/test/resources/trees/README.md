@@ -1,6 +1,6 @@
 # Screen tree fixtures
 
-Real screens captured from an Android 16 phone during the feasibility spikes (`docs/spikes/2026-11-findings.md`), used to test the screen serializer against realistic structure.
+Real screens captured from an Android 16 phone during early feasibility testing, used to test the screen serializer against realistic structure.
 
 **They are redacted.** Every text and description is replaced by `label N`, except a short allowlist of generic UI words ("Camera", "Calls", "More options" and similar). No names, messages, numbers, addresses or account details survive. Structure, flags and bounds are unchanged, because those are what the tests need.
 
