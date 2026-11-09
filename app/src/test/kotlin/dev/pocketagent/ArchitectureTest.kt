@@ -106,6 +106,28 @@ class ArchitectureTest {
         assertEquals(emptyList(), leaks, "apiKey interpolated into a string")
     }
 
+    @Test
+    fun apiKeyBuildFieldsAppearOnlyInTheDebugBuildType() {
+        val lines = File("build.gradle.kts").readLines()
+        val start = lines.indexOfFirst { it.trim().startsWith("debug {") }
+        assertTrue(start >= 0, "no debug { } block")
+        var depth = 0
+        var end = start
+        for (i in start until lines.size) {
+            depth += lines[i].count { it == '{' } - lines[i].count { it == '}' }
+            if (depth == 0) { end = i; break }
+        }
+        val keyLines = lines.withIndex().filter { (_, l) -> l.contains("pocketagent.apiKey") || l.contains("API_KEY") }
+        assertTrue(keyLines.isNotEmpty(), "expected the debug key field")
+        assertEquals(emptyList(), keyLines.filter { it.index !in start..end }.map { it.value }, "key fields outside debug { }")
+    }
+
+    @Test
+    fun releaseDevConfigNeverMentionsKeyFields() {
+        val text = File("src/release/kotlin/dev/pocketagent/android/DevConfig.kt").readText()
+        assertTrue(!text.contains("BuildConfig") && !text.contains("apiKey"), "release DevConfig mentions key fields")
+    }
+
     /** Test sources are excluded because they hold fake keys. Matches `sk-...` and Anthropic's `sk-ant-...`. */
     @Test
     fun noHardcodedKeysInMainSources() {
