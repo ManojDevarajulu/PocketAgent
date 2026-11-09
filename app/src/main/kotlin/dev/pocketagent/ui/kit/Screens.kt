@@ -57,10 +57,23 @@ object Samples {
 object Screens {
     private const val GUTTER = 16
 
-    /** Wraps a scrolling screen with the tab bar pinned to the bottom. */
-    private fun withTabs(c: Context, content: View, selected: Int, nav: Nav): View = FrameLayout(c).apply {
+    /** Wraps a scrolling screen with the tab bar pinned to the bottom, and an optional top bar that gains a hairline once content scrolls under it. */
+    private fun withTabs(c: Context, content: View, selected: Int, nav: Nav, topBar: View? = null): View = FrameLayout(c).apply {
         setBackgroundColor(color(c, R.color.pa_bg))
-        addView(Kit.scroll(c, content, bottomPadDp = 96), FrameLayout.LayoutParams(-1, -1))
+        val scroll = Kit.scroll(c, content, bottomPadDp = 96)
+        if (topBar == null) {
+            addView(scroll, FrameLayout.LayoutParams(-1, -1))
+        } else {
+            val column = Kit.vstack(c)
+            val line = View(c).apply { setBackgroundColor(color(c, R.color.pa_line)); alpha = 0f }
+            column.addView(topBar, Kit.lp())
+            column.addView(line, Kit.lp(h = 1))
+            column.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+            scroll.setOnScrollChangeListener { _, _, y, _, _ ->
+                line.animate().alpha(if (y > dp(c, 6)) 1f else 0f).setDuration(160).start()
+            }
+            addView(column, FrameLayout.LayoutParams(-1, -1))
+        }
         addView(Kit.tabBar(c, selected, nav.tab), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
     }
 
@@ -102,51 +115,73 @@ object Screens {
 
     // ---------------------------------------------------------------- Home
 
+    /** The app bar: the mark and name on the left, a live status pill on the right. */
+    private fun appBar(c: Context, ok: Boolean, nav: Nav): View {
+        val bar = Kit.hstack(c).apply {
+            setPadding(dp(c, 18), dp(c, 8), dp(c, 14), dp(c, 8))
+            minimumHeight = dp(c, 56)
+            setBackgroundColor(color(c, R.color.pa_bg))
+        }
+        bar.addView(ImageView(c).apply {
+            setImageResource(R.drawable.logo_mark)
+            layoutParams = LinearLayout.LayoutParams(dp(c, 30), dp(c, 30)).apply { marginEnd = dp(c, 10) }
+        })
+        bar.addView(Kit.text(c, "Pocket Agent", 18f, 600).apply { letterSpacing = -0.01f }, Kit.weight())
+        val pill = Kit.hstack(c, 7).apply {
+            background = Kit.rounded(color(c, R.color.pa_fill), dpf(c, 16))
+            setPadding(dp(c, 12), dp(c, 7), dp(c, 12), dp(c, 7))
+        }
+        pill.addView(View(c).apply {
+            background = Kit.rounded(color(c, if (ok) R.color.pa_good else R.color.pa_bad), dpf(c, 4))
+            layoutParams = LinearLayout.LayoutParams(dp(c, 8), dp(c, 8))
+        })
+        pill.addView(Kit.text(c, if (ok) "Ready" else "Needs setup", 14f, 600))
+        Kit.pressable(pill, 0.94f) { nav.tab(2) }
+        bar.addView(pill)
+        return bar
+    }
+
     fun home(c: Context, state: HomeState = Samples.home, nav: Nav = Nav()): View {
         val needsAttention = state.attention != null
-        val p = page(c, 24)
+        val p = page(c, 12)
         val blocks = ArrayList<View>()
         fun add(v: View, lp: LinearLayout.LayoutParams = Kit.lp()) { p.addView(v, lp); blocks.add(v) }
 
-        // greeting
-        val head = Kit.vstack(c).apply { setPadding(dp(c, 4), 0, 0, 0) }
-        head.addView(Kit.text(c, java.text.SimpleDateFormat("EEEE d MMMM", java.util.Locale.getDefault()).format(java.util.Date()), 15f, 400, R.color.pa_muted))
-        head.addView(Kit.largeTitle(c, greeting()).apply { setPadding(0, dp(c, 2), 0, 0) })
-        add(head)
-
-        // status: one quiet line, or one loud card
-        if (state.attention == null) {
-            val line = Kit.hstack(c, 8).apply { setPadding(dp(c, 4), dp(c, 12), 0, 0) }
-            line.addView(View(c).apply {
-                background = Kit.rounded(color(c, R.color.pa_good), dpf(c, 4))
-                layoutParams = LinearLayout.LayoutParams(dp(c, 8), dp(c, 8))
-            })
-            line.addView(Kit.text(c, "Ready", 15f, 600))
-            line.addView(Kit.text(c, state.statusDetail, 15f, 400, R.color.pa_muted))
-            Kit.pressable(line, 1f) { nav.tab(2) }
-            add(line)
-        } else {
-            val at = state.attention
-            val card = Kit.vstack(c).apply {
-                background = Kit.rounded(color(c, R.color.pa_card), dpf(c, 22), color(c, R.color.pa_bad), dp(c, 2))
-                setPadding(dp(c, 18), dp(c, 16), dp(c, 18), dp(c, 18))
+        // one calm banner when something needs fixing: tinted, with a small pill button
+        state.attention?.let { at ->
+            val banner = Kit.hstack(c, 12).apply {
+                background = Kit.rounded(color(c, R.color.pa_bad) and 0x00FFFFFF or 0x1A000000, dpf(c, 20))
+                setPadding(dp(c, 14), dp(c, 14), dp(c, 12), dp(c, 14))
             }
-            card.addView(Kit.text(c, at.title, 19f, 600))
-            card.addView(Kit.text(c, at.body, 15f, 400, R.color.pa_muted).apply {
-                setPadding(0, dp(c, 4), 0, 0); setLineSpacing(dpf(c, 3), 1f)
+            banner.addView(Kit.icon(c, R.drawable.ic_alert, 22, R.color.pa_bad).apply {
+                background = Kit.rounded(color(c, R.color.pa_bad) and 0x00FFFFFF or 0x26000000, dpf(c, 18))
+                setPadding(dp(c, 7), dp(c, 7), dp(c, 7), dp(c, 7))
+                layoutParams = LinearLayout.LayoutParams(dp(c, 36), dp(c, 36))
             })
-            card.addView(Kit.primary(c, at.action, onClick = at.onAction), Kit.lp().apply { topMargin = dp(c, 16) })
-            add(card, Kit.lp().apply { topMargin = dp(c, 14) })
+            val col = Kit.vstack(c)
+            col.addView(Kit.text(c, at.title, 15f, 600))
+            col.addView(Kit.text(c, at.body, 13f, 400, R.color.pa_muted).apply { setPadding(0, dp(c, 2), 0, 0) })
+            banner.addView(col, Kit.weight())
+            banner.addView(
+                Kit.text(c, at.action, 14f, 600, R.color.pa_on_accent).apply {
+                    gravity = Gravity.CENTER
+                    background = Kit.rounded(color(c, R.color.pa_accent), dpf(c, 18))
+                    setPadding(dp(c, 14), 0, dp(c, 14), 0)
+                    minimumHeight = dp(c, 36)
+                    Kit.pressable(this, 0.94f, at.onAction)
+                },
+            )
+            add(banner, Kit.lp().apply { bottomMargin = dp(c, 14) })
         }
 
-        // composer: the hero. One card, no inner box.
+        // composer: the hero. The send button wakes up (grey to orange, with a pop) once there is something to send.
         val composer = Kit.vstack(c).apply {
             background = Kit.rounded(color(c, R.color.pa_card), dpf(c, 28))
             setPadding(dp(c, 18), dp(c, 16), dp(c, 12), dp(c, 12))
             elevation = dpf(c, 1)
             alpha = if (needsAttention) .5f else 1f
         }
-        val input = Kit.input(c, if (needsAttention) "Fix the card above first" else "What should I do?").apply {
+        val input = Kit.input(c, if (needsAttention) "Fix the banner above first" else "What should I do?").apply {
             isEnabled = !needsAttention
             minimumHeight = dp(c, 44)
         }
@@ -161,19 +196,42 @@ object Screens {
             },
         )
         controls.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
-        controls.addView(
-            Kit.icon(c, R.drawable.ic_send, 20, R.color.pa_on_accent).apply {
-                background = Kit.rounded(color(c, if (needsAttention) R.color.pa_line else R.color.pa_accent), dpf(c, 22))
-                setPadding(dp(c, 12), dp(c, 12), dp(c, 12), dp(c, 12))
-                layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44))
-                Kit.pressable(this, 0.9f) {
-                    val t = input.text.toString().trim()
-                    if (t.isNotEmpty() && !needsAttention) { state.onRun(t); input.setText("") }
-                }
-            },
-        )
+        val send = Kit.icon(c, R.drawable.ic_send, 20, R.color.pa_muted).apply {
+            val bg = Kit.rounded(color(c, R.color.pa_line), dpf(c, 22))
+            background = bg
+            setPadding(dp(c, 12), dp(c, 12), dp(c, 12), dp(c, 12))
+            layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44))
+            Kit.pressable(this, 0.9f) {
+                val t = input.text.toString().trim()
+                if (t.isNotEmpty() && !needsAttention) { state.onRun(t); input.setText("") }
+            }
+        }
+        controls.addView(send)
+        var armed = false
+        input.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val has = !s.isNullOrBlank()
+                if (has == armed) return
+                armed = has
+                val from = if (has) color(c, R.color.pa_line) else color(c, R.color.pa_accent)
+                val to = if (has) color(c, R.color.pa_accent) else color(c, R.color.pa_line)
+                android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(), from, to).apply {
+                    duration = 220
+                    addUpdateListener { (send.background as GradientDrawable).setColor(it.animatedValue as Int) }
+                }.start()
+                send.setColorFilter(color(c, if (has) R.color.pa_on_accent else R.color.pa_muted))
+                if (has) send.animate().scaleX(1.14f).scaleY(1.14f).setDuration(110).withEndAction {
+                    send.animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()
+                }.start()
+            }
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c1: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c2: Int) {}
+        })
+        input.setOnFocusChangeListener { _, focused ->
+            composer.animate().translationZ(if (focused) dpf(c, 6) else 0f).setDuration(220).setInterpolator(Kit.ease).start()
+        }
         composer.addView(controls, Kit.lp())
-        add(composer, Kit.lp().apply { topMargin = dp(c, 20) })
+        add(composer)
 
         // shortcuts
         add(sectionTitle(c, "Shortcuts", "Edit"), Kit.lp().apply { topMargin = dp(c, 32) })
@@ -235,12 +293,7 @@ object Screens {
         state.usage?.let { u -> add(Kit.footnote(c, u).apply { setPadding(dp(c, 4), dp(c, 16), 0, 0) }) }
 
         p.post { Kit.reveal(blocks) }
-        return withTabs(c, p, 0, nav)
-    }
-
-    private fun greeting(): String {
-        val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-        return when { h < 5 -> "Late night"; h < 12 -> "Good morning"; h < 18 -> "Good afternoon"; else -> "Good evening" }
+        return withTabs(c, p, 0, nav, topBar = appBar(c, !needsAttention, nav))
     }
 
     // ------------------------------------------------------------ Activity

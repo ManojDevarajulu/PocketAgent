@@ -212,6 +212,7 @@ object Kit {
             knob.setShadowLayer(dpf(c, 2), 0f, dpf(c, 1), 0x40000000)
             setLayerType(LAYER_TYPE_SOFTWARE, null)
             pressable(this, 0.95f) {
+                performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                 checked = !checked
                 ValueAnimator.ofFloat(progress, if (checked) 1f else 0f).apply {
                     duration = 260
@@ -388,6 +389,7 @@ object Kit {
                     )
                     pressable(this, 0.88f) {
                         if (!on) {
+                            performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                             ic.animate().scaleX(1.18f).scaleY(1.18f).setDuration(120).withEndAction {
                                 ic.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(OvershootInterpolator(3f)).start()
                             }.start()
