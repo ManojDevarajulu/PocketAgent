@@ -102,6 +102,12 @@ class TaskInputActivity : Activity() {
         dismiss()
     }
 
+    override fun onStop() {
+        // Home or an app switch only stops this task-less screen and the user cannot return to it, so it counts as a dismissal.
+        if (!isChangingConfigurations) dismiss()
+        super.onStop()
+    }
+
     override fun onDestroy() {
         // An outside tap or a system close ends up here without going through a button.
         if (isFinishing) dismiss(finishNow = false)
