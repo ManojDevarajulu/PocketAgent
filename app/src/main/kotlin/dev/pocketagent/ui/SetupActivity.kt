@@ -79,6 +79,7 @@ class SetupActivity : ThemedActivity() {
     private var checking = false
     private var providerError: String? = null
     private var pendingHost: String? = null
+    private var micAskedAt = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,6 +102,7 @@ class SetupActivity : ThemedActivity() {
         })
         // Opened from Settings just to ask for the microphone: ask straight away, then go back.
         if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_REQUEST_MIC, false)) {
+            micAskedAt = System.currentTimeMillis()
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC)
         }
     }
@@ -615,7 +617,20 @@ class SetupActivity : ThemedActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_MIC) {
             settings.microphoneAsked = true
-            if (intent.getBooleanExtra(EXTRA_REQUEST_MIC, false)) finish() else render()
+            val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+            if (intent.getBooleanExtra(EXTRA_REQUEST_MIC, false)) {
+                when {
+                    granted -> android.widget.Toast.makeText(this, "Microphone is on.", android.widget.Toast.LENGTH_SHORT).show()
+                    // Answered at once with no dialog: Android has blocked the question, so the only way is the app's permission page.
+                    System.currentTimeMillis() - micAskedAt < 600 -> {
+                        android.widget.Toast.makeText(this, "Turn on Microphone under Permissions.", android.widget.Toast.LENGTH_LONG).show()
+                        openSettings(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                    }
+                }
+                finish()
+            } else {
+                render()
+            }
         }
     }
 

@@ -60,6 +60,7 @@ class PreviewActivity : Activity() {
             "sheet" -> startActivity(Intent(this, TaskInputActivity::class.java))
             "answer" -> startActivity(Intent(this, TaskInputActivity::class.java).putExtra(TaskInputActivity.EXTRA_QUESTION, "Which Priya should I message: Sharma or Nair?"))
             "setup" -> startActivity(Intent(this, SetupActivity::class.java))
+            "mic" -> startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_REQUEST_MIC, true))
             "confirm" -> showConfirm()
             else -> shell.reset(name)
         }

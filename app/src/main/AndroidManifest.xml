@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- The only two permissions: talk to the AI provider you choose, and listen when you tap the mic. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- Makes launcher apps, and only those, visible to open_app. -->
     <queries>
         <intent>

@@ -142,6 +142,15 @@ class MainActivity : ThemedActivity() {
         )
     }
 
+    /** Settings > Microphone and the Home mic button: ask for the permission, or open the app's permission page if it is already on. */
+    private fun requestMic() {
+        if (micOn()) {
+            openSettingsPage(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        } else {
+            startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_REQUEST_MIC, true))
+        }
+    }
+
     private fun openSettingsPage(intent: Intent) {
         try {
             startActivity(intent)
@@ -188,6 +197,8 @@ class MainActivity : ThemedActivity() {
                 }
             },
             onRun = { text -> runTask(text) },
+            micGranted = { micOn() },
+            onNeedMic = { requestMic() },
         )
     }
 
@@ -208,13 +219,7 @@ class MainActivity : ThemedActivity() {
             onBubble = { settings.bubbleOn = it },
             onProvider = { openSetup() },
             onAccessibility = { openAccessibility() },
-            onMic = {
-                if (micOn()) {
-                    openSettingsPage(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-                } else {
-                    startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_REQUEST_MIC, true))
-                }
-            },
+            onMic = { requestMic() },
             showHistory = true,
             historyOn = history.enabled,
             onHistory = { history.enabled = it },

@@ -37,6 +37,8 @@ data class HomeState(
     val onEditShortcuts: () -> Unit = {},
     val onRemoveShortcut: (String) -> Unit = {},
     val onAddShortcut: () -> Unit = {},
+    val micGranted: () -> Boolean = { false },
+    val onNeedMic: () -> Unit = {},
 )
 
 val DefaultShortcuts = listOf("Take me to an address", "Reply to the latest message", "Summarise this screen")
@@ -233,14 +235,42 @@ object Screens {
         }
         composer.addView(input, Kit.lp())
         val controls = Kit.hstack(c).apply { setPadding(0, dp(c, 6), 0, 0) }
-        controls.addView(
-            Kit.icon(c, R.drawable.ic_mic, 22, R.color.pa_ink).apply {
-                background = Kit.rounded(color(c, R.color.pa_fill), dpf(c, 22))
-                setPadding(dp(c, 11), dp(c, 11), dp(c, 11), dp(c, 11))
-                layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44))
-                Kit.pressable(this, 0.9f)
-            },
-        )
+        val micButton = Kit.icon(c, R.drawable.ic_mic, 22, R.color.pa_ink).apply {
+            background = Kit.rounded(color(c, R.color.pa_fill), dpf(c, 22))
+            setPadding(dp(c, 11), dp(c, 11), dp(c, 11), dp(c, 11))
+            layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44))
+            contentDescription = "Speak your task"
+        }
+        var voice: dev.pocketagent.ui.VoiceInput? = null
+        Kit.pressable(micButton, 0.9f) {
+            if (needsAttention) return@pressable
+            if (!dev.pocketagent.ui.VoiceInput.isAvailable(c)) {
+                android.widget.Toast.makeText(c, "Voice input isn't available on this phone.", android.widget.Toast.LENGTH_SHORT).show()
+                return@pressable
+            }
+            if (!state.micGranted()) {
+                // Not allowed yet: the host asks for the permission (or opens the app's permission page).
+                state.onNeedMic()
+                return@pressable
+            }
+            val v = voice ?: dev.pocketagent.ui.VoiceInput(
+                context = c,
+                onPartial = { input.setText(it.take(2000)); input.setSelection(input.text.length) },
+                onFinal = { input.setText(it.take(2000)); input.setSelection(input.text.length) },
+                onError = { android.widget.Toast.makeText(c, it, android.widget.Toast.LENGTH_SHORT).show() },
+                onListening = { on ->
+                    (micButton.background as GradientDrawable).setColor(color(c, if (on) R.color.pa_accent else R.color.pa_fill))
+                    micButton.setColorFilter(color(c, if (on) R.color.pa_on_accent else R.color.pa_ink))
+                    input.hint = if (on) "Listening" else "What should I do?"
+                },
+            ).also { voice = it }
+            v.toggle()
+        }
+        micButton.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {}
+            override fun onViewDetachedFromWindow(v: View) { voice?.destroy(); voice = null }
+        })
+        controls.addView(micButton)
         controls.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
         val send = Kit.icon(c, R.drawable.ic_send, 20, R.color.pa_muted).apply {
             val bg = Kit.rounded(color(c, R.color.pa_fill), dpf(c, 22))
