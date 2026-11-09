@@ -221,6 +221,14 @@ class ArchitectureTest {
     }
 
     /** Shipped sources are main, debug and release. Test sources are excluded because they hold fake keys. Matches `sk-...` and Anthropic's `sk-ant-...`. */
+    /** Android's regex engine throws on this flag at runtime, while desktop Java (where the unit tests run) accepts it. */
+    @Test
+    fun noRegexFlagsThatAndroidRejects() {
+        val unsupported = Regex("""UNICODE_CHARACTER_CLASS|\(\?[a-zA-Z]*U[a-zA-Z]*[:)]""")
+        val offenders = mainSources().filter { f -> codeLines(f).any { unsupported.containsMatchIn(it) } }
+        assertEquals(emptyList(), offenders.map { it.path })
+    }
+
     @Test
     fun noHardcodedKeysInShippedSources() {
         val key = Regex("""sk-[A-Za-z0-9_-]{20,}""")

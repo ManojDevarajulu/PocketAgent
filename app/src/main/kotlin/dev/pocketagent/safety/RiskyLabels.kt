@@ -6,7 +6,7 @@ import java.util.regex.Pattern
 internal fun wordStartPattern(terms: Collection<String>): Pattern =
     Pattern.compile(
         "(?<![\\p{L}\\p{N}])(?:" + terms.joinToString("|") { Pattern.quote(it) } + ")",
-        Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE or Pattern.UNICODE_CHARACTER_CLASS,
+        Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE,
     )
 
 /**
