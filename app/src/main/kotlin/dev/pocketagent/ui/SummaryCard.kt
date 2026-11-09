@@ -1,5 +1,6 @@
 package dev.pocketagent.ui
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -11,11 +12,16 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import dev.pocketagent.R
 
-/** The end-of-task card. It closes on tap or after 15 seconds. */
+/** The end-of-task card. It closes on tap or after 15 seconds; the 15 seconds only run while the phone is unlocked. */
 class SummaryCard(private val context: Context) {
     private val handler = Handler(Looper.getMainLooper())
     private var card: LinearLayout? = null
-    private val autoClose = Runnable { close() }
+    private val keyguard = context.getSystemService(KeyguardManager::class.java)
+    private val autoClose = object : Runnable {
+        override fun run() {
+            if (keyguard?.isKeyguardLocked == true) handler.postDelayed(this, 15_000L) else close()
+        }
+    }
 
     fun show(title: String, body: String) {
         close()
