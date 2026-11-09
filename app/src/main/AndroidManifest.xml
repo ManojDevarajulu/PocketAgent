@@ -4,6 +4,14 @@
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:label="Pocket Agent" />
+        android:label="Pocket Agent">
+
+        <activity
+            android:name=".ui.TaskInputActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.PocketAgent.Dialog" />
+    </application>
 
 </manifest>

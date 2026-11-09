@@ -8,4 +8,11 @@
     <string name="confirm_will_send">Will send: %1$s</string>
     <string name="confirm_allow">Allow</string>
     <string name="confirm_decline">Decline</string>
+    <string name="task_hint">What should I do?</string>
+    <string name="task_go">Go</string>
+    <string name="task_cancel">Cancel</string>
+    <string name="task_empty">Type a task first</string>
+    <string name="answer_hint">Your answer</string>
+    <string name="answer_submit">Submit</string>
+    <string name="answer_skip">Skip</string>
 </resources>
