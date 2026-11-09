@@ -175,11 +175,13 @@ class AccessibilityDevice(
      */
     private suspend fun pointStillMatches(x: Int, y: Int): Boolean {
         val current = observation ?: return false
+        // An unknown foreground app ("" package, no readable root) escaped the block-list check: never tap in it.
+        if (current.screen.packageName.isEmpty()) return false
         // A point outside every observed node is outside the window the model saw (another split-screen half,
         // a system bar). Revalidator would pass it when the live point is unlabelled too; refuse it here.
         if (current.screen.deepestAt(x, y) == null) return false
         val fresh = reader.read(current.screen.observation).screen
-        if (fresh.packageName != current.screen.packageName) return false
+        if (fresh.packageName.isEmpty() || fresh.packageName != current.screen.packageName) return false
         return revalidator.pointStillMatches(current.screen, x, y, fresh.deepestAt(x, y)?.label())
     }
 
@@ -222,7 +224,9 @@ class AccessibilityDevice(
         val current = observation ?: return SCREEN_CHANGED
         val target = node ?: largestScrollable(current.screen)
         if (target == null) {
-            // Nothing scrollable was seen: swipe across the middle of the screen, but only in the same app.
+            // Nothing scrollable was seen: swipe across the middle of the screen, but only in the same, known app.
+            // An unknown app ("" package) escaped the block-list check, so it is never acted in.
+            if (current.screen.packageName.isEmpty()) return SCREEN_CHANGED
             if (reader.current().packageName != current.screen.packageName) return SCREEN_CHANGED
             return swipeGesture(planner().swipe(direction, null))
         }
@@ -337,15 +341,19 @@ class AccessibilityDevice(
             object : AccessibilityService.TakeScreenshotCallback {
                 override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
                     val buffer = screenshot.hardwareBuffer
-                    val copy = try {
-                        val hardware = Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
-                        val software = hardware?.copy(Bitmap.Config.ARGB_8888, false)
-                        hardware?.recycle()
-                        software
+                    var hardware: Bitmap? = null
+                    // A throw here would reach the uncaught handler and leave the caller suspended forever,
+                    // so any failure to wrap or copy the buffer is treated like a refused screenshot.
+                    val result: Capture = try {
+                        hardware = Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
+                        Capture.Taken(hardware?.copy(Bitmap.Config.ARGB_8888, false))
+                    } catch (e: RuntimeException) {
+                        Capture.Refused
                     } finally {
+                        hardware?.recycle()
                         buffer.close()
                     }
-                    if (cont.isActive) cont.resume(Capture.Taken(copy)) else copy?.recycle()
+                    if (cont.isActive) cont.resume(result) else (result as? Capture.Taken)?.bitmap?.recycle()
                 }
 
                 override fun onFailure(errorCode: Int) {
