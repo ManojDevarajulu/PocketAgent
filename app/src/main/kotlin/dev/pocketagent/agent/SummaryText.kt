@@ -13,7 +13,7 @@ object SummaryText {
             EndReason.AUTH_ERROR -> "Key rejected"
             EndReason.LLM_ERROR -> "Model error"
             EndReason.BLOCKED_APP -> "Blocked app"
-            else -> "Phone unavailable" // DEVICE_UNAVAILABLE
+            EndReason.DEVICE_UNAVAILABLE -> "Phone unavailable"
         }
     }
 

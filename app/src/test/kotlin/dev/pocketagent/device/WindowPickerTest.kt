@@ -60,6 +60,14 @@ class WindowPickerTest {
     }
 
     @Test
+    fun anAppWindowIsChosenWhenOurOwnWindowIsActive() {
+        val choice = picker.pick(
+            listOf(win(1, own, active = true), win(2, "com.ime", WindowKind.INPUT_METHOD), win(3, "com.app"), win(4, "com.other")),
+        )
+        assertEquals(3, choice.windowId)
+    }
+
+    @Test
     fun notificationShadeIsChosenUnchanged() {
         val choice = picker.pick(
             listOf(win(1, "com.app"), win(2, "com.android.systemui", WindowKind.SYSTEM, active = true)),
@@ -71,5 +79,6 @@ class WindowPickerTest {
     fun noQualifyingWindowGivesNull() {
         assertNull(picker.pick(emptyList()).windowId)
         assertNull(picker.pick(listOf(win(1, "com.ime", WindowKind.INPUT_METHOD, active = true))).windowId)
+        assertNull(picker.pick(listOf(win(1, "com.sys", WindowKind.SYSTEM), win(2, "com.dlg", WindowKind.OTHER))).windowId)
     }
 }

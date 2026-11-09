@@ -33,6 +33,7 @@ class SummaryTextTest {
         assertEquals("Key rejected", title(EndReason.AUTH_ERROR))
         assertEquals("Model error", title(EndReason.LLM_ERROR))
         assertEquals("Blocked app", title(EndReason.BLOCKED_APP))
+        assertEquals("Phone unavailable", title(EndReason.DEVICE_UNAVAILABLE))
     }
 
     @Test

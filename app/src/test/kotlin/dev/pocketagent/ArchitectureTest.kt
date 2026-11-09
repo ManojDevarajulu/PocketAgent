@@ -12,8 +12,11 @@ class ArchitectureTest {
     private val corePackages = listOf("agent", "llm", "safety", "playbook", "device")
     private val mainRoot = File("src/main/kotlin/dev/pocketagent")
 
+    /** Every shipped source set (main, debug, release); test and androidTest sets are left out. */
+    private val shippedRoots = listOf("src/main", "src/debug", "src/release").map { File(it) }
+
     private fun mainSources(): List<File> =
-        File("src/main/kotlin").walk().filter { it.extension == "kt" }.toList()
+        shippedRoots.flatMap { root -> root.walk().filter { it.extension == "kt" }.toList() }
 
     private fun codeLines(f: File): List<String> =
         f.readLines().map { it.trim() }.filterNot { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") }
@@ -217,11 +220,11 @@ class ArchitectureTest {
         assertEquals("false", screen.getAttribute("android:exported"))
     }
 
-    /** Test sources are excluded because they hold fake keys. Matches `sk-...` and Anthropic's `sk-ant-...`. */
+    /** Shipped sources are main, debug and release. Test sources are excluded because they hold fake keys. Matches `sk-...` and Anthropic's `sk-ant-...`. */
     @Test
-    fun noHardcodedKeysInMainSources() {
+    fun noHardcodedKeysInShippedSources() {
         val key = Regex("""sk-[A-Za-z0-9_-]{20,}""")
-        val offenders = File("src/main").walk().filter { it.isFile }.filter { key.containsMatchIn(it.readText()) }.toList()
+        val offenders = shippedRoots.flatMap { it.walk().filter { f -> f.isFile }.toList() }.filter { key.containsMatchIn(it.readText()) }.toList()
         assertEquals(emptyList(), offenders.map { it.path })
     }
 }

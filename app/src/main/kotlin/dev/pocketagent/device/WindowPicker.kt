@@ -18,6 +18,7 @@ class WindowPicker(private val ownPackage: String) {
     fun pick(windows: List<WindowSummary>): WindowChoice {
         val (own, others) = windows.partition { it.packageName == ownPackage }
         val active = others.firstOrNull { it.active && it.kind != WindowKind.INPUT_METHOD }
+        // Main path: right after Go (and at a bubble tap) our own window is still active, so fall back to the first app window.
         val chosen = active ?: others.firstOrNull { it.kind == WindowKind.APPLICATION }
         return WindowChoice(chosen?.id, own.map { it.bounds })
     }
