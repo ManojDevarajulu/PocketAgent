@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug builds only: a gallery of every screen, so the design can be reviewed without any setup. -->
+        <activity
+            android:name=".ui.PreviewActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.PocketAgent" />
+    </application>
+</manifest>

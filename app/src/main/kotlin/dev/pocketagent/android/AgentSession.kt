@@ -7,7 +7,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.widget.Toast
-import dev.pocketagent.BuildConfig
 import dev.pocketagent.R
 import dev.pocketagent.agent.AgentLoop
 import dev.pocketagent.agent.AgentRunner
@@ -17,6 +16,7 @@ import dev.pocketagent.agent.BubbleCommand
 import dev.pocketagent.agent.BubbleLogic
 import dev.pocketagent.agent.ConfirmRequest
 import dev.pocketagent.agent.SummaryText
+import dev.pocketagent.device.DeviceAction
 import dev.pocketagent.device.DeviceUnavailable
 import dev.pocketagent.device.Screen
 import dev.pocketagent.device.ScreenSerializer
@@ -28,10 +28,14 @@ import dev.pocketagent.llm.Providers
 import dev.pocketagent.playbook.PlaybookStore
 import dev.pocketagent.safety.BlockedApps
 import dev.pocketagent.safety.SafetyGate
+import dev.pocketagent.setup.ConfigRepository
+import dev.pocketagent.setup.HistoryStore
+import dev.pocketagent.setup.SetupSettings
 import dev.pocketagent.ui.BubbleOverlay
 import dev.pocketagent.ui.CaptionView
 import dev.pocketagent.ui.ConfirmCard
 import dev.pocketagent.ui.OverlayUi
+import dev.pocketagent.ui.SetupActivity
 import dev.pocketagent.ui.SummaryCard
 import dev.pocketagent.ui.TaskInputActivity
 import dev.pocketagent.ui.TaskScreenHost
@@ -51,7 +55,12 @@ import java.io.IOException
  * Every method is called on the main thread, and every field below is read and written there, except [closed],
  * which the device also reads from its own threads.
  */
-class AgentSession(private val service: PocketAccessibilityService) : TaskScreenHost {
+class AgentSession(
+    private val service: PocketAccessibilityService,
+    private val repository: ConfigRepository,
+    private val settings: SetupSettings,
+    private val history: HistoryStore,
+) : TaskScreenHost {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val main = Handler(Looper.getMainLooper())
     private val ownPackage: String = service.packageName
@@ -72,6 +81,7 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
     private val lockPoll = object : Runnable {
         override fun run() {
             if (closed) return
+            syncBubble()
             val locked = keyguard?.isKeyguardLocked == true
             if (locked != hiddenForLock) {
                 hiddenForLock = locked
@@ -87,14 +97,20 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
     private val serializer = ScreenSerializer(ownPackage, maxChars = MAX_SCREEN_CHARS)
     private val playbooks = loadPlaybooks()
 
-    /** Null when there is no valid provider config: a bubble tap then starts no task (spec §7). */
-    private val client: LlmClient? = DevConfig.load()?.let { config ->
-        try {
+    /** Loaded at each task start; null when there is no valid stored config, so a bubble tap opens setup instead. */
+    private fun currentClient(): LlmClient? {
+        val config = repository.load() ?: return null
+        return try {
             Providers.create(config, HttpCaller(OkHttpTransport()))
         } catch (e: IllegalArgumentException) {
             null
         }
     }
+
+    /** True for the task started from the setup screen, so a success can mark the test task done. */
+    private var setupTaskRunning = false
+    private var taskText = ""
+    private var taskStartedAt = 0L
 
     /**
      * The loop only reaches the overlays through this wrapper. Caption and waiting changes are applied on the main
@@ -111,9 +127,12 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
         }
     }
 
+    /** Set just before the runner starts a task; the loop factory reads it once. */
+    private var pendingClient: LlmClient? = null
+
     private val runner = AgentRunner(
         scope,
-        { ui -> AgentLoop(checkNotNull(client), device, gate, playbooks, serializer, ui) },
+        { ui -> AgentLoop(checkNotNull(pendingClient), device, gate, playbooks, serializer, ui) },
         guardedUi,
     )
 
@@ -127,8 +146,12 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
         scope.launch(Dispatchers.Main) { runner.state.collect(::onState) }
     }
 
-    fun showBubble() {
-        if (!closed) bubble.show()
+    fun showBubble() = syncBubble()
+
+    /** The bubble follows the setup switch; it is only removed while no task is live, so a running task can always be stopped. */
+    private fun syncBubble() {
+        if (closed) return
+        if (settings.bubbleOn) bubble.show() else if (!taskIsLive()) bubble.hide()
     }
 
     fun onEvent() = settler.onEvent()
@@ -137,8 +160,8 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
     fun startBubbleTap() {
         if (closed || tapJob?.isActive == true) return
         summaryCard.close()
-        if (client == null) {
-            summaryCard.show(service.getString(R.string.no_model_title), noModelBody())
+        if (currentClient() == null) {
+            openSetup()
             return
         }
         logic.taskScreenOpen = true
@@ -169,11 +192,45 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
         val screen = savedScreen
         savedScreen = null
         val task = text.trim()
+        val client = currentClient()
         if (closed || screen == null || client == null || task.isEmpty() || task.length > TaskInputActivity.MAX_TEXT) {
             dropHandlesIfNoTask()
             return
         }
-        runner.start(task, screen)
+        begin(task, screen, client, fromSetup = false)
+    }
+
+    private fun begin(task: String, screen: Screen, client: LlmClient, fromSetup: Boolean) {
+        pendingClient = client
+        setupTaskRunning = fromSetup
+        if (runner.start(task, screen)) {
+            taskText = task
+            taskStartedAt = System.currentTimeMillis()
+        } else {
+            setupTaskRunning = false
+        }
+    }
+
+    /** The test task of the setup screen: go Home, read the settled screen, run the task there. */
+    override fun startSetupTask(text: String) {
+        val task = text.trim()
+        if (closed || task.isEmpty() || task.length > TaskInputActivity.MAX_TEXT || taskIsLive()) return
+        val client = currentClient() ?: return
+        scope.launch {
+            val screen = try {
+                device.perform(DeviceAction.Home)
+                device.readScreen()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: DeviceUnavailable) {
+                withContext(Dispatchers.Main) { tapFailed(e.reason) }
+                return@launch
+            } catch (e: RuntimeException) {
+                withContext(Dispatchers.Main) { tapFailed(null) }
+                return@launch
+            }
+            withContext(Dispatchers.Main) { if (!closed) begin(task, screen, client, fromSetup = true) }
+        }
     }
 
     override fun dropSavedScreen() {
@@ -223,10 +280,26 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
         val live = state is AgentState.Running || state is AgentState.WaitingForUser
         service.subscribeToTaskEvents(live)
         when (state) {
-            is AgentState.Finished -> endTask(SummaryText.title(state), SummaryText.body(state.outcome))
-            AgentState.Stopped -> endTask(SummaryText.stoppedTitle(), "")
+            is AgentState.Finished -> {
+                if (setupTaskRunning && state.outcome.success) repository.testTaskDone = true
+                record(state.outcome.success, state.outcome.summary, state.outcome.usage.inputTokens + state.outcome.usage.outputTokens)
+                setupTaskRunning = false
+                endTask(SummaryText.title(state), SummaryText.body(state.outcome))
+            }
+            AgentState.Stopped -> {
+                setupTaskRunning = false
+                record(false, "Stopped by you", 0)
+                endTask(SummaryText.stoppedTitle(), "")
+            }
             else -> Unit
         }
+    }
+
+    /** Saves the finished task to Activity (only the task text and how it went), once per task. */
+    private fun record(ok: Boolean, summary: String, tokens: Long) {
+        if (taskText.isEmpty()) return
+        history.add(taskText, ok, summary, taskStartedAt, tokens)
+        taskText = ""
     }
 
     /** Runs once per ending; skipped when a newer task already started before this state was collected. */
@@ -315,8 +388,15 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
         if (!taskIsLive()) device.dropHandles()
     }
 
-    private fun noModelBody(): String =
-        service.getString(if (BuildConfig.DEBUG) R.string.no_model_debug else R.string.no_model_release)
+    private fun openSetup() {
+        try {
+            service.startActivity(Intent(service, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: ActivityNotFoundException) {
+            // Nothing else to show.
+        } catch (e: SecurityException) {
+            // Nothing else to show.
+        }
+    }
 
     /** The bundled playbooks. Their validity is enforced by the unit tests; a bad file here means none are used. */
     private fun loadPlaybooks(): PlaybookStore {

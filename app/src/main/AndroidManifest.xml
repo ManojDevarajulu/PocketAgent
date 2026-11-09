@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- The only two permissions: talk to the AI provider you choose, and listen when you tap the mic. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- Makes launcher apps, and only those, visible to open_app. -->
     <queries>
         <intent>
@@ -11,25 +15,34 @@
 
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="Pocket Agent">
 
         <activity
-            android:name=".ui.LauncherActivity"
+            android:name=".ui.MainActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            android:theme="@style/Theme.PocketAgent.App">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- The older provider, key and accessibility steps, opened from the app until they are redrawn. -->
+        <activity
+            android:name=".ui.SetupActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.PocketAgent.App" />
+
         <activity
             android:name=".ui.TaskInputActivity"
             android:exported="false"
             android:excludeFromRecents="true"
             android:taskAffinity=""
-            android:theme="@style/Theme.PocketAgent.Dialog" />
+            android:theme="@style/Theme.PocketAgent.Sheet" />
 
         <service
             android:name=".android.PocketAccessibilityService"

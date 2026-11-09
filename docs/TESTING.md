@@ -75,25 +75,7 @@ If the Gradle daemon is running it keeps the environment it started with, so use
 Run by hand on the test phone (Nothing phone, Android 16) from a debug build. Tick each box only after you
 have seen the expected result.
 
-### Provider config for the debug build
-
-The debug build reads its provider from `local.properties` in the repository root. Add these five keys, then
-rebuild:
-
-```properties
-pocketagent.kind=ANTHROPIC
-pocketagent.baseUrl=https://api.anthropic.com
-pocketagent.apiKey=<your key>
-pocketagent.model=<model id>
-pocketagent.supportsImages=true
-```
-
-- `pocketagent.kind` is `ANTHROPIC` or `OPENAI_COMPAT` (for OpenRouter use `OPENAI_COMPAT` and
-  `https://openrouter.ai/api/v1`).
-- `pocketagent.supportsImages` is `true` or `false`.
-- If any value is blank or the kind is unknown, the debug build has no provider config.
-- `local.properties` is git-ignored. Never commit it or share it.
-- A debug APK embeds the key in plaintext. Never distribute a debug APK.
+The provider is set up on the phone, in the app's own setup screen (see the S4 checklist below). There is no build-time provider config.
 
 ### Checklist
 
@@ -146,3 +128,31 @@ Found on the phone and fixed:
 
 Known and not changed: a pending confirmation card can still appear on the lock screen if the phone locks while the
 agent is asking.
+
+## Device checklist (S4)
+
+Run by hand on the test phone (Nothing A059, Android 16) from a debug build. Android-only failures (Keystore,
+speech recognition, permissions) are caught only by this list; the JVM suite cannot see them. Tick each box
+with the date only after you have seen the expected result.
+
+- [ ] **1. Exit gate.** Uninstall any earlier build, install fresh, with no `local.properties` keys. Using only the
+  setup screen: accept the notice, choose a provider and paste the key, enter a model and pass the test, allow
+  restricted settings and enable accessibility, grant or skip the microphone, switch the bubble on, run the test
+  task. Expected: the test task finishes and the checklist shows "You're ready".
+- [ ] **2. Key storage.** Kill the app and reopen it. Expected: the key is still saved ("Key saved", no characters
+  shown). Clear the app's data. Expected: setup asks for the provider and key again.
+- [ ] **3. Restricted settings.** On a fresh install the accessibility switch may be greyed out. Expected: the
+  phone guidance text and the app info button lead to Allow restricted settings, and the switch then works.
+- [ ] **4. Check messages.** Test with a wrong key, a model without tool calls, an unreachable server and a rate
+  limit. Expected: each shows a clear message; the rate limit shows the provider's own message.
+- [ ] **5. Microphone.** Granted, denied and with no connection. Expected: granted fills the box with the spoken
+  words and nothing starts until Go; denied shows the "turn it on in setup" hint; offline shows a connection
+  message or on-device recognition works.
+- [ ] **6. Secure screen.** Take a screenshot of the setup screen while the key field is shown. Expected: it is
+  blocked or blank.
+- [ ] **7. Accessibility toggle.** Switch accessibility off and return to the app. Expected: the checklist shows
+  Accessibility as the current step again; switching it back on marks it done.
+- [ ] **8. Custom URL.** Enter a custom address. Expected: the warning names the real host, and changing the host
+  asks again.
+- [ ] **9. Palette.** Open every screen and card. Expected: text is readable, and the Allow and Decline buttons
+  look identical.

@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PocketAgent.Dialog" parent="@android:style/Theme.Material.Light.Dialog">
+    <style name="Theme.PocketAgent" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/brand_background</item>
+        <item name="android:textColor">@color/brand_text</item>
+        <item name="android:textColorPrimary">@color/brand_text</item>
+        <item name="android:textColorSecondary">@color/brand_muted</item>
+        <item name="android:colorBackground">@color/brand_background</item>
+        <item name="android:statusBarColor">@color/brand_background</item>
+        <item name="android:navigationBarColor">@color/brand_background</item>
+    </style>
+    <style name="Theme.PocketAgent.Dialog" parent="@android:style/Theme.Material.Dialog">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowCloseOnTouchOutside">true</item>
+        <item name="android:textColor">@color/brand_text</item>
+        <item name="android:textColorPrimary">@color/brand_text</item>
+        <item name="android:textColorSecondary">@color/brand_muted</item>
     </style>
 </resources>

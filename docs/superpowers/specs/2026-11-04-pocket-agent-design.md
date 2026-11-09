@@ -288,6 +288,8 @@ Screen content is untrusted. A message or web page can contain instructions aime
 
 ## 8. Setup
 
+Details are in S4 §5.1 (`specs/2026-11-09-s4-setup.md`).
+
 `SetupActivity` is a single checklist that detects each step's state and updates when the user returns:
 
 1. Read the privacy notice.
@@ -311,7 +313,7 @@ The README also documents the install steps for Android's developer verification
 | Bubble and cards | Android `View`s in `TYPE_ACCESSIBILITY_OVERLAY` windows |
 | Quick Settings | Deferred to v0.2 (In-app toggle in setup for v0.1) |
 | Voice | Android `SpeechRecognizer`, in the task screen |
-| Key storage | Android Keystore with an encrypted local value |
+| Key storage | Android Keystore with an encrypted local value (S4 §3.3) |
 | Tests | JUnit, fake `DevicePort`, fake `LlmClient`, recorded UI trees |
 
 ## 10. Demo tasks

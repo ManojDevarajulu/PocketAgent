@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pa_bg">#FF000000</color>
+    <color name="pa_card">#FF1C1C1E</color>
+    <color name="pa_line">#FF38383A</color>
+    <color name="pa_ink">#FFFFFFFF</color>
+    <color name="pa_muted">#FF98989F</color>
+    <color name="pa_blue">#FF8FB0FF</color>
+    <color name="pa_on_blue">#FF000000</color>
+    <color name="pa_accent">#FFFF8544</color>
+    <color name="pa_on_accent">#FF111A33</color>
+    <color name="pa_good">#FF30D158</color>
+    <color name="pa_bad">#FFFF453A</color>
+    <color name="pa_toggle">#FF30D158</color>
+    <color name="pa_icon">#FF8FB0FF</color>
+    <color name="pa_tile">#FF1F3A78</color>
+    <color name="pa_on_tile">#FFFFFFFF</color>
+    <color name="pa_tile_icon">#FFFFFFFF</color>
+    <color name="pa_hero">#FF1F3A78</color>
+    <color name="pa_on_hero">#FFFFFFFF</color>
+    <color name="pa_hero_muted">#B3FFFFFF</color>
+    <color name="pa_hero_fill">#2EFFFFFF</color>
+    <color name="pa_t_blue">#FF3D7BFF</color>
+    <color name="pa_t_green">#FF30D158</color>
+    <color name="pa_t_orange">#FFFF9F0A</color>
+    <color name="pa_t_indigo">#FF6E6CF0</color>
+    <color name="pa_t_red">#FFFF453A</color>
+    <color name="pa_t_gray">#FF636366</color>
+    <color name="pa_glass">#FF1C1C1E</color>
+    <color name="pa_glass_field">#3D767680</color>
+    <color name="pa_rim">#00FFFFFF</color>
+    <color name="pa_scrim">#99000000</color>
+    <color name="pa_fill">#3D767680</color>
+    <color name="pa_bar">#FF121214</color>
+    <color name="pa_blue_soft">#268FB0FF</color>
+</resources>
