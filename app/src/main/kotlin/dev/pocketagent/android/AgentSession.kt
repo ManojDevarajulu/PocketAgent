@@ -1,5 +1,6 @@
 package dev.pocketagent.android
 
+import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Handler
@@ -65,6 +66,20 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
     private val confirmCard = ConfirmCard(service)
     private val summaryCard = SummaryCard(service)
     private val overlayUi = OverlayUi(confirmCard, caption, ::openAnswerScreen)
+    private val keyguard = service.getSystemService(KeyguardManager::class.java)
+    private var hiddenForRead = false
+    private var hiddenForLock = false
+    private val lockPoll = object : Runnable {
+        override fun run() {
+            if (closed) return
+            val locked = keyguard?.isKeyguardLocked == true
+            if (locked != hiddenForLock) {
+                hiddenForLock = locked
+                applyOverlayVisibility()
+            }
+            main.postDelayed(this, LOCK_POLL_MS)
+        }
+    }
     private val device = AccessibilityDevice(service, settler, ::setOverlaysHidden) { closed }
 
     private val blocked = BlockedApps()
@@ -108,6 +123,7 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
 
     init {
         TaskScreenHost.current = this
+        main.post(lockPoll)
         scope.launch(Dispatchers.Main) { runner.state.collect(::onState) }
     }
 
@@ -176,6 +192,7 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
         // Read before setting closed: taskIsLive() is false once the session is closed.
         val taskWasLive = taskIsLive()
         closed = true
+        main.removeCallbacks(lockPoll)
         runner.cancel()
         scope.cancel()
         overlayUi.closeAll()
@@ -242,9 +259,16 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
     private suspend fun setOverlaysHidden(hidden: Boolean) {
         withContext(Dispatchers.Main) {
             if (closed) return@withContext
-            bubble.setVisible(!hidden)
-            caption.setVisible(!hidden)
+            hiddenForRead = hidden
+            applyOverlayVisibility()
         }
+    }
+
+    /** Bubble and caption show only when neither a screen read or gesture nor the lock screen hides them. */
+    private fun applyOverlayVisibility() {
+        val visible = !hiddenForRead && !hiddenForLock
+        bubble.setVisible(visible)
+        caption.setVisible(visible)
     }
 
     private fun tapFailed(reason: String?) {
@@ -312,6 +336,7 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
 
     private companion object {
         const val MAX_SCREEN_CHARS = 12_000
+        const val LOCK_POLL_MS = 500L
         const val PLAYBOOK_DIR = "playbooks"
     }
 }
