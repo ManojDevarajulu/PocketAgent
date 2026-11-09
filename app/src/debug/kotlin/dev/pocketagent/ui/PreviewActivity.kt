@@ -41,14 +41,23 @@ class PreviewActivity : Activity() {
         host.setOnApplyWindowInsetsListener { _, insets ->
             val bars = insets.getInsets(WindowInsets.Type.systemBars())
             (content.layoutParams as FrameLayout.LayoutParams).apply { topMargin = bars.top; bottomMargin = bars.bottom }
-            (menu.layoutParams as FrameLayout.LayoutParams).topMargin = bars.top + Kit.dp(this, 2)
             content.requestLayout()
             insets
         }
         setContentView(host)
         shell = Shell(this, content) { name, nav -> build(name, nav) }
         applyBars()
-        shell.reset(intent.getStringExtra("screen") ?: "home")
+        open(intent.getStringExtra("screen") ?: "home")
+    }
+
+    /** Sheets and setup are their own windows; everything else is a screen in the shell. */
+    private fun open(name: String) {
+        when (name) {
+            "sheet" -> startActivity(Intent(this, TaskInputActivity::class.java))
+            "answer" -> startActivity(Intent(this, TaskInputActivity::class.java).putExtra(TaskInputActivity.EXTRA_QUESTION, "Which Priya should I message: Sharma or Nair?"))
+            "setup" -> startActivity(Intent(this, SetupActivity::class.java))
+            else -> shell.reset(name)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -56,7 +65,7 @@ class PreviewActivity : Activity() {
         setIntent(intent)
         if (intent.hasExtra("dark")) dark = intent.getBooleanExtra("dark", dark)
         applyBars()
-        shell.reset(intent.getStringExtra("screen") ?: "home")
+        open(intent.getStringExtra("screen") ?: "home")
     }
 
     @Deprecated("Preview only")
@@ -98,16 +107,23 @@ class PreviewActivity : Activity() {
         val b = Kit.text(c, "...", 20f, 700, R.color.pa_ink).apply {
             gravity = Gravity.CENTER
             background = Kit.rounded(Kit.color(c, R.color.pa_fill), Kit.dpf(c, 18))
-            layoutParams = FrameLayout.LayoutParams(Kit.dp(c, 36), Kit.dp(c, 36), Gravity.TOP or Gravity.END)
-                .apply { marginEnd = Kit.dp(c, 12) }
+            layoutParams = FrameLayout.LayoutParams(Kit.dp(c, 36), Kit.dp(c, 36), Gravity.BOTTOM or Gravity.START)
+                .apply { marginStart = Kit.dp(c, 12); bottomMargin = Kit.dp(c, 96) }
         }
         b.setOnClickListener {
             PopupMenu(this, b).apply {
                 listOf("welcome", "notice", "home", "fix", "activity", "empty", "detail", "settings").forEach { menu.add(it) }
+                menu.add("task sheet"); menu.add("answer sheet"); menu.add("setup")
                 menu.add(if (dark) "Light mode" else "Dark mode")
                 setOnMenuItemClickListener {
                     val t = it.title.toString()
-                    if (t.endsWith("mode")) {
+                    if (t == "task sheet") {
+                        startActivity(Intent(this@PreviewActivity, TaskInputActivity::class.java))
+                    } else if (t == "answer sheet") {
+                        startActivity(Intent(this@PreviewActivity, TaskInputActivity::class.java).putExtra(TaskInputActivity.EXTRA_QUESTION, "Which Priya should I message: Sharma or Nair?"))
+                    } else if (t == "setup") {
+                        startActivity(Intent(this@PreviewActivity, SetupActivity::class.java))
+                    } else if (t.endsWith("mode")) {
                         dark = !dark
                         applyBars()
                         shell.reset(shell.current ?: "home")

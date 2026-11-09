@@ -13,13 +13,12 @@ import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.ScrollView
-import android.widget.Switch
-import android.widget.TextView
 import dev.pocketagent.R
 import dev.pocketagent.android.PocketAccessibilityService
 import dev.pocketagent.android.SetupStores
@@ -41,6 +40,10 @@ import dev.pocketagent.setup.SetupFacts
 import dev.pocketagent.setup.SetupModel
 import dev.pocketagent.setup.SetupStep
 import dev.pocketagent.setup.StepStatus
+import dev.pocketagent.ui.kit.Kit
+import dev.pocketagent.ui.kit.Kit.color
+import dev.pocketagent.ui.kit.Kit.dp
+import dev.pocketagent.ui.kit.Kit.dpf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,9 +53,9 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 /**
- * The launcher screen: a checklist that takes a fresh install to a finished first task (S4 spec §5).
- * It gathers plain facts, hands them to [SetupModel], and draws one card per step. The whole screen is secure
- * so the key field cannot be captured by a screenshot or screen recording.
+ * The setup checklist (S4 spec §5): provider and key, model test, accessibility, microphone, bubble and a first task.
+ * It gathers plain facts, hands them to [SetupModel], and draws one section per step with the same kit as the rest of
+ * the app. The whole screen is secure so the key field cannot be captured by a screenshot or screen recording.
  */
 class SetupActivity : Activity() {
     private val repository by lazy { SetupStores.repository(this) }
@@ -75,19 +78,26 @@ class SetupActivity : Activity() {
     private var checkMessage: String? = null
     private var checking = false
     private var providerError: String? = null
+    private var pendingHost: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        val pad = Overlays.dp(this, 20)
-        column = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
+        // Release builds block screenshots of this screen (the key field). Debug builds allow them so the design can be checked.
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         }
-        setContentView(ScrollView(this).apply {
-            isFillViewport = true
-            setBackgroundColor(getColor(R.color.brand_background))
-            addView(column)
+        window.setDecorFitsSystemWindows(false)
+        column = Kit.vstack(this)
+        val scroll = Kit.scroll(this, column)
+        scroll.setOnApplyWindowInsetsListener { v, insets ->
+            val bars = insets.getInsets(WindowInsets.Type.systemBars())
+            val ime = insets.getInsets(WindowInsets.Type.ime())
+            v.setPadding(0, bars.top, 0, maxOf(bars.bottom, ime.bottom))
+            insets
+        }
+        setContentView(FrameLayout(this).apply {
+            setBackgroundColor(color(this@SetupActivity, R.color.pa_bg))
+            addView(scroll, FrameLayout.LayoutParams(-1, -1))
         })
     }
 
@@ -137,81 +147,120 @@ class SetupActivity : Activity() {
 
     private fun render() {
         val config = repository.load()
-        val f = facts(config)
-        val eval = SetupModel.evaluate(f)
+        val eval = SetupModel.evaluate(facts(config))
         column.removeAllViews()
+        val c = this
 
+        // header: back, title, progress
+        val back = Kit.hstack(c, 2).apply { setPadding(dp(c, 14), dp(c, 14), dp(c, 14), dp(c, 6)) }
+        back.addView(Kit.icon(c, R.drawable.ic_back, 22, R.color.pa_blue))
+        back.addView(Kit.text(c, "Back", 17f, 400, R.color.pa_blue))
+        Kit.pressable(back, 1f) { finish() }
+        column.addView(back, Kit.lp(FrameLayout.LayoutParams.WRAP_CONTENT))
         val required = eval.steps.filter { it.step != SetupStep.MICROPHONE }
-        val doneCount = required.count { it.status == StepStatus.DONE }
-        column.addView(TextView(this).apply {
-            setText(if (eval.isReady) R.string.setup_ready_title else R.string.setup_title)
-            textSize = 30f
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-            setTextColor(getColor(R.color.brand_text))
-            setPadding(0, Overlays.dp(this@SetupActivity, 12), 0, 0)
-        })
-        column.addView(SetupViews.body(
-            this,
-            if (eval.isReady) getString(R.string.setup_ready_body) else getString(R.string.setup_progress, doneCount, required.size),
-            muted = true,
-        ))
-        column.addView(SetupViews.progress(this, doneCount, required.size))
-        column.addView(SetupViews.gap(this, 28))
+        val done = required.count { it.status == StepStatus.DONE }
+        val head = Kit.vstack(c).apply { setPadding(dp(c, 22), dp(c, 4), dp(c, 22), dp(c, 18)) }
+        head.addView(Kit.largeTitle(c, if (eval.isReady) "You're all set" else "Set up"))
+        head.addView(
+            Kit.text(
+                c,
+                if (eval.isReady) "Everything is ready. Tap Edit on any step to change it." else "$done of ${required.size} steps done",
+                15f, 400, R.color.pa_muted,
+            ).apply { setPadding(0, dp(c, 6), 0, 0) },
+        )
+        column.addView(head, Kit.lp())
 
-        for ((index, state) in eval.steps.withIndex()) {
-            val card = StepCard(this, state.step, titleFor(state.step), index + 1, isLast = index == eval.steps.lastIndex)
-            card.setStatus(state.status)
+        val list = Kit.vstack(c).apply {
+            background = Kit.rounded(color(c, R.color.pa_card), dpf(c, 20))
+            elevation = dpf(c, 1)
+        }
+        val visible = eval.steps.filter { !(it.step == SetupStep.NOTICE && it.status == StepStatus.DONE) }
+        visible.forEachIndexed { i, state ->
             val expanded = !eval.isReady && state.status == StepStatus.CURRENT ||
                 expandedOverride == state.step ||
                 (state.step == SetupStep.MICROPHONE && state.status != StepStatus.DONE && !settings.microphoneAsked &&
                     eval.of(SetupStep.ACCESSIBILITY).status == StepStatus.DONE && !eval.isReady)
-            card.setExpanded(expanded)
-            card.setEditable(!expanded && state.status == StepStatus.DONE && state.step != SetupStep.NOTICE)
-            card.onEdit = {
-                expandedOverride = state.step
-                if (state.step == SetupStep.PROVIDER) replacingKey = false
-                render()
-            }
-            card.setSummary(
-                when {
-                    state.status == StepStatus.DONE -> summaryFor(state.step, config)
-                    state.step == SetupStep.MICROPHONE && settings.microphoneAsked && f.microphone != MicState.GRANTED ->
-                        getString(R.string.setup_mic_skipped)
-                    state.needsFirst != null && !expanded -> getString(R.string.setup_finish_first, titleFor(state.needsFirst!!))
-                    else -> null
-                },
+            if (i > 0) list.addView(View(c).apply { setBackgroundColor(color(c, R.color.pa_line)) }, Kit.lp(h = 1).apply { marginStart = dp(c, 58) })
+
+            val header = Kit.hstack(c, 14).apply { minimumHeight = dp(c, 64); setPadding(dp(c, 16), 0, dp(c, 16), 0) }
+            header.addView(mark(state.status))
+            val titles = Kit.vstack(c)
+            titles.addView(
+                Kit.text(
+                    c, titleFor(state.step), 17f, if (state.status == StepStatus.TODO) 400 else 500,
+                    if (state.status == StepStatus.TODO) R.color.pa_muted else R.color.pa_ink,
+                ),
             )
-            if (expanded) fillBody(card, state.step, config, state.needsFirst)
-            column.addView(card, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ))
+            val summary = when {
+                state.status == StepStatus.DONE -> summaryFor(state.step, config)
+                state.step == SetupStep.MICROPHONE && settings.microphoneAsked -> "Skipped, voice input is off"
+                state.needsFirst != null && !expanded -> "Finish \"${titleFor(state.needsFirst!!)}\" first"
+                else -> null
+            }
+            if (summary != null) titles.addView(Kit.text(c, summary, 13f, 400, R.color.pa_muted).apply { setPadding(0, dp(c, 2), 0, 0) })
+            header.addView(titles, Kit.weight())
+            if (!expanded && state.status == StepStatus.DONE && state.step != SetupStep.NOTICE) {
+                header.addView(Kit.text(c, "Edit", 16f, 500, R.color.pa_blue).apply { setPadding(dp(c, 10), dp(c, 12), 0, dp(c, 12)) })
+                Kit.pressable(header, 1f) {
+                    expandedOverride = state.step
+                    if (state.step == SetupStep.PROVIDER) replacingKey = false
+                    render()
+                }
+            }
+            list.addView(header, Kit.lp())
+
+            if (expanded) {
+                val body = Kit.vstack(c).apply { setPadding(dp(c, 16), 0, dp(c, 16), dp(c, 18)) }
+                fillBody(body, state.step, config, state.needsFirst)
+                list.addView(body, Kit.lp())
+            }
+        }
+        column.addView(list, Kit.lp().apply { marginStart = dp(c, 16); marginEnd = dp(c, 16); bottomMargin = dp(c, 24) })
+        Kit.reveal(listOf(head, list), 70)
+    }
+
+    private fun mark(status: StepStatus): View {
+        val c = this
+        val size = dp(c, 28)
+        return FrameLayout(c).apply {
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            background = when (status) {
+                StepStatus.DONE -> Kit.rounded(color(c, R.color.pa_blue), dpf(c, 14))
+                StepStatus.CURRENT -> Kit.rounded(color(c, R.color.pa_card), dpf(c, 14), color(c, R.color.pa_blue), dp(c, 2))
+                StepStatus.TODO -> Kit.rounded(color(c, R.color.pa_card), dpf(c, 14), color(c, R.color.pa_line), dp(c, 2))
+            }
+            if (status == StepStatus.DONE) {
+                addView(Kit.icon(c, R.drawable.ic_check, 16, R.color.pa_on_blue), FrameLayout.LayoutParams(dp(c, 16), dp(c, 16), Gravity.CENTER))
+            } else if (status == StepStatus.CURRENT) {
+                addView(
+                    View(c).apply { background = Kit.rounded(color(c, R.color.pa_accent), dpf(c, 5)) },
+                    FrameLayout.LayoutParams(dp(c, 10), dp(c, 10), Gravity.CENTER),
+                )
+            }
         }
     }
 
-    private fun titleFor(step: SetupStep): String = getString(
-        when (step) {
-            SetupStep.NOTICE -> R.string.setup_step_notice
-            SetupStep.PROVIDER -> R.string.setup_step_provider
-            SetupStep.MODEL_CHECK -> R.string.setup_step_model
-            SetupStep.ACCESSIBILITY -> R.string.setup_step_accessibility
-            SetupStep.MICROPHONE -> R.string.setup_step_microphone
-            SetupStep.BUBBLE -> R.string.setup_step_bubble
-            SetupStep.TEST_TASK -> R.string.setup_step_test
-        },
-    )
-
-    private fun summaryFor(step: SetupStep, config: ProviderConfig?): String? = when (step) {
-        SetupStep.NOTICE -> getString(R.string.setup_summary_notice)
-        SetupStep.PROVIDER -> config?.let { getString(R.string.setup_summary_provider, it.host) }
-        SetupStep.MODEL_CHECK -> config?.let { getString(R.string.setup_summary_model, it.model) }
-        SetupStep.ACCESSIBILITY -> getString(R.string.setup_summary_accessibility)
-        SetupStep.MICROPHONE -> getString(R.string.setup_summary_microphone)
-        SetupStep.BUBBLE -> getString(R.string.setup_summary_bubble)
-        SetupStep.TEST_TASK -> getString(R.string.setup_summary_test)
+    private fun titleFor(step: SetupStep): String = when (step) {
+        SetupStep.NOTICE -> "The small print"
+        SetupStep.PROVIDER -> "AI provider and key"
+        SetupStep.MODEL_CHECK -> "Model"
+        SetupStep.ACCESSIBILITY -> "Accessibility"
+        SetupStep.MICROPHONE -> "Microphone (optional)"
+        SetupStep.BUBBLE -> "Bubble"
+        SetupStep.TEST_TASK -> "First task"
     }
 
-    private fun fillBody(card: StepCard, step: SetupStep, config: ProviderConfig?, needsFirst: SetupStep?) {
-        val body = card.body
+    private fun summaryFor(step: SetupStep, config: ProviderConfig?): String? = when (step) {
+        SetupStep.NOTICE -> "Understood"
+        SetupStep.PROVIDER -> config?.let { "${it.host}, key saved" }
+        SetupStep.MODEL_CHECK -> config?.let { "${it.model} works with tools" }
+        SetupStep.ACCESSIBILITY -> "Pocket Agent is switched on"
+        SetupStep.MICROPHONE -> "Microphone allowed"
+        SetupStep.BUBBLE -> "The bubble is on"
+        SetupStep.TEST_TASK -> "The first task finished"
+    }
+
+    private fun fillBody(body: LinearLayout, step: SetupStep, config: ProviderConfig?, needsFirst: SetupStep?) {
         when (step) {
             SetupStep.NOTICE -> noticeBody(body)
             SetupStep.PROVIDER -> providerBody(body, config)
@@ -223,14 +272,28 @@ class SetupActivity : Activity() {
         }
     }
 
+    private fun para(body: LinearLayout, text: CharSequence, muted: Boolean = true, top: Int = 0) {
+        body.addView(
+            Kit.text(this, text, 15f, 400, if (muted) R.color.pa_muted else R.color.pa_ink).apply {
+                setLineSpacing(dpf(this@SetupActivity, 3), 1f)
+            },
+            Kit.lp().apply { topMargin = dp(this@SetupActivity, top) },
+        )
+    }
+
+    private fun fieldParams(top: Int = 12) = Kit.lp().apply { topMargin = dp(this@SetupActivity, top) }
+
     // --- Notice ---
 
     private fun noticeBody(body: LinearLayout) {
-        body.addView(SetupViews.body(this, getString(R.string.notice_body)))
-        body.addView(SetupViews.primaryButton(this, getString(R.string.notice_accept)) {
-            settings.noticeAccepted = true
-            render()
-        })
+        para(body, getString(R.string.notice_body))
+        body.addView(
+            Kit.primary(this, getString(R.string.notice_accept)) {
+                settings.noticeAccepted = true
+                render()
+            },
+            fieldParams(16),
+        )
     }
 
     // --- Provider ---
@@ -245,122 +308,134 @@ class SetupActivity : Activity() {
         presetId == CUSTOM || (presetId == null && config != null && selectedPreset(config) == null)
 
     private fun providerBody(body: LinearLayout, config: ProviderConfig?) {
+        val c = this
         val preset = selectedPreset(config)
         val custom = isCustom(config)
 
-        body.addView(SetupViews.body(this, getString(R.string.setup_provider_intro)))
+        para(body, "Pick the AI service you already use. Your key is stored encrypted on this phone and sent only to that service.")
+
         val chips = ProviderPresets.all.map { p ->
-            SetupViews.chip(this, p.label, !custom && preset?.id == p.id) {
-                captureDrafts(); presetId = p.id; imagesDraft = null; render()
+            Kit.chip(c, p.label, !custom && preset?.id == p.id).apply {
+                setOnClickListener { captureDrafts(); presetId = p.id; imagesDraft = null; render() }
             }
-        } + SetupViews.chip(this, getString(R.string.setup_provider_custom), custom) {
-            captureDrafts(); presetId = CUSTOM; render()
+        } + Kit.chip(c, "Other address", custom).apply {
+            setOnClickListener { captureDrafts(); presetId = CUSTOM; render() }
         }
-        body.addView(SetupViews.chipGrid(this, chips))
+        val grid = Kit.vstack(c, 8)
+        chips.chunked(2).forEach { pair ->
+            val row = Kit.hstack(c, 8)
+            pair.forEach { chip ->
+                chip.minimumHeight = dp(c, 44)
+                row.addView(chip, Kit.weight())
+            }
+            if (pair.size == 1) row.addView(View(c), Kit.weight())
+            grid.addView(row, Kit.lp())
+        }
+        body.addView(grid, fieldParams(14))
 
         var urlField: EditText? = null
         if (custom) {
-            urlField = EditText(this).apply {
+            urlField = Kit.field(c, "https://llm.example.com/v1").apply {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-                hint = getString(R.string.setup_custom_url_hint)
                 setText(config?.takeIf { presetId == null }?.baseUrl ?: customUrlDraft)
                 tag = TAG_URL
-                styleField(this)
             }
-            body.addView(SetupViews.body(this, getString(R.string.setup_custom_url_label), muted = true))
-            body.addView(urlField)
+            body.addView(urlField, fieldParams())
         }
 
         val needsKey = preset?.needsKey ?: true
-        val keyField = EditText(this).apply {
+        val keyField = Kit.field(c, if (needsKey) "API key" else "API key (not needed for a local server)").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-            hint = getString(if (needsKey) R.string.setup_key_hint else R.string.setup_key_hint_optional)
             setText(keyDraft)
             tag = TAG_KEY
-            styleField(this)
         }
         val keySaved = config != null && config.apiKey.isNotEmpty() && !replacingKey
         if (keySaved) {
-            body.addView(SetupViews.body(this, getString(R.string.setup_key_saved)))
-            body.addView(SetupViews.secondaryButton(this, getString(R.string.setup_key_replace)) {
-                captureDrafts(); replacingKey = true; keyDraft = ""; render()
-            })
-        } else {
-            body.addView(keyField)
-        }
-
-        val errorView = SetupViews.body(this, providerError.orEmpty()).apply {
-            setTextColor(getColor(R.color.bubble_error))
-            visibility = if (providerError.isNullOrEmpty()) View.GONE else View.VISIBLE
-        }
-        body.addView(errorView)
-        body.addView(SetupViews.gap(this))
-
-        body.addView(SetupViews.primaryButton(this, getString(R.string.setup_provider_save)) {
-            val kind = preset?.kind ?: ProviderKind.OPENAI_COMPAT
-            val baseUrl = (urlField?.text?.toString()?.trim()) ?: preset?.baseUrl.orEmpty()
-            val typed = keyField.text.toString().trim()
-            val keyText = if (keySaved) config?.apiKey.orEmpty() else typed
-            val images = imagesDraft ?: config?.supportsImages ?: preset?.imagesByDefault ?: false
-            val draft = ProviderConfig(
-                kind = kind, baseUrl = baseUrl, apiKey = keyText,
-                model = config?.model ?: modelDraft ?: "",
-                supportsImages = images,
-                effort = preset?.effort,
+            val saved = Kit.hstack(c).apply { minimumHeight = dp(c, 50) }
+            saved.addView(
+                Kit.icon(c, R.drawable.ic_lock, 18, R.color.pa_muted).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(c, 18), dp(c, 18)).apply { marginEnd = dp(c, 10) }
+                },
             )
-            val check = draft.copy(model = draft.model.ifBlank { "model" }).validate()
-            if (!check.ok) {
-                providerError = check.errors.joinToString(" ")
-                keyDraft = typed
-                if (urlField != null) customUrlDraft = baseUrl
-                render()
-                return@primaryButton
-            }
-            if (SetupModel.needsHostWarning(draft) && settings.acceptedCustomHost != draft.host) {
-                // Ask for the real host first; the user saves again after accepting.
-                pendingHost = draft.host
-                keyDraft = typed
-                customUrlDraft = baseUrl
-                providerError = getString(R.string.notice_custom_host, draft.host)
-                render()
-                return@primaryButton
-            }
-            when (val result = repository.save(draft)) {
-                SaveResult.Saved -> {
-                    providerError = null
-                    keyDraft = ""
-                    replacingKey = false
-                    expandedOverride = null
-                    pendingHost = null
-                    checkMessage = null
+            saved.addView(Kit.text(c, "Key saved", 16f, 500), Kit.weight())
+            saved.addView(
+                Kit.text(c, "Replace", 16f, 500, R.color.pa_blue).apply {
+                    setPadding(dp(c, 10), dp(c, 10), 0, dp(c, 10))
+                    Kit.pressable(this, 1f) { captureDrafts(); replacingKey = true; keyDraft = ""; render() }
+                },
+            )
+            body.addView(saved, fieldParams(8))
+        } else {
+            body.addView(keyField, fieldParams())
+        }
+
+        providerError?.let { err ->
+            body.addView(Kit.text(c, err, 14f, 400, R.color.pa_bad).apply { setLineSpacing(dpf(c, 3), 1f) }, fieldParams(10))
+        }
+
+        body.addView(
+            Kit.primary(c, "Save") {
+                val kind = preset?.kind ?: ProviderKind.OPENAI_COMPAT
+                val baseUrl = (urlField?.text?.toString()?.trim()) ?: preset?.baseUrl.orEmpty()
+                val typed = keyField.text.toString().trim()
+                val keyText = if (keySaved) config?.apiKey.orEmpty() else typed
+                val images = imagesDraft ?: config?.supportsImages ?: preset?.imagesByDefault ?: false
+                val draft = ProviderConfig(
+                    kind = kind, baseUrl = baseUrl, apiKey = keyText,
+                    model = config?.model ?: modelDraft ?: "",
+                    supportsImages = images,
+                    effort = preset?.effort,
+                )
+                val check = draft.copy(model = draft.model.ifBlank { "model" }).validate()
+                if (!check.ok) {
+                    providerError = check.errors.joinToString(" ")
+                    keyDraft = typed
+                    if (urlField != null) customUrlDraft = baseUrl
+                    render()
+                    return@primary
                 }
-                is SaveResult.Failed -> providerError = result.reason
-            }
-            render()
-        })
+                if (SetupModel.needsHostWarning(draft) && settings.acceptedCustomHost != draft.host) {
+                    // Ask for the real host first; the user saves again after accepting.
+                    pendingHost = draft.host
+                    keyDraft = typed
+                    customUrlDraft = baseUrl
+                    providerError = getString(R.string.notice_custom_host, draft.host)
+                    render()
+                    return@primary
+                }
+                when (val result = repository.save(draft)) {
+                    SaveResult.Saved -> {
+                        providerError = null
+                        keyDraft = ""
+                        replacingKey = false
+                        expandedOverride = null
+                        pendingHost = null
+                        checkMessage = null
+                    }
+                    is SaveResult.Failed -> providerError = result.reason
+                }
+                render()
+            },
+            fieldParams(16),
+        )
 
         val host = pendingHost
         if (host != null) {
-            body.addView(SetupViews.body(this, getString(R.string.notice_custom_host, host)))
-            body.addView(SetupViews.secondaryButton(this, getString(R.string.setup_host_accept)) {
-                settings.acceptedCustomHost = host
-                pendingHost = null
-                providerError = null
-                render()
-            })
+            body.addView(
+                Kit.secondary(c, "I trust $host") {
+                    settings.acceptedCustomHost = host
+                    pendingHost = null
+                    providerError = null
+                    render()
+                },
+                fieldParams(10),
+            )
         }
-    }
-
-    private var pendingHost: String? = null
-
-    private fun styleField(field: EditText) {
-        SetupViews.field(this, field)
     }
 
     /** Copies what was typed into the drafts, so a redraw does not lose it. */
     private fun captureDrafts() {
-        // Fields are rebuilt from the drafts; only the custom URL and key are typed into fields that this screen can read back.
         findFields(column).forEach { f ->
             when (f.tag) {
                 TAG_URL -> customUrlDraft = f.text.toString()
@@ -379,64 +454,61 @@ class SetupActivity : Activity() {
     // --- Model ---
 
     private fun modelBody(body: LinearLayout, config: ProviderConfig?, needsFirst: SetupStep?) {
+        val c = this
         if (config == null || needsFirst != null) {
-            body.addView(SetupViews.body(this, getString(R.string.setup_finish_first, titleFor(SetupStep.PROVIDER)), muted = true))
+            para(body, "Finish \"${titleFor(SetupStep.PROVIDER)}\" first.")
             return
         }
-        body.addView(SetupViews.body(this, getString(R.string.setup_model_intro)))
-        val modelField = EditText(this).apply {
+        para(body, "Type the model name exactly as your provider writes it. We send one small request to check it works.")
+        val modelField = Kit.field(c, "Model name").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            hint = getString(R.string.setup_model_hint)
             filters = arrayOf(InputFilter.LengthFilter(100))
             setText(modelDraft ?: config.model)
             tag = TAG_MODEL
-            styleField(this)
         }
-        body.addView(modelField)
-        val images = Switch(this).apply {
-            text = getString(R.string.setup_model_images)
-            textSize = 15f
-            layoutParams = SetupViews.blockParams(this@SetupActivity, 16)
-            setTextColor(getColor(R.color.brand_text))
-            isChecked = imagesDraft ?: config.supportsImages
-            setOnCheckedChangeListener { _, checked -> imagesDraft = checked }
+        body.addView(modelField, fieldParams(14))
+
+        val imagesRow = Kit.hstack(c).apply { minimumHeight = dp(c, 52) }
+        imagesRow.addView(Kit.text(c, "Reads screenshots", 16f, 400), Kit.weight())
+        imagesRow.addView(Kit.toggle(c, imagesDraft ?: config.supportsImages) { imagesDraft = it })
+        body.addView(imagesRow, fieldParams(4))
+
+        checkMessage?.let { msg ->
+            body.addView(Kit.text(c, msg, 14f, 400, R.color.pa_ink).apply { setLineSpacing(dpf(c, 3), 1f) }, fieldParams(6))
         }
-        body.addView(images)
 
-        val status = SetupViews.body(this, checkMessage.orEmpty())
-        status.visibility = if (checkMessage == null) View.GONE else View.VISIBLE
-        body.addView(status)
-
-        val spinnerRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            visibility = if (checking) View.VISIBLE else View.GONE
+        if (checking) {
+            val running = Kit.hstack(c, 12)
+            running.addView(ProgressBar(c), LinearLayout.LayoutParams(dp(c, 28), dp(c, 28)))
+            running.addView(Kit.text(c, "Testing…", 15f, 400, R.color.pa_muted), Kit.weight())
+            running.addView(
+                Kit.text(c, "Cancel", 16f, 500, R.color.pa_blue).apply {
+                    setPadding(dp(c, 10), dp(c, 10), 0, dp(c, 10))
+                    Kit.pressable(this, 1f) {
+                        checkJob?.cancel(); checkJob = null; checking = false; checkMessage = null; render()
+                    }
+                },
+            )
+            body.addView(running, fieldParams(10))
         }
-        spinnerRow.layoutParams = SetupViews.blockParams(this)
-        spinnerRow.addView(ProgressBar(this), LinearLayout.LayoutParams(Overlays.dp(this, 32), Overlays.dp(this, 32)))
-        spinnerRow.addView(SetupViews.secondaryButton(this, getString(R.string.task_cancel)) {
-            checkJob?.cancel()
-            checkJob = null
-            checking = false
-            checkMessage = null
-            render()
-        })
-        body.addView(spinnerRow)
 
-        val test = SetupViews.primaryButton(this, getString(R.string.setup_model_test)) {
+        val test = Kit.primary(c, "Test the model") {
             val model = modelField.text.toString().trim()
             modelDraft = model
-            runCheck(config, model, images.isChecked)
+            runCheck(config, model, imagesDraft ?: config.supportsImages)
         }
-        test.isEnabled = !checking && modelField.text.toString().isNotBlank()
+        fun refresh() {
+            val on = !checking && modelField.text.toString().isNotBlank()
+            test.isEnabled = on
+            test.alpha = if (on) 1f else 0.4f
+        }
+        refresh()
         modelField.addTextChangedListener(object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) {
-                test.isEnabled = !checking && !s.isNullOrBlank()
-            }
+            override fun afterTextChanged(s: android.text.Editable?) = refresh()
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
-        body.addView(test)
+        body.addView(test, fieldParams(14))
     }
 
     private fun runCheck(config: ProviderConfig, model: String, images: Boolean) {
@@ -475,16 +547,22 @@ class SetupActivity : Activity() {
     // --- Accessibility ---
 
     private fun accessibilityBody(body: LinearLayout) {
-        body.addView(SetupViews.body(this, getString(R.string.setup_accessibility_intro)))
-        body.addView(SetupViews.primaryButton(this, getString(R.string.setup_accessibility_open)) {
-            openSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        })
-        body.addView(SetupViews.gap(this))
-        body.addView(SetupViews.heading(this, getString(R.string.setup_greyed_heading)))
-        body.addView(SetupViews.body(this, guidance.forManufacturer(Build.MANUFACTURER).body, muted = true))
-        body.addView(SetupViews.secondaryButton(this, getString(R.string.setup_app_info)) {
-            openSettings(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-        })
+        val c = this
+        para(body, "Turn on Pocket Agent in the accessibility settings. This lets it read the screen and tap for you while a task runs.")
+        body.addView(
+            Kit.primary(c, "Open accessibility settings") {
+                openSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            },
+            fieldParams(14),
+        )
+        body.addView(Kit.text(c, "Switch is greyed out?", 16f, 600).apply { setPadding(0, dp(c, 22), 0, 0) }, Kit.lp())
+        para(body, guidance.forManufacturer(Build.MANUFACTURER).body, top = 6)
+        body.addView(
+            Kit.secondary(c, "Open app info") {
+                openSettings(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            },
+            fieldParams(12),
+        )
     }
 
     private fun openSettings(intent: Intent) {
@@ -506,21 +584,27 @@ class SetupActivity : Activity() {
         return try {
             GuidanceStore.load(files)
         } catch (e: IllegalArgumentException) {
-            GuidanceStore.load(mapOf("generic.md" to getString(R.string.setup_guidance_fallback)))
+            GuidanceStore.load(mapOf("generic.md" to "If the switch is greyed out, open the app info for Pocket Agent, open the three-dot menu and choose Allow restricted settings."))
         }
     }
 
     // --- Microphone ---
 
     private fun microphoneBody(body: LinearLayout) {
-        body.addView(SetupViews.body(this, getString(R.string.notice_mic)))
-        body.addView(SetupViews.primaryButton(this, getString(R.string.setup_mic_allow)) {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC)
-        })
-        body.addView(SetupViews.secondaryButton(this, getString(R.string.setup_mic_skip)) {
-            settings.microphoneAsked = true
-            render()
-        })
+        para(body, getString(R.string.notice_mic))
+        body.addView(
+            Kit.primary(this, "Allow microphone") {
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC)
+            },
+            fieldParams(14),
+        )
+        body.addView(
+            Kit.secondary(this, "Skip") {
+                settings.microphoneAsked = true
+                render()
+            },
+            fieldParams(10),
+        )
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -531,51 +615,50 @@ class SetupActivity : Activity() {
         }
     }
 
-    // --- Bubble and test task ---
+    // --- Bubble and first task ---
 
     private fun bubbleBody(body: LinearLayout) {
-        body.addView(SetupViews.body(this, getString(R.string.setup_bubble_intro)))
-        body.addView(Switch(this).apply {
-            text = getString(R.string.setup_bubble_switch)
-            textSize = 16f
-            layoutParams = SetupViews.blockParams(this@SetupActivity, 16)
-            setTextColor(getColor(R.color.brand_text))
-            isChecked = settings.bubbleOn
-            setOnCheckedChangeListener { _, checked ->
-                settings.bubbleOn = checked
-                render()
-            }
-        })
+        para(body, "The bubble is how you start a task from any screen. It stays faint until you touch it.")
+        val row = Kit.hstack(this).apply { minimumHeight = dp(this@SetupActivity, 52) }
+        row.addView(Kit.text(this, "Show the bubble", 16f, 400), Kit.weight())
+        row.addView(
+            Kit.toggle(this, settings.bubbleOn) { on ->
+                settings.bubbleOn = on
+                body.postDelayed({ render() }, 380)
+            },
+        )
+        body.addView(row, fieldParams(6))
     }
 
     private fun testTaskBody(body: LinearLayout, needsFirst: SetupStep?) {
-        body.addView(SetupViews.body(this, getString(R.string.setup_test_intro)))
-        val field = EditText(this).apply {
+        val c = this
+        para(body, "Run a small first task to see everything work. Change the text if you like.")
+        val field = Kit.field(c, "What should I do?").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            setSingleLine(false)
             filters = arrayOf(InputFilter.LengthFilter(TaskInputActivity.MAX_TEXT))
-            setText(testTaskDraft)
             minLines = 2
+            gravity = Gravity.TOP or Gravity.START
+            setPadding(dp(c, 14), dp(c, 14), dp(c, 14), dp(c, 14))
+            setText(testTaskDraft)
         }
-        SetupViews.field(this, field, singleLine = false)
-        body.addView(field)
-        if (needsFirst != null) {
-            body.addView(SetupViews.body(this, getString(R.string.setup_finish_first, titleFor(needsFirst)), muted = true))
-        }
+        body.addView(field, fieldParams(14))
+        if (needsFirst != null) para(body, "Finish \"${titleFor(needsFirst)}\" first.", top = 10)
         val host = TaskScreenHost.current
-        if (needsFirst == null && host == null) {
-            body.addView(SetupViews.body(this, getString(R.string.setup_test_needs_service), muted = true))
-        }
-        val run = SetupViews.primaryButton(this, getString(R.string.setup_test_run)) {
+        if (needsFirst == null && host == null) para(body, "Switch on Pocket Agent in the accessibility settings so the test can run.", top = 10)
+        val run = Kit.primary(c, "Run the first task") {
             val text = field.text.toString().trim()
             testTaskDraft = text
             if (text.isEmpty()) {
-                field.error = getString(R.string.task_empty)
-                return@primaryButton
+                field.error = "Type a task first"
+                return@primary
             }
             TaskScreenHost.current?.startSetupTask(text)
         }
-        run.isEnabled = needsFirst == null && host != null
-        body.addView(run)
+        val enabled = needsFirst == null && host != null
+        run.isEnabled = enabled
+        run.alpha = if (enabled) 1f else 0.4f
+        body.addView(run, fieldParams(14))
     }
 
     companion object {

@@ -314,6 +314,24 @@ object Kit {
         return frame
     }
 
+    /** A single-line text field on a card: filled well, navy ring while focused. */
+    fun field(c: Context, hint: CharSequence): android.widget.EditText = android.widget.EditText(c).apply {
+        this.hint = hint
+        textSize = 16f * TYPE_SCALE
+        typeface = face(c, 400)
+        setTextColor(color(c, R.color.pa_ink))
+        setHintTextColor(color(c, R.color.pa_muted))
+        setPadding(dp(c, 14), 0, dp(c, 14), 0)
+        minimumHeight = dp(c, 50)
+        includeFontPadding = false
+        setSingleLine(true)
+        background = rounded(color(c, R.color.pa_bg), dpf(c, 12))
+        setOnFocusChangeListener { _, focused ->
+            background = if (focused) rounded(color(c, R.color.pa_bg), dpf(c, 12), color(c, R.color.pa_blue), dp(c, 2))
+            else rounded(color(c, R.color.pa_bg), dpf(c, 12))
+        }
+    }
+
     /** A borderless multi-line text input in the body type, for the composer. */
     fun input(c: Context, hint: CharSequence, sp: Float = 19f): android.widget.EditText = android.widget.EditText(c).apply {
         this.hint = hint

@@ -237,11 +237,11 @@ object Screens {
         add(sectionTitle(c, "Shortcuts", "Edit"), Kit.lp().apply { topMargin = dp(c, 32) })
         fun tile(icon: Int, title: String): View = Kit.vstack(c).apply {
             background = Kit.rounded(color(c, R.color.pa_tile), dpf(c, 20))
-            setPadding(dp(c, 16), dp(c, 16), dp(c, 14), dp(c, 16))
-            minimumHeight = dp(c, 112)
-            addView(Kit.icon(c, icon, 26, R.color.pa_tile_icon))
+            setPadding(dp(c, 14), dp(c, 12), dp(c, 12), dp(c, 12))
+            minimumHeight = dp(c, 84)
+            addView(Kit.icon(c, icon, 20, R.color.pa_tile_icon))
             addView(View(c), LinearLayout.LayoutParams(1, 0, 1f))
-            addView(Kit.text(c, title, 16f, 600, R.color.pa_on_tile).apply { setLineSpacing(dpf(c, 1), 1f) })
+            addView(Kit.text(c, title, 14f, 600, R.color.pa_on_tile).apply { setLineSpacing(dpf(c, 1), 1f) })
             Kit.pressable(this, 0.96f) { if (!needsAttention) state.onRun(title) }
         }
         val ghost = Kit.vstack(c).apply {
@@ -249,19 +249,19 @@ object Screens {
             background = GradientDrawable().apply {
                 setColor(0); cornerRadius = dpf(c, 20); setStroke(dp(c, 2), color(c, R.color.pa_line), dpf(c, 6), dpf(c, 5))
             }
-            minimumHeight = dp(c, 112)
-            addView(Kit.icon(c, R.drawable.ic_plus, 24, R.color.pa_muted).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(c, 24), dp(c, 24)).apply { gravity = Gravity.CENTER_HORIZONTAL }
+            minimumHeight = dp(c, 84)
+            addView(Kit.icon(c, R.drawable.ic_plus, 22, R.color.pa_muted).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(c, 22), dp(c, 22)).apply { gravity = Gravity.CENTER_HORIZONTAL }
             })
-            addView(Kit.text(c, "New shortcut", 15f, 500, R.color.pa_muted).apply { gravity = Gravity.CENTER; setPadding(0, dp(c, 8), 0, 0) })
+            addView(Kit.text(c, "New shortcut", 14f, 500, R.color.pa_muted).apply { gravity = Gravity.CENTER; setPadding(0, dp(c, 6), 0, 0) })
             Kit.pressable(this, 0.96f)
         }
-        val grid = Kit.vstack(c, 12)
-        grid.addView(Kit.hstack(c, 12).apply {
+        val grid = Kit.vstack(c, 10)
+        grid.addView(Kit.hstack(c, 10).apply {
             addView(tile(R.drawable.ic_pin, "Take me to an address"), Kit.weight())
             addView(tile(R.drawable.ic_chat, "Reply to the latest message"), Kit.weight())
         }, Kit.lp())
-        grid.addView(Kit.hstack(c, 12).apply {
+        grid.addView(Kit.hstack(c, 10).apply {
             addView(tile(R.drawable.ic_doc, "Summarise this screen"), Kit.weight())
             addView(ghost, Kit.weight())
         }, Kit.lp())

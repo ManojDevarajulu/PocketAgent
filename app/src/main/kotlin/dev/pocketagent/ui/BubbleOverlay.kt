@@ -136,6 +136,8 @@ class BubbleOverlay(
         }
         private val fillInk = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         private var spin = 0f
+        private var pop = 0f
+        private var popper: ValueAnimator? = null
         private var spinner: ValueAnimator? = null
 
         private var downRawX = 0f
@@ -177,6 +179,23 @@ class BubbleOverlay(
                 addUpdateListener { spin = it.animatedValue as Float; invalidate() }
                 start()
             }
+        }
+
+        /** Animates the cursor to [to] (0 hidden in the pocket, 1 fully out). */
+        fun popTo(to: Float, ms: Long, overshoot: Boolean = false) {
+            popper?.cancel()
+            popper = ValueAnimator.ofFloat(pop, to).apply {
+                duration = ms
+                interpolator = if (overshoot) OvershootInterpolator(2.2f) else Kit.ease
+                addUpdateListener { pop = it.animatedValue as Float; invalidate() }
+                start()
+            }
+        }
+
+        /** The tap flourish: the cursor springs out of the pocket, holds for a beat, then slips back in. */
+        fun flourish() {
+            popTo(1f, 240, overshoot = true)
+            handler.postDelayed({ popTo(0f, 300) }, 650)
         }
 
         fun stopSpinner() {
@@ -224,7 +243,32 @@ class BubbleOverlay(
             ink.strokeWidth = 2.6f * u
 
             when (mode) {
-                BubbleMode.IDLE -> pocket(canvas, c, u, 1f)
+                BubbleMode.IDLE -> {
+                    // the cursor rises from behind the pocket's mouth, like in the logo
+                    val top = c - 5.5f * u
+                    if (pop > 0.01f) {
+                        val h = 15f * u
+                        val tipY = top + 1f * u - pop * 16f * u
+                        val tipX = c - 2f * u
+                        val cur = Path().apply {
+                            moveTo(tipX, tipY)
+                            lineTo(tipX, tipY + h)
+                            lineTo(tipX + 3.4f * u, tipY + h * 0.74f)
+                            lineTo(tipX + 6f * u, tipY + h * 1.08f)
+                            lineTo(tipX + 8.2f * u, tipY + h * 0.98f)
+                            lineTo(tipX + 5.8f * u, tipY + h * 0.64f)
+                            lineTo(tipX + 10f * u, tipY + h * 0.64f)
+                            close()
+                        }
+                        canvas.save()
+                        canvas.clipRect(0f, 0f, w, top + 0.8f * u)
+                        fillInk.color = context.getColor(R.color.pa_accent)
+                        canvas.drawPath(cur, fillInk)
+                        canvas.restore()
+                        fillInk.color = glyph
+                    }
+                    pocket(canvas, c, u, 1f, shiftY = 3f * u)
+                }
                 BubbleMode.RUNNING -> {
                     pocket(canvas, c, u, 0.8f)
                     for (i in 0 until DOTS) {
@@ -258,10 +302,10 @@ class BubbleOverlay(
         }
 
         /** The pocket from the logo: square top, rounded bottom, one stitch. */
-        private fun pocket(canvas: Canvas, c: Float, u: Float, scale: Float) {
+        private fun pocket(canvas: Canvas, c: Float, u: Float, scale: Float, shiftY: Float = 0f) {
             val hw = 11f * u * scale
-            val top = c - 8.5f * u * scale
-            val bottom = c + 10f * u * scale
+            val top = c - 8.5f * u * scale + shiftY
+            val bottom = c + 10f * u * scale + shiftY
             val path = Path().apply {
                 addRoundRect(
                     RectF(c - hw, top, c + hw, bottom),
@@ -271,7 +315,7 @@ class BubbleOverlay(
             }
             ink.strokeWidth = 2.6f * u * scale
             canvas.drawPath(path, ink)
-            canvas.drawLine(c - 5f * u * scale, c - 1f * u * scale, c + 5f * u * scale, c - 1f * u * scale, ink)
+            canvas.drawLine(c - 5f * u * scale, c - 1f * u * scale + shiftY, c + 5f * u * scale, c - 1f * u * scale + shiftY, ink)
         }
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -286,6 +330,7 @@ class BubbleOverlay(
                     moved = false
                     longPressed = false
                     performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    if (mode == BubbleMode.IDLE) popTo(0.32f, 220, overshoot = true)
                     animate().alpha(1f).scaleX(1.08f).scaleY(1.08f).setDuration(140).setInterpolator(Kit.ease).start()
                     handler.postDelayed(longPress, Overlays.LONG_PRESS_MS)
                 }
@@ -309,11 +354,17 @@ class BubbleOverlay(
                     animate().scaleX(1f).scaleY(1f).setDuration(320).setInterpolator(OvershootInterpolator(2.4f)).start()
                     if (event.actionMasked == MotionEvent.ACTION_UP) {
                         if (moved) {
+                            popTo(0f, 200)
                             snapToEdge()
                         } else if (!longPressed) {
                             performClick()
+                            if (mode == BubbleMode.IDLE) flourish()
                             onCommand(logic.onTap())
+                        } else {
+                            popTo(0f, 200)
                         }
+                    } else {
+                        popTo(0f, 200)
                     }
                     scheduleRest()
                 }
