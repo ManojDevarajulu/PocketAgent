@@ -49,11 +49,13 @@ class CaptionView(private val context: Context) {
 
     private fun refresh() {
         val t = text
-        if (t == null || !visible) {
+        if (t == null) {
             close()
             return
         }
         view.text = t
+        // Hiding keeps the window and only makes it invisible; removing it would emit window events that delay the next settle.
+        view.visibility = if (visible) View.VISIBLE else View.INVISIBLE
         if (shown) Overlays.update(context, view, params) else shown = Overlays.add(context, view, params)
     }
 }
