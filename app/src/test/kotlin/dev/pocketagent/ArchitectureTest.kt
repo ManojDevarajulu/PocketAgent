@@ -112,25 +112,24 @@ class ArchitectureTest {
     }
 
     @Test
-    fun apiKeyBuildFieldsAppearOnlyInTheDebugBuildType() {
-        val lines = File("build.gradle.kts").readLines()
-        val start = lines.indexOfFirst { it.trim().startsWith("debug {") }
-        assertTrue(start >= 0, "no debug { } block")
-        var depth = 0
-        var end = start
-        for (i in start until lines.size) {
-            depth += lines[i].count { it == '{' } - lines[i].count { it == '}' }
-            if (depth == 0) { end = i; break }
-        }
-        val keyLines = lines.withIndex().filter { (_, l) -> l.contains("pocketagent.apiKey") || l.contains("API_KEY") }
-        assertTrue(keyLines.isNotEmpty(), "expected the debug key field")
-        assertEquals(emptyList(), keyLines.filter { it.index !in start..end }.map { it.value }, "key fields outside debug { }")
+    fun buildConfigHasNoKeyUrlOrModelFields() {
+        val gradle = File("build.gradle.kts").readText()
+        assertTrue(!gradle.contains("buildConfigField") && !gradle.contains("local.properties"), "build.gradle.kts feeds config at build time")
+        val offenders = mainSources().filter { it.readText().contains("POCKETAGENT_") }
+        assertEquals(emptyList(), offenders.map { it.path })
     }
 
     @Test
-    fun releaseDevConfigNeverMentionsKeyFields() {
-        val text = File("src/release/kotlin/dev/pocketagent/android/DevConfig.kt").readText()
-        assertTrue(!text.contains("BuildConfig") && !text.contains("apiKey"), "release DevConfig mentions key fields")
+    fun noDevConfigRemains() {
+        val found = File("src").walk().filter { it.name == "DevConfig.kt" }.toList()
+        assertEquals(emptyList(), found.map { it.path })
+    }
+
+    @Test
+    fun sourceSetsHaveNoKeyCode() {
+        val offenders = listOf("src/debug", "src/release").map { File(it) }.filter { it.exists() }
+            .flatMap { root -> root.walk().filter { it.extension == "kt" && it.readText().contains("apiKey") }.toList() }
+        assertEquals(emptyList(), offenders.map { it.path })
     }
 
     // ---- Manifest and accessibility service (S3 spec §3, §6 and §9) ----
@@ -159,12 +158,12 @@ class ArchitectureTest {
     @Test
     fun onlyTheLauncherIsExported() {
         val exported = components().filter { it.getAttribute("android:exported") == "true" }.map { it.getAttribute("android:name") }
-        assertEquals(listOf(".ui.LauncherActivity"), exported)
-        val launcher = component(".ui.LauncherActivity")
+        assertEquals(listOf(".ui.SetupActivity"), exported)
+        val launcher = component(".ui.SetupActivity")
         val categories = launcher.children("category").map { it.getAttribute("android:name") }
         assertTrue("android.intent.category.LAUNCHER" in categories, "the launcher needs the LAUNCHER category")
         // Every other component states exported="false" explicitly.
-        components().filter { it.getAttribute("android:name") != ".ui.LauncherActivity" }.forEach {
+        components().filter { it.getAttribute("android:name") != ".ui.SetupActivity" }.forEach {
             assertEquals("false", it.getAttribute("android:exported"), "${it.getAttribute("android:name")} must not be exported")
         }
     }
@@ -258,4 +257,36 @@ class ArchitectureTest {
         val text = File("src/main/kotlin/dev/pocketagent/ui/TaskInputActivity.kt").readText()
         assertTrue(!text.contains("requestPermissions"), "the task screen must not request permissions")
     }
+
+    private fun setupActivityText() = File("src/main/kotlin/dev/pocketagent/ui/SetupActivity.kt").readText()
+
+    @Test
+    fun setupActivityIsSecure() = assertTrue(setupActivityText().contains("FLAG_SECURE"))
+
+    @Test
+    fun keyFieldIsAPasswordFieldWithAutofillOff() {
+        val t = setupActivityText()
+        assertTrue(t.contains("TYPE_TEXT_VARIATION_PASSWORD") && t.contains("IMPORTANT_FOR_AUTOFILL_NO"))
+    }
+
+    @Test
+    fun noViewEverReceivesTheStoredKey() {
+        val offenders = setupActivityText().lines().filter { it.contains("setText(") && it.contains("apiKey") }
+        assertEquals(emptyList(), offenders)
+    }
+
+    @Test
+    fun onlySetupCodeRequestsRecordAudio() {
+        val users = mainSources().filter { f -> codeLines(f).any { it.contains("requestPermissions(") } }
+        assertEquals(listOf("SetupActivity.kt"), users.map { it.name })
+    }
+
+    @Test
+    fun setupTestTaskTextIsCapped() {
+        val t = setupActivityText()
+        assertTrue(t.contains("TaskInputActivity.MAX_TEXT") || t.contains("2000") || t.contains("2_000"))
+    }
+
+    @Test
+    fun bubbleSwitchWritesTheSetting() = assertTrue(setupActivityText().contains("bubbleOn ="))
 }

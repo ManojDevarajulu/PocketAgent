@@ -22,6 +22,7 @@ interface TaskScreenHost {
     fun startTask(text: String)
     fun dropSavedScreen()
     fun completeAnswer(answer: String?)
+    fun startSetupTask(text: String)
 
     companion object {
         @Volatile

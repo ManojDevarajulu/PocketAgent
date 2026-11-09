@@ -15,7 +15,7 @@ class PocketAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         session?.close()
         subscribeToTaskEvents(false)
-        session = AgentSession(this).also { it.showBubble() }
+        session = AgentSession(this, SetupStores.repository(this), SetupStores.settings(this)).also { it.showBubble() }
     }
 
     /** Events arrive only while a task runs; each one only restarts the settle timer. */
