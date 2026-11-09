@@ -196,6 +196,8 @@ All overlays are `TYPE_ACCESSIBILITY_OVERLAY` windows, which need no overlay per
 
 ## 8. Debug-only provider config
 
+> **Superseded.** S4 §3.4 removes this path; the provider now comes from the stored config.
+
 S4 owns key storage. Until then:
 
 - `local.properties`, already git-ignored, holds `pocketagent.kind`, `pocketagent.baseUrl`, `pocketagent.apiKey`, `pocketagent.model` and `pocketagent.supportsImages`.
