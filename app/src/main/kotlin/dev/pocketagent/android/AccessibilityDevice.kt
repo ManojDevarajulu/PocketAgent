@@ -124,6 +124,8 @@ class AccessibilityDevice(
 
     private suspend fun readAndKeep(): Screen {
         val reading = reader.read(observationCounter.getAndIncrement())
+        // A read that finishes after the session closed must not keep live nodes behind dropHandles().
+        if (isClosed()) throw DeviceUnavailable("Pocket Agent's accessibility service was turned off")
         observation = reading
         return reading.screen
     }

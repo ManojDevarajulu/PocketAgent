@@ -173,8 +173,9 @@ class AgentSession(private val service: PocketAccessibilityService) : TaskScreen
     /** Cancels the runner and scope, removes every overlay, drops the screen and node map, clears the holder. */
     fun close() {
         if (closed) return
-        closed = true
+        // Read before setting closed: taskIsLive() is false once the session is closed.
         val taskWasLive = taskIsLive()
+        closed = true
         runner.cancel()
         scope.cancel()
         overlayUi.closeAll()
