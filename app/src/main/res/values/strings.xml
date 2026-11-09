@@ -36,4 +36,7 @@
     <string name="notice_accept">I understand</string>
     <string name="notice_custom_host">Your screen text will be sent to %1$s.</string>
     <string name="notice_mic">Voice input uses the speech recogniser built into your phone. On-device recognition is requested first, but the recogniser may send your audio online, to the phone maker or Google, in the cloud. Pocket Agent itself does not store or send the audio. This is optional.</string>
+    <string name="mic_needs_setup">Turn the microphone on in the setup screen to talk.</string>
+    <string name="mic_listening">Listening…</string>
+    <string name="mic_button_description">Speak your task</string>
 </resources>

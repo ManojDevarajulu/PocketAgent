@@ -1,6 +1,8 @@
 package dev.pocketagent.ui
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputFilter
 import android.text.InputType
@@ -11,6 +13,7 @@ import android.graphics.drawable.GradientDrawable
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Toast
 import android.widget.TextView
 import dev.pocketagent.R
 
@@ -30,6 +33,7 @@ interface TaskScreenHost {
 class TaskInputActivity : Activity() {
     private var question: String? = null
     private var handled = false
+    private var voice: VoiceInput? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,7 +74,35 @@ class TaskInputActivity : Activity() {
                 setPadding(0, 0, 0, pad / 2)
             })
         }
-        root.addView(input)
+        val inputRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        inputRow.addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        if (VoiceInput.isAvailable(this)) {
+            val mic = Button(this).apply {
+                text = "🎤"
+                textSize = 20f
+                contentDescription = getString(R.string.mic_button_description)
+                setTextColor(getColor(R.color.brand_text))
+                setBackgroundColor(getColor(R.color.brand_blue_subdued))
+            }
+            val vi = VoiceInput(
+                context = this,
+                onPartial = { input.setText(it.take(MAX_TEXT)); input.setSelection(input.text.length) },
+                onFinal = { input.setText(it.take(MAX_TEXT)); input.setSelection(input.text.length) },
+                onError = { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() },
+                onListening = { on -> mic.setBackgroundColor(getColor(if (on) R.color.brand_orange else R.color.brand_blue_subdued)) },
+            )
+            voice = vi
+            mic.setOnClickListener {
+                // The permission is requested only in setup; the task screen stops when a system dialog appears.
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, R.string.mic_needs_setup, Toast.LENGTH_LONG).show()
+                } else {
+                    vi.toggle()
+                }
+            }
+            inputRow.addView(mic)
+        }
+        root.addView(inputRow)
 
         val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -118,12 +150,14 @@ class TaskInputActivity : Activity() {
     }
 
     override fun onStop() {
+        voice?.destroy()
         // Home or an app switch only stops this task-less screen and the user cannot return to it, so it counts as a dismissal.
         if (!isChangingConfigurations) dismiss()
         super.onStop()
     }
 
     override fun onDestroy() {
+        voice?.destroy()
         // An outside tap or a system close ends up here without going through a button.
         if (isFinishing) dismiss(finishNow = false)
         if (answerInstance === this) answerInstance = null

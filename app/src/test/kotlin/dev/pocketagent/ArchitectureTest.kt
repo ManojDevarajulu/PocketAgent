@@ -252,4 +252,10 @@ class ArchitectureTest {
         val users = mainSources().filter { it.readText().contains("\"pocketagent_setup\"") }
         assertEquals(1, users.size, users.joinToString { it.path })
     }
+
+    @Test
+    fun taskScreenNeverRequestsPermissions() {
+        val text = File("src/main/kotlin/dev/pocketagent/ui/TaskInputActivity.kt").readText()
+        assertTrue(!text.contains("requestPermissions"), "the task screen must not request permissions")
+    }
 }
