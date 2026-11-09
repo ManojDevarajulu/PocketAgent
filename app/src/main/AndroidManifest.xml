@@ -15,14 +15,20 @@
         android:label="Pocket Agent">
 
         <activity
-            android:name=".ui.SetupActivity"
+            android:name=".ui.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.PocketAgent">
+            android:theme="@style/Theme.PocketAgent.App">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- The older provider, key and accessibility steps, opened from the app until they are redrawn. -->
+        <activity
+            android:name=".ui.SetupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PocketAgent" />
 
         <activity
             android:name=".ui.TaskInputActivity"

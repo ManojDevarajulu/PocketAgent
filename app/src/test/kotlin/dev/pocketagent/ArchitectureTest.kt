@@ -158,12 +158,12 @@ class ArchitectureTest {
     @Test
     fun onlyTheLauncherIsExported() {
         val exported = components().filter { it.getAttribute("android:exported") == "true" }.map { it.getAttribute("android:name") }
-        assertEquals(listOf(".ui.SetupActivity"), exported)
-        val launcher = component(".ui.SetupActivity")
+        assertEquals(listOf(".ui.MainActivity"), exported)
+        val launcher = component(".ui.MainActivity")
         val categories = launcher.children("category").map { it.getAttribute("android:name") }
         assertTrue("android.intent.category.LAUNCHER" in categories, "the launcher needs the LAUNCHER category")
         // Every other component states exported="false" explicitly.
-        components().filter { it.getAttribute("android:name") != ".ui.SetupActivity" }.forEach {
+        components().filter { it.getAttribute("android:name") != ".ui.MainActivity" }.forEach {
             assertEquals("false", it.getAttribute("android:exported"), "${it.getAttribute("android:name")} must not be exported")
         }
     }

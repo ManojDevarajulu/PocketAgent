@@ -42,7 +42,7 @@ object Kit {
 
     fun dp(c: Context, v: Int): Int = (v * c.resources.displayMetrics.density + 0.5f).toInt()
     fun dpf(c: Context, v: Int): Float = v * c.resources.displayMetrics.density
-    fun color(c: Context, id: Int): Int = Skin.resolve(c, id) ?: c.getColor(id)
+    fun color(c: Context, id: Int): Int = c.getColor(id)
 
     /** The whole type scale, one knob. Inter runs large for its point size, so everything sits a little under iOS's numbers. */
     private const val TYPE_SCALE = 0.86f
@@ -311,6 +311,24 @@ object Kit {
             }
         }
         return frame
+    }
+
+    /** A borderless multi-line text input in the body type, for the composer. */
+    fun input(c: Context, hint: CharSequence, sp: Float = 19f): android.widget.EditText = android.widget.EditText(c).apply {
+        this.hint = hint
+        textSize = sp * TYPE_SCALE
+        typeface = face(c, 400)
+        setTextColor(color(c, R.color.pa_ink))
+        setHintTextColor(color(c, R.color.pa_muted))
+        background = null
+        setPadding(0, 0, 0, 0)
+        includeFontPadding = false
+        inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+            android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        minLines = 2
+        maxLines = 5
+        gravity = Gravity.TOP or Gravity.START
+        filters = arrayOf(android.text.InputFilter.LengthFilter(2000))
     }
 
     fun largeTitle(c: Context, s: CharSequence): TextView = text(c, s, 32f, 600).apply { letterSpacing = -0.025f }
