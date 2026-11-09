@@ -99,8 +99,9 @@ pocketagent.supportsImages=true
 
 - [ ] **1. Screen changed (T3).** Change the target between read and act, for example by scrolling while the
   model is thinking. Expected: the action fails with "screen changed".
-- [ ] **2. Screen-filter app (T5).** Turn on a screen-filter app over the confirmation card. Expected: Allow
-  does not respond.
+- [ ] **2. Screen-filter app (T5).** Turn on a screen-filter app over the confirmation card. Expected: the filter
+  cannot cover the card (filter apps use `TYPE_APPLICATION_OVERLAY`, which draws below accessibility overlays);
+  if it does, Allow does not respond.
 - [ ] **3. Long-press stop.** Long-press stop during a model call, a gesture, a confirmation card and the
   answer screen. Expected: the task stops within 1 s each time.
 - [ ] **4. Split screen and rotation.** Use split screen, and rotate the phone during a task. Expected: the

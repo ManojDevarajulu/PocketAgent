@@ -42,7 +42,7 @@ The rule from Plan 1 holds: core packages import no Android types (`Architecture
 |---|---|
 | `PocketAccessibilityService` | Lifecycle only. Creates and closes `AgentSession`, forwards events to `Settler`, switches event subscription on and off |
 | `AccessibilityDevice` | Implements `DevicePort` with `windows`, `rootInActiveWindow`, `performAction`, `performGlobalAction`, `dispatchGesture`, `takeScreenshot` and `startActivity`, using the pure units above |
-| `AgentSession` | Owns the runner, the device and the overlays for the life of the service. `AgentSession.current` is the process-local holder, null when the service is off |
+| `AgentSession` | Owns the runner, the device and the overlays for the life of the service. `TaskScreenHost.current` is the process-local holder, null when the service is off |
 | `DevConfig` | Debug builds only: the provider config from `local.properties` (§8). Deleted in S4 |
 
 **Views, `ui/`**
@@ -50,7 +50,7 @@ The rule from Plan 1 holds: core packages import no Android types (`Architecture
 | Unit | Job |
 |---|---|
 | `BubbleOverlay` | Draws the bubble, handles drag, tap and long press, and delegates decisions to `BubbleLogic` |
-| `CaptionView` | The one-line caption next to the bubble |
+| `CaptionView` | The one-line caption at the top centre of the screen |
 | `ConfirmCard` | The confirmation card |
 | `SummaryCard` | The card shown when a task ends |
 | `TaskInputActivity` | The task screen, in task mode and answer mode |
@@ -142,7 +142,7 @@ All overlays are `TYPE_ACCESSIBILITY_OVERLAY` windows, which need no overlay per
 | Running or waiting for the user | Ignored | `runner.cancel()`, which removes any card and closes any task screen |
 | Done or Error (3 s) | As Idle | Nothing |
 
-**Caption.** One line next to the bubble, with text from the existing `Captions` code only, so the model never writes it. The window is `FLAG_NOT_TOUCHABLE` and never takes a tap. It hides with the bubble and is cleared when the task ends.
+**Caption.** One line at the top centre of the screen, with text from the existing `Captions` code only, so the model never writes it. The window is `FLAG_NOT_TOUCHABLE` and never takes a tap. It hides with the bubble and is cleared when the task ends.
 
 **Confirmation card**
 
@@ -169,8 +169,8 @@ All overlays are `TYPE_ACCESSIBILITY_OVERLAY` windows, which need no overlay per
 
 **Lifecycle**
 
-- `onServiceConnected`: create `AgentSession` with its own scope (`SupervisorJob()` plus `Dispatchers.Default`), load `DevConfig`, build the client with `Providers.create`, add the bubble, set `AgentSession.current`.
-- `onUnbind` and `onDestroy`: `session.close()`. It cancels the runner and the scope, removes every overlay, drops the saved screen and the node map, and clears `AgentSession.current`.
+- `onServiceConnected`: create `AgentSession` with its own scope (`SupervisorJob()` plus `Dispatchers.Default`), load `DevConfig`, build the client with `Providers.create`, add the bubble, set `TaskScreenHost.current`.
+- `onUnbind` and `onDestroy`: `session.close()`. It cancels the runner and the scope, removes every overlay, drops the saved screen and the node map, and clears `TaskScreenHost.current`.
 - Nothing is persisted. After the system kills the app, the next start is idle.
 
 **`DeviceUnavailable`.** `readScreen` and `perform` throw `DeviceUnavailable(reason)` when:
