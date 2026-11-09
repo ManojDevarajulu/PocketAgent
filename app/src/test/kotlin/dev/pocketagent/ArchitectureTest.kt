@@ -235,4 +235,21 @@ class ArchitectureTest {
         val offenders = shippedRoots.flatMap { it.walk().filter { f -> f.isFile }.toList() }.filter { key.containsMatchIn(it.readText()) }.toList()
         assertEquals(emptyList(), offenders.map { it.path })
     }
+
+    @Test
+    fun keystoreBoxUsesAesGcmInTheAndroidKeystore() {
+        val text = File("src/main/kotlin/dev/pocketagent/android/KeystoreSecretBox.kt").readText()
+        listOf("\"AndroidKeyStore\"", "\"AES/GCM/NoPadding\"", "setUserAuthenticationRequired(false)").forEach {
+            assertTrue(text.contains(it), "missing $it")
+        }
+        listOf("getSharedPreferences", "putString", "Base64").forEach {
+            assertTrue(!text.contains(it), "KeystoreSecretBox must handle bytes only, found $it")
+        }
+    }
+
+    @Test
+    fun onlyTheSetupStoresTouchTheSetupPreferences() {
+        val users = mainSources().filter { it.readText().contains("\"pocketagent_setup\"") }
+        assertEquals(1, users.size, users.joinToString { it.path })
+    }
 }
