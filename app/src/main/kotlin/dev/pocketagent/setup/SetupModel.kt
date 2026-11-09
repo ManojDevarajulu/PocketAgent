@@ -32,7 +32,7 @@ data class SetupEvaluation(val steps: List<StepState>, val isReady: Boolean) {
 }
 
 object SetupModel {
-    private val presetHosts: Set<String> = ProviderPresets.all.map { hostOf(it.baseUrl) }.toSet()
+    private val presetHosts: Set<String> = ProviderPresets.all.map { hostOf(it.baseUrl) }.filter { it.isNotEmpty() }.toSet()
 
     fun evaluate(facts: SetupFacts): SetupEvaluation {
         val done = SetupStep.entries.associateWith { isDone(it, facts) }
@@ -50,7 +50,7 @@ object SetupModel {
         return SetupEvaluation(steps, ready)
     }
 
-    fun isPresetHost(host: String): Boolean = host in presetHosts
+    fun isPresetHost(host: String): Boolean = host.isNotEmpty() && host in presetHosts
 
     fun needsHostWarning(config: ProviderConfig): Boolean = !isPresetHost(config.host)
 
@@ -67,7 +67,7 @@ object SetupModel {
     }
 
     private fun needsFirst(step: SetupStep, done: Map<SetupStep, Boolean>): SetupStep? = when (step) {
-        SetupStep.MODEL_CHECK -> SetupStep.PROVIDER
+        SetupStep.MODEL_CHECK -> SetupStep.PROVIDER.takeIf { !done.getValue(it) }
         SetupStep.TEST_TASK -> when {
             done.getValue(SetupStep.MODEL_CHECK).not() -> SetupStep.MODEL_CHECK
             done.getValue(SetupStep.ACCESSIBILITY).not() -> SetupStep.ACCESSIBILITY

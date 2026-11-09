@@ -146,4 +146,43 @@ class SetupModelTest {
         val done = SetupModel.evaluate(ready().copy(testTaskDone = false))
         assertNull(done.of(SetupStep.TEST_TASK).needsFirst)
     }
+
+    @Test
+    fun modelCheckNeedsNothingOnceProviderIsDone() {
+        val e = SetupModel.evaluate(fresh().copy(noticeAccepted = true, config = config(), modelCheck = null))
+        assertEquals(StepStatus.CURRENT, e.of(SetupStep.MODEL_CHECK).status)
+        assertNull(e.of(SetupStep.MODEL_CHECK).needsFirst)
+    }
+
+    @Test
+    fun modelCheckNeedsTheProviderWhenThatIsMissing() {
+        val e = SetupModel.evaluate(fresh().copy(noticeAccepted = true, config = null))
+        assertEquals(SetupStep.PROVIDER, e.of(SetupStep.MODEL_CHECK).needsFirst)
+    }
+
+    @Test
+    fun testTaskNeedsTheModelCheckBeforeAccessibility() {
+        val e = SetupModel.evaluate(ready().copy(modelCheck = null, accessibilityOn = false, testTaskDone = false))
+        assertEquals(SetupStep.MODEL_CHECK, e.of(SetupStep.TEST_TASK).needsFirst)
+    }
+
+    @Test
+    fun aLookalikeHostIsNotAPresetHost() {
+        val c = config("https://openrouter.ai.evil.com/v1")
+        assertFalse(SetupModel.isPresetHost(c.host))
+        assertTrue(SetupModel.needsHostWarning(c))
+    }
+
+    @Test
+    fun presetHostMatchingIgnoresCasePortAndTrailingSlash() {
+        listOf(
+            "https://OpenRouter.AI/api/v1", "https://openrouter.ai:443/api/v1", "https://openrouter.ai/api/v1/",
+        ).forEach { assertFalse(SetupModel.needsHostWarning(config(it)), it) }
+    }
+
+    @Test
+    fun anUnparseableUrlIsNeverAPresetHost() {
+        assertFalse(SetupModel.isPresetHost(""))
+        assertTrue(SetupModel.needsHostWarning(config("not a url")))
+    }
 }
