@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 
 /** Guards the rules in docs/superpowers/specs/2026-11-08-security-privacy-scenarios.md that a compiler cannot enforce. */
 class ArchitectureTest {
-    private val corePackages = listOf("agent", "llm", "safety", "playbook", "device")
+    private val corePackages = listOf("agent", "llm", "safety", "playbook", "device", "setup")
     private val mainRoot = File("src/main/kotlin/dev/pocketagent")
 
     /** Every shipped source set (main, debug, release); test and androidTest sets are left out. */
