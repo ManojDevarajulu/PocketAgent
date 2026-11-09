@@ -1,20 +1,6 @@
 # Pocket Agent
 
-<p align="center">
-  <img src="docs/assets/app-preview.png" alt="Pocket Agent Preview" width="360" />
-</p>
-
-<p align="center">
-  <strong>Tap the bubble on anything. Say what to do. Your phone does it.</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/ManojDevarajulu/PocketAgent/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ManojDevarajulu/PocketAgent/ci.yml?branch=main&label=CI&style=flat-square" alt="CI Status" /></a>
-  <img src="https://img.shields.io/badge/tests-507%20passing-success?style=flat-square" alt="507 Tests Passing" />
-  <img src="https://img.shields.io/badge/android-11%2B%20(API%2030%2B)-blue?style=flat-square" alt="Android 11+" />
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License MIT" />
-  <img src="https://img.shields.io/badge/architecture-zero--backend%20%7C%20on--device-orange?style=flat-square" alt="Zero Backend" />
-</p>
+**Tap the bubble on anything. Say what to do. Your phone does it.**
 
 ---
 
@@ -123,7 +109,6 @@ cd PocketAgent
 ```bash
 ./gradlew testDebugUnitTest
 ```
-*(507 automated unit tests verify compiler isolation, safety rules, wire formats, and loop state machines).*
 
 ### 3. Build & Install Debug APK
 Connect your phone with USB debugging enabled:
