@@ -222,31 +222,28 @@ object Screens {
 
         // composer: the hero. The send button wakes up (grey to orange, with a pop) once there is something to send.
         val composer = Kit.vstack(c).apply {
-            background = Kit.rounded(color(c, R.color.pa_hero), dpf(c, 28))
+            background = Kit.rounded(color(c, R.color.pa_card), dpf(c, 28))
             setPadding(dp(c, 18), dp(c, 16), dp(c, 12), dp(c, 12))
-            elevation = dpf(c, 1)
+            elevation = dpf(c, 3)
             alpha = if (needsAttention) .5f else 1f
         }
-        val input = Kit.input(
-            c, if (needsAttention) "Fix the banner above first" else "What should I do?",
-            textTint = R.color.pa_on_hero, hintTint = R.color.pa_hero_muted,
-        ).apply {
+        val input = Kit.input(c, if (needsAttention) "Fix the banner above first" else "What should I do?").apply {
             isEnabled = !needsAttention
             minimumHeight = dp(c, 44)
         }
         composer.addView(input, Kit.lp())
         val controls = Kit.hstack(c).apply { setPadding(0, dp(c, 6), 0, 0) }
         controls.addView(
-            Kit.icon(c, R.drawable.ic_mic, 22, R.color.pa_on_hero).apply {
-                background = Kit.rounded(color(c, R.color.pa_hero_fill), dpf(c, 22))
+            Kit.icon(c, R.drawable.ic_mic, 22, R.color.pa_ink).apply {
+                background = Kit.rounded(color(c, R.color.pa_fill), dpf(c, 22))
                 setPadding(dp(c, 11), dp(c, 11), dp(c, 11), dp(c, 11))
                 layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44))
                 Kit.pressable(this, 0.9f)
             },
         )
         controls.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
-        val send = Kit.icon(c, R.drawable.ic_send, 20, R.color.pa_hero_muted).apply {
-            val bg = Kit.rounded(color(c, R.color.pa_hero_fill), dpf(c, 22))
+        val send = Kit.icon(c, R.drawable.ic_send, 20, R.color.pa_muted).apply {
+            val bg = Kit.rounded(color(c, R.color.pa_fill), dpf(c, 22))
             background = bg
             setPadding(dp(c, 12), dp(c, 12), dp(c, 12), dp(c, 12))
             layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44))
@@ -262,13 +259,13 @@ object Screens {
                 val has = !s.isNullOrBlank()
                 if (has == armed) return
                 armed = has
-                val from = if (has) color(c, R.color.pa_hero_fill) else color(c, R.color.pa_accent)
-                val to = if (has) color(c, R.color.pa_accent) else color(c, R.color.pa_hero_fill)
+                val from = if (has) color(c, R.color.pa_fill) else color(c, R.color.pa_accent)
+                val to = if (has) color(c, R.color.pa_accent) else color(c, R.color.pa_fill)
                 android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(), from, to).apply {
                     duration = 220
                     addUpdateListener { (send.background as GradientDrawable).setColor(it.animatedValue as Int) }
                 }.start()
-                send.setColorFilter(color(c, if (has) R.color.pa_on_accent else R.color.pa_hero_muted))
+                send.setColorFilter(color(c, if (has) R.color.pa_on_accent else R.color.pa_muted))
                 if (has) send.animate().scaleX(1.14f).scaleY(1.14f).setDuration(110).withEndAction {
                     send.animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()
                 }.start()
