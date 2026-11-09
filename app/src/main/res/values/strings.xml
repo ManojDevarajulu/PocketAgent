@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bubble_description">Pocket Agent</string>
+    <string name="confirm_title">Allow this action?</string>
+    <string name="confirm_action">Action: %1$s</string>
+    <string name="confirm_target">Target: %1$s</string>
+    <string name="confirm_app">App: %1$s</string>
+    <string name="confirm_will_send">Will send: %1$s</string>
+    <string name="confirm_allow">Allow</string>
+    <string name="confirm_decline">Decline</string>
+</resources>
