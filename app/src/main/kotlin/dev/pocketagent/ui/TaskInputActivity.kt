@@ -44,7 +44,7 @@ interface TaskScreenHost {
  * rounded composer above the keyboard. Content settles in one piece at a time, suggestions collapse once you type, and
  * the sheet follows your finger when you drag it down. With [EXTRA_QUESTION] it answers a question from the agent.
  */
-class TaskInputActivity : Activity() {
+class TaskInputActivity : ThemedActivity() {
     private var question: String? = null
     private var handled = false
     private var closing = false

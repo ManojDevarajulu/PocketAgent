@@ -42,7 +42,10 @@ object Kit {
 
     fun dp(c: Context, v: Int): Int = (v * c.resources.displayMetrics.density + 0.5f).toInt()
     fun dpf(c: Context, v: Int): Float = v * c.resources.displayMetrics.density
-    fun color(c: Context, id: Int): Int = c.getColor(id)
+    fun color(c: Context, id: Int): Int {
+        val night = ThemeMode.forcedNight(c) ?: return c.getColor(id)
+        return ThemeMode.colorContext(c, night).getColor(id)
+    }
 
     /** The whole type scale, one knob. Inter runs large for its point size, so everything sits a little under iOS's numbers. */
     private const val TYPE_SCALE = 0.86f
@@ -300,11 +303,11 @@ object Kit {
             background = rounded(color(c, R.color.pa_fill), dpf(c, 10))
             setPadding(pad, pad, pad, pad)
         }
+        // No elevation on the pill: an elevated view is drawn above its siblings and would hide the selected label.
         val pill = View(c).apply {
-            background = rounded(color(c, R.color.pa_card), dpf(c, 8))
-            elevation = dpf(c, 1)
+            background = rounded(color(c, R.color.pa_card), dpf(c, 8), color(c, R.color.pa_line), dp(c, 1))
         }
-        frame.addView(pill, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT))
+        frame.addView(pill, FrameLayout.LayoutParams(0, 0))
         val labels = ArrayList<TextView>()
         val row = hstack(c)
         var current = selected
@@ -329,10 +332,11 @@ object Kit {
         }
         paint()
         frame.addView(row, FrameLayout.LayoutParams(-1, -2))
-        frame.addOnLayoutChangeListener { _, l, _, r, _, _, _, _, _ ->
-            val w = (r - l - pad * 2) / items.size
-            if (pill.layoutParams.width != w) {
-                pill.layoutParams = (pill.layoutParams as FrameLayout.LayoutParams).apply { width = w }
+        row.addOnLayoutChangeListener { _, l, _, r, _, _, _, _, _ ->
+            val w = (r - l) / items.size
+            val h = row.height
+            if (pill.layoutParams.width != w || pill.layoutParams.height != h) {
+                pill.layoutParams = (pill.layoutParams as FrameLayout.LayoutParams).apply { width = w; height = h }
                 pill.translationX = w * current.toFloat()
             }
         }

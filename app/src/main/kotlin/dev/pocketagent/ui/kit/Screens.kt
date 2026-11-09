@@ -24,7 +24,14 @@ data class HomeState(
     val recent: List<RecentItem>,
     val usage: String?,
     val onRun: (String) -> Unit = {},
+    val shortcuts: List<String> = DefaultShortcuts,
+    val editingShortcuts: Boolean = false,
+    val onEditShortcuts: () -> Unit = {},
+    val onRemoveShortcut: (String) -> Unit = {},
+    val onAddShortcut: () -> Unit = {},
 )
+
+val DefaultShortcuts = listOf("Take me to an address", "Reply to the latest message", "Summarise this screen")
 
 data class SettingsState(
     val version: String,
@@ -38,6 +45,8 @@ data class SettingsState(
     val onAccessibility: () -> Unit = {},
     val onMic: () -> Unit = {},
     val showHistory: Boolean = true,
+    val theme: String = "system",
+    val onTheme: (String) -> Unit = {},
 )
 
 object Samples {
@@ -106,11 +115,25 @@ object Screens {
     private fun blueTile(c: Context, icon: Int) =
         Kit.tile(c, icon, color(c, R.color.pa_tile), color(c, R.color.pa_tile_icon), 30)
 
-    private fun sectionTitle(c: Context, title: String, action: String? = null): View {
+    private fun sectionTitle(c: Context, title: String, action: String? = null, onAction: (() -> Unit)? = null): View {
         val h = Kit.hstack(c).apply { setPadding(dp(c, 4), 0, dp(c, 4), dp(c, 10)) }
         h.addView(Kit.text(c, title, 19f, 600).apply { letterSpacing = -0.01f }, Kit.weight())
-        if (action != null) h.addView(Kit.text(c, action, 16f, 500, R.color.pa_blue))
+        if (action != null) {
+            h.addView(Kit.text(c, action, 16f, 500, R.color.pa_blue).apply {
+                setPadding(dp(c, 14), dp(c, 8), 0, dp(c, 8))
+                if (onAction != null) Kit.pressable(this, 1f, onClick = onAction)
+            })
+        }
         return h
+    }
+
+    private fun shortcutIcon(title: String): Int {
+        val t = title.lowercase()
+        return when {
+            "address" in t || "map" in t || "direction" in t -> R.drawable.ic_pin
+            "reply" in t || "message" in t || "text" in t -> R.drawable.ic_chat
+            else -> R.drawable.ic_doc
+        }
     }
 
     // ---------------------------------------------------------------- Home
@@ -233,39 +256,63 @@ object Screens {
         composer.addView(controls, Kit.lp())
         add(composer)
 
-        // shortcuts
-        add(sectionTitle(c, "Shortcuts", "Edit"), Kit.lp().apply { topMargin = dp(c, 32) })
-        fun tile(icon: Int, title: String): View = Kit.vstack(c).apply {
-            background = Kit.rounded(color(c, R.color.pa_tile), dpf(c, 20))
-            setPadding(dp(c, 14), dp(c, 12), dp(c, 12), dp(c, 12))
-            minimumHeight = dp(c, 84)
-            addView(Kit.icon(c, icon, 20, R.color.pa_tile_icon))
-            addView(View(c), LinearLayout.LayoutParams(1, 0, 1f))
-            addView(Kit.text(c, title, 14f, 600, R.color.pa_on_tile).apply { setLineSpacing(dpf(c, 1), 1f) })
-            Kit.pressable(this, 0.96f) { if (!needsAttention) state.onRun(title) }
-        }
-        val ghost = Kit.vstack(c).apply {
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(0); cornerRadius = dpf(c, 20); setStroke(dp(c, 2), color(c, R.color.pa_line), dpf(c, 6), dpf(c, 5))
+        // shortcuts: compact pills in one scrolling row. Edit turns them into removable pills and adds nothing else.
+        val editing = state.editingShortcuts
+        add(
+            sectionTitle(c, "Shortcuts", if (editing) "Done" else "Edit", state.onEditShortcuts),
+            Kit.lp().apply { topMargin = dp(c, 28) },
+        )
+        val pills = Kit.hstack(c, 8).apply { setPadding(0, dp(c, 4), dp(c, 16), dp(c, 4)) }
+        state.shortcuts.forEachIndexed { i, title ->
+            val pill = Kit.hstack(c, 8).apply {
+                background = Kit.rounded(color(c, R.color.pa_tile), dpf(c, 22))
+                setPadding(dp(c, 14), 0, dp(c, if (editing) 8 else 16), 0)
+                minimumHeight = dp(c, 44)
             }
-            minimumHeight = dp(c, 84)
-            addView(Kit.icon(c, R.drawable.ic_plus, 22, R.color.pa_muted).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(c, 22), dp(c, 22)).apply { gravity = Gravity.CENTER_HORIZONTAL }
-            })
-            addView(Kit.text(c, "New shortcut", 14f, 500, R.color.pa_muted).apply { gravity = Gravity.CENTER; setPadding(0, dp(c, 6), 0, 0) })
-            Kit.pressable(this, 0.96f)
+            pill.addView(Kit.icon(c, shortcutIcon(title), 18, R.color.pa_tile_icon))
+            pill.addView(Kit.text(c, title, 14f, 600, R.color.pa_on_tile).apply { maxLines = 1 })
+            if (editing) {
+                pill.addView(
+                    Kit.icon(c, R.drawable.ic_close, 14, R.color.pa_tile_icon).apply {
+                        background = Kit.rounded(0x33FFFFFF, dpf(c, 11))
+                        setPadding(dp(c, 4), dp(c, 4), dp(c, 4), dp(c, 4))
+                        layoutParams = LinearLayout.LayoutParams(dp(c, 22), dp(c, 22))
+                    },
+                )
+                // a gentle wiggle says "these can be changed"
+                pill.rotation = if (i % 2 == 0) -1.6f else 1.6f
+                pill.animate().rotation(if (i % 2 == 0) 1.6f else -1.6f).setDuration(120).withEndAction(object : Runnable {
+                    var flip = false
+                    override fun run() {
+                        if (!pill.isAttachedToWindow) return
+                        flip = !flip
+                        val target = if ((i % 2 == 0) == flip) -1.6f else 1.6f
+                        pill.animate().rotation(target).setDuration(120).withEndAction(this).start()
+                    }
+                }).start()
+                Kit.pressable(pill, 0.94f) {
+                    pill.animate().scaleX(0f).scaleY(0f).alpha(0f).setDuration(200).withEndAction { state.onRemoveShortcut(title) }.start()
+                }
+            } else {
+                Kit.pressable(pill, 0.95f) { if (!needsAttention) state.onRun(title) }
+            }
+            pills.addView(pill)
         }
-        val grid = Kit.vstack(c, 10)
-        grid.addView(Kit.hstack(c, 10).apply {
-            addView(tile(R.drawable.ic_pin, "Take me to an address"), Kit.weight())
-            addView(tile(R.drawable.ic_chat, "Reply to the latest message"), Kit.weight())
-        }, Kit.lp())
-        grid.addView(Kit.hstack(c, 10).apply {
-            addView(tile(R.drawable.ic_doc, "Summarise this screen"), Kit.weight())
-            addView(ghost, Kit.weight())
-        }, Kit.lp())
-        add(grid)
+        if (!editing) {
+            val add = Kit.hstack(c, 6).apply {
+                background = GradientDrawable().apply {
+                    setColor(0); cornerRadius = dpf(c, 22); setStroke(dp(c, 2), color(c, R.color.pa_line), dpf(c, 6), dpf(c, 5))
+                }
+                setPadding(dp(c, 14), 0, dp(c, 16), 0)
+                minimumHeight = dp(c, 44)
+            }
+            add.addView(Kit.icon(c, R.drawable.ic_plus, 16, R.color.pa_muted))
+            add.addView(Kit.text(c, "New", 14f, 500, R.color.pa_muted))
+            Kit.pressable(add, 0.95f, onClick = state.onAddShortcut)
+            pills.addView(add)
+        }
+        val scroller = Kit.hscroll(c, pills).apply { clipChildren = false }
+        add(scroller)
 
         // recent: a plain list, no card
         add(sectionTitle(c, "Recent", if (state.recent.isEmpty()) null else "See all"), Kit.lp().apply { topMargin = dp(c, 32) })
@@ -463,6 +510,20 @@ object Screens {
         p.addView(Kit.group(c, listOf(
             Kit.row(c, "Show the bubble", trailing = Kit.toggle(c, state.bubbleOn, state.onBubble)),
         ), 16), Kit.lp())
+        p.addView(gap(c, 26))
+
+        p.addView(Kit.section(c, "Appearance"))
+        val modes = listOf("system", "light", "dark")
+        val appearance = Kit.vstack(c).apply { setPadding(dp(c, 14), dp(c, 14), dp(c, 14), dp(c, 14)) }
+        appearance.addView(
+            Kit.segmented(c, listOf("System", "Light", "Dark"), modes.indexOf(state.theme).coerceAtLeast(0)) { i -> state.onTheme(modes[i]) },
+            Kit.lp(),
+        )
+        appearance.addView(
+            Kit.text(c, "System follows your phone's light or dark setting.", 13f, 400, R.color.pa_muted).apply { setPadding(dp(c, 2), dp(c, 10), 0, 0) },
+            Kit.lp(),
+        )
+        p.addView(Kit.group(c, listOf(appearance), 16), Kit.lp())
         p.addView(gap(c, 26))
 
         p.addView(Kit.section(c, "Safety and privacy"))

@@ -20,6 +20,8 @@ import dev.pocketagent.setup.SetupModel
 import dev.pocketagent.setup.SetupStep
 import dev.pocketagent.setup.StepStatus
 import dev.pocketagent.ui.kit.Attention
+import dev.pocketagent.ui.kit.DefaultShortcuts
+import dev.pocketagent.ui.kit.ThemeMode
 import dev.pocketagent.ui.kit.HomeState
 import dev.pocketagent.ui.kit.Nav
 import dev.pocketagent.ui.kit.Screens
@@ -30,11 +32,12 @@ import dev.pocketagent.ui.kit.Shell
  * The app: welcome on first run, then Home, Activity and Settings. Provider, key, model and the accessibility
  * steps still use the older [SetupActivity] until those cards are redrawn in the new style.
  */
-class MainActivity : Activity() {
+class MainActivity : ThemedActivity() {
     private val repository by lazy { SetupStores.repository(this) }
     private val settings by lazy { SetupStores.settings(this) }
     private lateinit var content: FrameLayout
     private lateinit var shell: Shell
+    private var editingShortcuts = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,12 +53,17 @@ class MainActivity : Activity() {
         }
         setContentView(host)
         shell = Shell(this, content, ::build)
-        shell.reset(if (settings.noticeAccepted) "home" else "welcome")
+        shell.reset(savedInstanceState?.getString("screen") ?: if (settings.noticeAccepted) "home" else "welcome")
     }
 
     override fun onResume() {
         super.onResume()
         if (::shell.isInitialized && shell.current in setOf("home", "settings")) shell.refresh()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        shell.current?.let { outState.putString("screen", it) }
     }
 
     @Deprecated("The shell handles back for pushed screens")
@@ -122,6 +130,19 @@ class MainActivity : Activity() {
             attention = attention,
             recent = emptyList(),
             usage = null,
+            shortcuts = settings.shortcuts ?: DefaultShortcuts,
+            editingShortcuts = editingShortcuts,
+            onEditShortcuts = { editingShortcuts = !editingShortcuts; shell.refresh() },
+            onRemoveShortcut = { gone ->
+                settings.shortcuts = (settings.shortcuts ?: DefaultShortcuts).filter { it != gone }
+                shell.refresh()
+            },
+            onAddShortcut = {
+                ShortcutDialog.show(this) { text ->
+                    settings.shortcuts = ((settings.shortcuts ?: DefaultShortcuts) + text).distinct()
+                    shell.refresh()
+                }
+            },
             onRun = { text ->
                 val host = TaskScreenHost.current
                 if (host == null) {
@@ -152,6 +173,13 @@ class MainActivity : Activity() {
             onAccessibility = { openAccessibility() },
             onMic = { openSetup() },
             showHistory = false,
+            theme = ThemeMode.current(this),
+            onTheme = { mode ->
+                if (mode != ThemeMode.current(this)) {
+                    ThemeMode.set(this, mode)
+                    recreate()
+                }
+            },
         )
     }
 }

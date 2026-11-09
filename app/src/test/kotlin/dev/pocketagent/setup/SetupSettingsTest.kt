@@ -38,4 +38,22 @@ class SetupSettingsTest {
         assertNull(settings.acceptedCustomHost)
         assertFalse(store.strings.containsKey("settings.customHost"))
     }
+
+    @Test
+    fun themeDefaultsToSystemAndRoundTrips() {
+        val settings = SetupSettings(FakeStore())
+        assertEquals("system", settings.theme)
+        settings.theme = "dark"
+        assertEquals("dark", settings.theme)
+    }
+
+    @Test
+    fun shortcutsAreNullUntilSavedAndKeepTheirOrder() {
+        val settings = SetupSettings(FakeStore())
+        assertEquals(null, settings.shortcuts)
+        settings.shortcuts = listOf("Take me home", "Read this screen")
+        assertEquals(listOf("Take me home", "Read this screen"), settings.shortcuts)
+        settings.shortcuts = emptyList()
+        assertEquals(emptyList(), settings.shortcuts)
+    }
 }

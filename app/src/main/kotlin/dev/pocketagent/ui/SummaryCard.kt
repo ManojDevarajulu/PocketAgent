@@ -77,7 +77,7 @@ class SummaryCard(private val context: Context) {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.TOP
             setPadding(Overlays.dp(c, 16), Overlays.dp(c, 14), Overlays.dp(c, 16), Overlays.dp(c, 16))
-            background = Kit.rounded(c.getColor(R.color.pa_card), Overlays.dp(c, 24).toFloat(), c.getColor(R.color.pa_line), Overlays.dp(c, 1))
+            background = Kit.rounded(Kit.color(c, R.color.pa_card), Overlays.dp(c, 24).toFloat(), Kit.color(c, R.color.pa_line), Overlays.dp(c, 1))
             elevation = Overlays.dp(c, 14).toFloat()
             setOnClickListener { dismiss() }
         }

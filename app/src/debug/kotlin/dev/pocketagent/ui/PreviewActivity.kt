@@ -29,6 +29,8 @@ class PreviewActivity : Activity() {
     private lateinit var host: FrameLayout
     private lateinit var content: FrameLayout
     private lateinit var shell: Shell
+    private var editing = false
+    private var shortcuts = dev.pocketagent.ui.kit.DefaultShortcuts
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,14 +113,22 @@ class PreviewActivity : Activity() {
         return when (name) {
             "welcome" -> Screens.welcome(c, nav)
             "notice" -> Screens.notice(c, nav)
-            "fix" -> Screens.home(c, Samples.fix, nav)
+            "fix" -> Screens.home(c, sample(Samples.fix), nav)
             "activity" -> Screens.activity(c, nav)
             "empty" -> Screens.activity(c, nav, empty = true)
             "detail" -> Screens.activityDetail(c, nav)
             "settings" -> Screens.settings(c, Samples.settings, nav)
-            else -> Screens.home(c, Samples.home, nav)
+            else -> Screens.home(c, sample(Samples.home), nav)
         }
     }
+
+    private fun sample(base: dev.pocketagent.ui.kit.HomeState) = base.copy(
+        shortcuts = shortcuts,
+        editingShortcuts = editing,
+        onEditShortcuts = { editing = !editing; shell.refresh() },
+        onRemoveShortcut = { gone -> shortcuts = shortcuts.filter { it != gone }; shell.refresh() },
+        onAddShortcut = { ShortcutDialog.show(this) { t -> shortcuts = shortcuts + t; shell.refresh() } },
+    )
 
     private fun menuButton(): View {
         val c = themed()

@@ -13,7 +13,7 @@ object SetupStores {
 
     private fun holder(context: Context): Holder = holder ?: synchronized(this) {
         holder ?: run {
-            val prefs = context.applicationContext.getSharedPreferences("pocketagent_setup", Context.MODE_PRIVATE)
+            val prefs = (context.applicationContext ?: context).getSharedPreferences("pocketagent_setup", Context.MODE_PRIVATE)
             val store = PrefsKeyValueStore(prefs)
             Holder(StoredConfigRepository(store, KeystoreSecretBox()), SetupSettings(store)).also { holder = it }
         }

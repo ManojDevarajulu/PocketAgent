@@ -2,7 +2,6 @@ package dev.pocketagent.ui
 
 import android.animation.ValueAnimator
 import android.content.Context
-import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
@@ -23,6 +22,7 @@ import dev.pocketagent.agent.BubbleCommand
 import dev.pocketagent.agent.BubbleLogic
 import dev.pocketagent.agent.BubbleMode
 import dev.pocketagent.ui.kit.Kit
+import dev.pocketagent.ui.kit.ThemeMode
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -157,8 +157,7 @@ class BubbleOverlay(
             alpha = REST_ALPHA
         }
 
-        private fun night() =
-            context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        private fun night() = ThemeMode.isNight(context)
 
         fun wake() {
             animate().alpha(1f).scaleX(if (mode == BubbleMode.IDLE && touching) 1.08f else 1f)
@@ -218,10 +217,10 @@ class BubbleOverlay(
             // The disc: frosted while idle, solid for every other state.
             val solidFill = when (mode) {
                 BubbleMode.IDLE -> 0
-                BubbleMode.RUNNING -> context.getColor(R.color.pa_tile)
-                BubbleMode.WAITING -> context.getColor(R.color.pa_accent)
-                BubbleMode.DONE -> context.getColor(R.color.pa_good)
-                BubbleMode.ERROR -> context.getColor(R.color.pa_bad)
+                BubbleMode.RUNNING -> Kit.color(context, R.color.pa_tile)
+                BubbleMode.WAITING -> Kit.color(context, R.color.pa_accent)
+                BubbleMode.DONE -> Kit.color(context, R.color.pa_good)
+                BubbleMode.ERROR -> Kit.color(context, R.color.pa_bad)
             }
             if (mode == BubbleMode.IDLE) {
                 disc.color = if (dark) 0x2EFFFFFF else 0x66FFFFFF
@@ -234,8 +233,8 @@ class BubbleOverlay(
             canvas.drawCircle(c, c, r, rim)
 
             val glyph = when {
-                mode == BubbleMode.WAITING -> context.getColor(R.color.pa_on_accent)
-                mode == BubbleMode.IDLE -> if (dark) 0xFFFFFFFF.toInt() else context.getColor(R.color.pa_tile)
+                mode == BubbleMode.WAITING -> Kit.color(context, R.color.pa_on_accent)
+                mode == BubbleMode.IDLE -> if (dark) 0xFFFFFFFF.toInt() else Kit.color(context, R.color.pa_tile)
                 else -> 0xFFFFFFFF.toInt()
             }
             ink.color = glyph
@@ -262,7 +261,7 @@ class BubbleOverlay(
                         }
                         canvas.save()
                         canvas.clipRect(0f, 0f, w, top + 0.8f * u)
-                        fillInk.color = context.getColor(R.color.pa_accent)
+                        fillInk.color = Kit.color(context, R.color.pa_accent)
                         canvas.drawPath(cur, fillInk)
                         canvas.restore()
                         fillInk.color = glyph

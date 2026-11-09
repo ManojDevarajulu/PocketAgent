@@ -57,7 +57,7 @@ import java.io.IOException
  * It gathers plain facts, hands them to [SetupModel], and draws one section per step with the same kit as the rest of
  * the app. The whole screen is secure so the key field cannot be captured by a screenshot or screen recording.
  */
-class SetupActivity : Activity() {
+class SetupActivity : ThemedActivity() {
     private val repository by lazy { SetupStores.repository(this) }
     private val settings by lazy { SetupStores.settings(this) }
     private val guidance by lazy { loadGuidance() }

@@ -19,12 +19,12 @@ class CaptionView(private val context: Context) {
         val v = Overlays.dp(context, 9)
         setPadding(h, v, h, v)
         background = Kit.rounded(
-            context.getColor(R.color.pa_card), Overlays.dp(context, 18).toFloat(),
-            context.getColor(R.color.pa_line), Overlays.dp(context, 1),
+            Kit.color(context, R.color.pa_card), Overlays.dp(context, 18).toFloat(),
+            Kit.color(context, R.color.pa_line), Overlays.dp(context, 1),
         )
         elevation = Overlays.dp(context, 6).toFloat()
         addView(
-            View(context).apply { background = Kit.rounded(context.getColor(R.color.pa_accent), Overlays.dp(context, 4).toFloat()) },
+            View(context).apply { background = Kit.rounded(Kit.color(context, R.color.pa_accent), Overlays.dp(context, 4).toFloat()) },
             LinearLayout.LayoutParams(Overlays.dp(context, 8), Overlays.dp(context, 8)).apply { marginEnd = Overlays.dp(context, 9) },
         )
         addView(label)
