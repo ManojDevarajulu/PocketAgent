@@ -66,3 +66,49 @@ object ShortcutDialog {
         field.requestFocus()
     }
 }
+
+/** Small confirm and info sheets in the app's style, for destructive actions and short explanations. */
+object SheetDialogs {
+    fun confirm(activity: Activity, title: String, message: String, action: String, onConfirm: () -> Unit) =
+        show(activity, title, message, action, onConfirm)
+
+    fun info(activity: Activity, title: String, message: String) = show(activity, title, message, null, null)
+
+    private fun show(activity: Activity, title: String, message: String, action: String?, onConfirm: (() -> Unit)?) {
+        val c = activity
+        val dialog = Dialog(c)
+        val card = Kit.vstack(c).apply {
+            background = Kit.rounded(color(c, R.color.pa_card), dpf(c, 28))
+            setPadding(dp(c, 22), dp(c, 24), dp(c, 22), dp(c, 18))
+        }
+        card.addView(Kit.text(c, title, 20f, 600), Kit.lp())
+        card.addView(
+            Kit.text(c, message, 15f, 400, R.color.pa_muted).apply { setPadding(0, dp(c, 8), 0, 0); setLineSpacing(dpf(c, 3), 1f) },
+            Kit.lp(),
+        )
+        if (action != null && onConfirm != null) {
+            val row = Kit.hstack(c, 12)
+            row.addView(Kit.secondary(c, "Cancel") { dialog.dismiss() }, Kit.weight())
+            row.addView(
+                Kit.secondary(c, action) { dialog.dismiss(); onConfirm() }.apply { setTextColor(color(c, R.color.pa_bad)) },
+                Kit.weight(),
+            )
+            card.addView(row, Kit.lp().apply { topMargin = dp(c, 20) })
+        } else {
+            card.addView(Kit.primary(c, "Got it") { dialog.dismiss() }, Kit.lp().apply { topMargin = dp(c, 20) })
+        }
+        val outer = FrameLayout(c).apply { setPadding(dp(c, 12), dp(c, 12), dp(c, 12), dp(c, 12)) }
+        outer.addView(card, FrameLayout.LayoutParams(-1, -2))
+        dialog.setContentView(outer)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setGravity(Gravity.BOTTOM)
+            setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+            setDimAmount(0.45f)
+        }
+        dialog.show()
+        card.alpha = 0f
+        card.translationY = dpf(c, 60)
+        card.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(Kit.ease).start()
+    }
+}

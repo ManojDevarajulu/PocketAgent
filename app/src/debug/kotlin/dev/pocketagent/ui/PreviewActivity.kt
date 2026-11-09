@@ -110,6 +110,7 @@ class PreviewActivity : Activity() {
 
     private fun build(name: String, nav: Nav): View {
         val c = themed()
+        if (name.startsWith("detail:")) return Screens.activityDetail(c, nav)
         return when (name) {
             "welcome" -> Screens.welcome(c, nav)
             "notice" -> Screens.notice(c, nav)
@@ -117,6 +118,8 @@ class PreviewActivity : Activity() {
             "activity" -> Screens.activity(c, nav)
             "empty" -> Screens.activity(c, nav, empty = true)
             "detail" -> Screens.activityDetail(c, nav)
+            "blocked" -> Screens.blockedApps(c, nav)
+            "licences" -> Screens.licences(c, nav)
             "settings" -> Screens.settings(c, Samples.settings, nav)
             else -> Screens.home(c, sample(Samples.home), nav)
         }
@@ -140,7 +143,7 @@ class PreviewActivity : Activity() {
         }
         b.setOnClickListener {
             PopupMenu(this, b).apply {
-                listOf("welcome", "notice", "home", "fix", "activity", "empty", "detail", "settings").forEach { menu.add(it) }
+                listOf("welcome", "notice", "home", "fix", "activity", "empty", "detail", "blocked", "licences", "settings").forEach { menu.add(it) }
                 menu.add("task sheet"); menu.add("answer sheet"); menu.add("setup")
                 menu.add(if (dark) "Light mode" else "Dark mode")
                 setOnMenuItemClickListener {

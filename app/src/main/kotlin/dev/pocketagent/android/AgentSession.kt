@@ -29,6 +29,7 @@ import dev.pocketagent.playbook.PlaybookStore
 import dev.pocketagent.safety.BlockedApps
 import dev.pocketagent.safety.SafetyGate
 import dev.pocketagent.setup.ConfigRepository
+import dev.pocketagent.setup.HistoryStore
 import dev.pocketagent.setup.SetupSettings
 import dev.pocketagent.ui.BubbleOverlay
 import dev.pocketagent.ui.CaptionView
@@ -58,6 +59,7 @@ class AgentSession(
     private val service: PocketAccessibilityService,
     private val repository: ConfigRepository,
     private val settings: SetupSettings,
+    private val history: HistoryStore,
 ) : TaskScreenHost {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val main = Handler(Looper.getMainLooper())
@@ -107,6 +109,8 @@ class AgentSession(
 
     /** True for the task started from the setup screen, so a success can mark the test task done. */
     private var setupTaskRunning = false
+    private var taskText = ""
+    private var taskStartedAt = 0L
 
     /**
      * The loop only reaches the overlays through this wrapper. Caption and waiting changes are applied on the main
@@ -199,7 +203,12 @@ class AgentSession(
     private fun begin(task: String, screen: Screen, client: LlmClient, fromSetup: Boolean) {
         pendingClient = client
         setupTaskRunning = fromSetup
-        if (!runner.start(task, screen)) setupTaskRunning = false
+        if (runner.start(task, screen)) {
+            taskText = task
+            taskStartedAt = System.currentTimeMillis()
+        } else {
+            setupTaskRunning = false
+        }
     }
 
     /** The test task of the setup screen: go Home, read the settled screen, run the task there. */
@@ -273,15 +282,24 @@ class AgentSession(
         when (state) {
             is AgentState.Finished -> {
                 if (setupTaskRunning && state.outcome.success) repository.testTaskDone = true
+                record(state.outcome.success, state.outcome.summary, state.outcome.usage.inputTokens + state.outcome.usage.outputTokens)
                 setupTaskRunning = false
                 endTask(SummaryText.title(state), SummaryText.body(state.outcome))
             }
             AgentState.Stopped -> {
                 setupTaskRunning = false
+                record(false, "Stopped by you", 0)
                 endTask(SummaryText.stoppedTitle(), "")
             }
             else -> Unit
         }
+    }
+
+    /** Saves the finished task to Activity (only the task text and how it went), once per task. */
+    private fun record(ok: Boolean, summary: String, tokens: Long) {
+        if (taskText.isEmpty()) return
+        history.add(taskText, ok, summary, taskStartedAt, tokens)
+        taskText = ""
     }
 
     /** Runs once per ending; skipped when a newer task already started before this state was collected. */

@@ -343,9 +343,19 @@ object Kit {
         return frame
     }
 
+    /** A 2 dp cursor in the text colour, so it can never vanish into the background (the default follows the theme accent). */
+    fun cursor(c: Context, field: android.widget.EditText, tint: Int = R.color.pa_ink) {
+        field.textCursorDrawable = GradientDrawable().apply {
+            setColor(color(c, tint))
+            setSize(dp(c, 2), dp(c, 22))
+        }
+        field.highlightColor = (color(c, tint) and 0x00FFFFFF) or 0x40000000
+    }
+
     /** A single-line text field on a card: filled well, navy ring while focused. */
     fun field(c: Context, hint: CharSequence): android.widget.EditText = android.widget.EditText(c).apply {
         this.hint = hint
+        cursor(c, this)
         textSize = 16f * TYPE_SCALE
         typeface = face(c, 400)
         setTextColor(color(c, R.color.pa_ink))
@@ -362,12 +372,15 @@ object Kit {
     }
 
     /** A borderless multi-line text input in the body type, for the composer. */
-    fun input(c: Context, hint: CharSequence, sp: Float = 19f): android.widget.EditText = android.widget.EditText(c).apply {
+    fun input(
+        c: Context, hint: CharSequence, sp: Float = 19f, textTint: Int = R.color.pa_ink, hintTint: Int = R.color.pa_muted,
+    ): android.widget.EditText = android.widget.EditText(c).apply {
         this.hint = hint
         textSize = sp * TYPE_SCALE
         typeface = face(c, 400)
-        setTextColor(color(c, R.color.pa_ink))
-        setHintTextColor(color(c, R.color.pa_muted))
+        setTextColor(color(c, textTint))
+        setHintTextColor(color(c, hintTint))
+        cursor(c, this, textTint)
         background = null
         setPadding(0, 0, 0, 0)
         includeFontPadding = false

@@ -13,7 +13,15 @@ import dev.pocketagent.ui.kit.Kit.color
 import dev.pocketagent.ui.kit.Kit.dp
 import dev.pocketagent.ui.kit.Kit.dpf
 
-data class RecentItem(val ok: Boolean, val title: String, val sub: String, val time: String)
+data class RecentItem(val ok: Boolean, val title: String, val sub: String, val time: String, val id: Long = 0)
+
+data class ActivityRow(val id: Long, val ok: Boolean, val title: String, val sub: String, val time: String, val day: String)
+
+class ActivityDetail(
+    val ok: Boolean, val title: String, val whenText: String, val result: String,
+    val duration: String, val tokens: String,
+    val onRun: () -> Unit = {}, val onDelete: () -> Unit = {},
+)
 
 /** One thing that needs fixing, shown on Home as a single card with one button. */
 class Attention(val title: String, val body: String, val action: String, val onAction: () -> Unit)
@@ -47,6 +55,12 @@ data class SettingsState(
     val showHistory: Boolean = true,
     val theme: String = "system",
     val onTheme: (String) -> Unit = {},
+    val historyOn: Boolean = true,
+    val onHistory: (Boolean) -> Unit = {},
+    val onClearHistory: () -> Unit = {},
+    val onRiskyInfo: () -> Unit = {},
+    val onStar: () -> Unit = {},
+    val onReport: () -> Unit = {},
 )
 
 object Samples {
@@ -58,6 +72,11 @@ object Samples {
     val home = HomeState("Model works · Accessibility on", null, recent, "Today: 3 tasks, about 18k tokens used.")
     val fix = home.copy(
         attention = Attention("Accessibility is off", "Pocket Agent can't tap or read the screen until you turn it back on.", "Turn it on") {},
+    )
+    val activity = listOf(
+        ActivityRow(1, true, "Take me to the address in this message", "Maps", "2 min", "Today"),
+        ActivityRow(2, true, "Summarise this screen", "Chrome", "1 h", "Today"),
+        ActivityRow(3, false, "Order my usual from the app", "Stopped by you", "Mon", "Yesterday"),
     )
     val settings = SettingsState("Version 0.1.0 · Ready", "OpenRouter", true, true, false, true)
 }
@@ -199,28 +218,31 @@ object Screens {
 
         // composer: the hero. The send button wakes up (grey to orange, with a pop) once there is something to send.
         val composer = Kit.vstack(c).apply {
-            background = Kit.rounded(color(c, R.color.pa_card), dpf(c, 28))
+            background = Kit.rounded(color(c, R.color.pa_hero), dpf(c, 28))
             setPadding(dp(c, 18), dp(c, 16), dp(c, 12), dp(c, 12))
             elevation = dpf(c, 1)
             alpha = if (needsAttention) .5f else 1f
         }
-        val input = Kit.input(c, if (needsAttention) "Fix the banner above first" else "What should I do?").apply {
+        val input = Kit.input(
+            c, if (needsAttention) "Fix the banner above first" else "What should I do?",
+            textTint = R.color.pa_on_hero, hintTint = R.color.pa_hero_muted,
+        ).apply {
             isEnabled = !needsAttention
             minimumHeight = dp(c, 44)
         }
         composer.addView(input, Kit.lp())
         val controls = Kit.hstack(c).apply { setPadding(0, dp(c, 6), 0, 0) }
         controls.addView(
-            Kit.icon(c, R.drawable.ic_mic, 22, R.color.pa_ink).apply {
-                background = Kit.rounded(color(c, R.color.pa_fill), dpf(c, 22))
+            Kit.icon(c, R.drawable.ic_mic, 22, R.color.pa_on_hero).apply {
+                background = Kit.rounded(color(c, R.color.pa_hero_fill), dpf(c, 22))
                 setPadding(dp(c, 11), dp(c, 11), dp(c, 11), dp(c, 11))
                 layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44))
                 Kit.pressable(this, 0.9f)
             },
         )
         controls.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
-        val send = Kit.icon(c, R.drawable.ic_send, 20, R.color.pa_muted).apply {
-            val bg = Kit.rounded(color(c, R.color.pa_line), dpf(c, 22))
+        val send = Kit.icon(c, R.drawable.ic_send, 20, R.color.pa_hero_muted).apply {
+            val bg = Kit.rounded(color(c, R.color.pa_hero_fill), dpf(c, 22))
             background = bg
             setPadding(dp(c, 12), dp(c, 12), dp(c, 12), dp(c, 12))
             layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44))
@@ -236,13 +258,13 @@ object Screens {
                 val has = !s.isNullOrBlank()
                 if (has == armed) return
                 armed = has
-                val from = if (has) color(c, R.color.pa_line) else color(c, R.color.pa_accent)
-                val to = if (has) color(c, R.color.pa_accent) else color(c, R.color.pa_line)
+                val from = if (has) color(c, R.color.pa_hero_fill) else color(c, R.color.pa_accent)
+                val to = if (has) color(c, R.color.pa_accent) else color(c, R.color.pa_hero_fill)
                 android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(), from, to).apply {
                     duration = 220
                     addUpdateListener { (send.background as GradientDrawable).setColor(it.animatedValue as Int) }
                 }.start()
-                send.setColorFilter(color(c, if (has) R.color.pa_on_accent else R.color.pa_muted))
+                send.setColorFilter(color(c, if (has) R.color.pa_on_accent else R.color.pa_hero_muted))
                 if (has) send.animate().scaleX(1.14f).scaleY(1.14f).setDuration(110).withEndAction {
                     send.animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()
                 }.start()
@@ -330,7 +352,7 @@ object Screens {
                 col.addView(Kit.text(c, it.sub, 13f, 400, R.color.pa_muted).apply { setPadding(0, dp(c, 2), 0, 0) })
                 r.addView(col, Kit.weight())
                 r.addView(Kit.text(c, it.time, 13f, 400, R.color.pa_muted))
-                Kit.pressable(r, 1f) { nav.push("detail") }
+                Kit.pressable(r, 1f) { nav.push(if (it.id == 0L) "detail" else "detail:${it.id}") }
                 list.addView(r, Kit.lp())
                 if (i < state.recent.lastIndex) list.addView(View(c).apply { setBackgroundColor(color(c, R.color.pa_line)) },
                     Kit.lp(h = 1).apply { marginStart = dp(c, 40) })
@@ -345,22 +367,22 @@ object Screens {
 
     // ------------------------------------------------------------ Activity
 
-    fun activity(c: Context, nav: Nav = Nav(), empty: Boolean = false): View {
+    fun activity(c: Context, nav: Nav = Nav(), empty: Boolean = false, rows: List<ActivityRow>? = null): View {
+        val all = if (empty) emptyList() else rows ?: Samples.activity
         val p = page(c)
-        if (empty) {
-            p.addView(Kit.largeTitle(c, "Activity").apply { setPadding(dp(c, 4), 0, 0, 0) })
+        p.addView(Kit.largeTitle(c, "Activity").apply { setPadding(dp(c, 4), 0, 0, 0) })
+        if (all.isEmpty()) {
             val e = Kit.vstack(c).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(c, 24), dp(c, 120), dp(c, 24), 0) }
             e.addView(Kit.icon(c, R.drawable.ic_activity, 44, R.color.pa_muted).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 44)).apply { gravity = Gravity.CENTER_HORIZONTAL }
             })
             e.addView(Kit.text(c, "No activity yet", 19f, 600).apply { gravity = Gravity.CENTER; setPadding(0, dp(c, 16), 0, 0) }, Kit.lp())
-            e.addView(Kit.text(c, "Tasks you run will show up here, with what they did. Kept on this phone only.", 15f, 400, R.color.pa_muted).apply {
+            e.addView(Kit.text(c, "Tasks you run will show up here, with how they went. Kept on this phone only.", 15f, 400, R.color.pa_muted).apply {
                 gravity = Gravity.CENTER; setPadding(0, dp(c, 8), 0, 0); setLineSpacing(dpf(c, 3), 1f)
             }, Kit.lp())
             p.addView(e, Kit.lp())
             return withTabs(c, p, 1, nav)
         }
-        p.addView(Kit.largeTitle(c, "Activity").apply { setPadding(dp(c, 4), 0, 0, 0) })
         p.addView(gap(c, 14))
         val search = Kit.hstack(c, 8).apply {
             background = Kit.rounded(color(c, R.color.pa_fill), dpf(c, 12))
@@ -368,68 +390,73 @@ object Screens {
             minimumHeight = dp(c, 40)
         }
         search.addView(Kit.icon(c, R.drawable.ic_search, 18, R.color.pa_muted))
-        search.addView(Kit.text(c, "Search tasks", 16f, 400, R.color.pa_muted))
+        val query = Kit.input(c, "Search tasks", 16f).apply { minLines = 1; maxLines = 1; setSingleLine(true) }
+        search.addView(query, Kit.weight())
         p.addView(search, Kit.lp())
         p.addView(gap(c, 12))
-        p.addView(Kit.segmented(c, listOf("All", "Done", "Stopped"), 0), Kit.lp())
-        p.addView(gap(c, 22))
-
-        fun r(ok: Boolean, t: String, s: String, time: String) =
-            Kit.row(c, t, s, if (ok) okTile(c) else failTile(c), Kit.text(c, time, 13f, 400, R.color.pa_muted), 64) { nav.push("detail") }
-
-        p.addView(Kit.section(c, "Today"))
-        p.addView(
-            Kit.group(
-                c,
-                listOf(
-                    r(true, "Take me to the address in this message", "Maps · 9 steps · 41 s", "2 min"),
-                    r(true, "Summarise this screen", "Chrome · 3 steps · 12 s", "1 h"),
-                    r(true, "Reply to Priya: running late", "WhatsApp · 6 steps · 33 s", "3 h"),
-                ),
-                sepInsetDp = 62,
-            ),
-            Kit.lp(),
-        )
-        p.addView(gap(c, 22))
-        p.addView(Kit.section(c, "Yesterday"))
-        p.addView(
-            Kit.group(
-                c,
-                listOf(
-                    r(false, "Order my usual from the app", "Stopped by you · 4 steps", "Mon"),
-                    r(true, "Turn on battery saver", "Blocked app · nothing was changed", "Mon"),
-                ),
-                sepInsetDp = 62,
-            ),
-            Kit.lp(),
-        )
-        p.addView(
-            Kit.footnote(
-                c,
-                "Kept only on this phone: the task you typed and how it went. Never what was on your screen. Turn this off or clear it in Settings.",
-            ),
-        )
+        val list = Kit.vstack(c)
+        var filter = 0
+        fun render() {
+            list.removeAllViews()
+            val q = query.text.toString().trim()
+            val shown = all.filter {
+                (filter == 0 || (filter == 1 && it.ok) || (filter == 2 && !it.ok)) && (q.isEmpty() || it.title.contains(q, ignoreCase = true))
+            }
+            if (shown.isEmpty()) {
+                list.addView(Kit.text(c, "Nothing matches.", 15f, 400, R.color.pa_muted).apply { setPadding(dp(c, 20), dp(c, 24), 0, 0) })
+                return
+            }
+            shown.groupBy { it.day }.forEach { (day, items) ->
+                list.addView(Kit.section(c, day), Kit.lp().apply { topMargin = dp(c, 22) })
+                list.addView(
+                    Kit.group(
+                        c,
+                        items.map { r ->
+                            Kit.row(c, r.title, r.sub, if (r.ok) okTile(c) else failTile(c), Kit.text(c, r.time, 13f, 400, R.color.pa_muted), 64) {
+                                nav.push(if (r.id <= 5) "detail" else "detail:${r.id}")
+                            }
+                        },
+                        sepInsetDp = 62,
+                    ),
+                    Kit.lp(),
+                )
+            }
+        }
+        p.addView(Kit.segmented(c, listOf("All", "Done", "Stopped"), 0) { filter = it; render() }, Kit.lp())
+        query.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) = render()
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c1: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c2: Int) {}
+        })
+        render()
+        p.addView(list, Kit.lp())
+        p.addView(Kit.footnote(c, "Kept only on this phone: the task you typed and how it went. Never what was on your screen. Turn this off or clear it in Settings."), Kit.lp().apply { topMargin = dp(c, 12) })
         return withTabs(c, p, 1, nav)
     }
 
-    fun activityDetail(c: Context, nav: Nav = Nav()): View {
+    fun activityDetail(c: Context, nav: Nav = Nav(), d: ActivityDetail? = null): View {
+        val detail = d ?: ActivityDetail(true, "Take me to the address in this message", "Today, 6:42 pm", "Maps is showing directions to 14 Park Street.", "41 s", "6.2k")
         val p = page(c, 20)
         val back = Kit.hstack(c, 2).apply { setPadding(0, 0, 0, dp(c, 14)) }
         back.addView(Kit.icon(c, R.drawable.ic_back, 22, R.color.pa_blue))
         back.addView(Kit.text(c, "Activity", 17f, 400, R.color.pa_blue))
         Kit.pressable(back, 1f) { nav.back() }
         p.addView(back, Kit.lp(ViewGroup.LayoutParams.WRAP_CONTENT))
-        p.addView(Kit.text(c, "Take me to the address in this message", 24f, 600).apply { letterSpacing = -0.02f; setLineSpacing(dpf(c, 2), 1f) })
-        p.addView(Kit.text(c, "Today, 6:42 pm", 15f, 400, R.color.pa_muted).apply { setPadding(0, dp(c, 6), 0, dp(c, 18)) })
+        p.addView(Kit.text(c, detail.title, 24f, 600).apply { letterSpacing = -0.02f; setLineSpacing(dpf(c, 2), 1f) })
+        p.addView(Kit.text(c, detail.whenText, 15f, 400, R.color.pa_muted).apply { setPadding(0, dp(c, 6), 0, dp(c, 18)) })
 
         val res = Kit.card(c, 22, 16)
         val head = Kit.hstack(c)
-        head.addView(okTile(c))
-        head.addView(Kit.text(c, "Done", 17f, 600))
+        head.addView(if (detail.ok) okTile(c) else failTile(c))
+        head.addView(Kit.text(c, if (detail.ok) "Done" else "Stopped", 17f, 600))
         res.addView(head)
-        res.addView(Kit.text(c, "Maps is showing directions to 14 Park Street.", 15f, 400).apply { setPadding(0, dp(c, 10), 0, dp(c, 14)) })
+        if (detail.result.isNotBlank()) {
+            res.addView(Kit.text(c, detail.result, 15f, 400).apply { setPadding(0, dp(c, 10), 0, dp(c, 14)); setLineSpacing(dpf(c, 3), 1f) })
+        } else {
+            res.addView(View(c), Kit.lp(h = dp(c, 12)))
+        }
         val stats = Kit.hstack(c)
-        listOf("9" to "steps", "41 s" to "time", "6.2k" to "tokens").forEach { (v, l) ->
+        listOf(detail.duration to "time", detail.tokens to "tokens").forEach { (v, l) ->
             val col = Kit.vstack(c).apply { gravity = Gravity.CENTER_HORIZONTAL }
             col.addView(Kit.text(c, v, 20f, 600).apply { gravity = Gravity.CENTER })
             col.addView(Kit.text(c, l, 13f, 400, R.color.pa_muted).apply { gravity = Gravity.CENTER; setPadding(0, dp(c, 2), 0, 0) })
@@ -438,35 +465,65 @@ object Screens {
         res.addView(stats)
         p.addView(res, Kit.lp())
         p.addView(gap(c, 22))
-        p.addView(Kit.section(c, "What it did"))
-        val steps = Kit.card(c, 20, 16)
-        val items = listOf("Read the message" to "WhatsApp", "Copied the address" to "14 Park Street", "Opened Google Maps" to "Searched the address", "Started directions" to "Finished")
-        items.forEachIndexed { i, (t, st) ->
-            val last = i == items.lastIndex
-            val r = Kit.hstack(c, 14).apply { gravity = Gravity.TOP }
-            val rail = Kit.vstack(c).apply { gravity = Gravity.CENTER_HORIZONTAL }
-            rail.addView(View(c).apply {
-                background = Kit.rounded(color(c, if (last) R.color.pa_good else R.color.pa_blue), dpf(c, 5))
-            }, LinearLayout.LayoutParams(dp(c, 10), dp(c, 10)).apply { topMargin = dp(c, 6) })
-            if (!last) rail.addView(View(c).apply { setBackgroundColor(color(c, R.color.pa_line)) },
-                LinearLayout.LayoutParams(dp(c, 2), 0, 1f).apply { topMargin = dp(c, 4); bottomMargin = dp(c, 2) })
-            r.addView(rail, LinearLayout.LayoutParams(dp(c, 10), ViewGroup.LayoutParams.MATCH_PARENT))
-            val col = Kit.vstack(c).apply { setPadding(0, 0, 0, dp(c, if (last) 0 else 16)) }
-            col.addView(Kit.text(c, t, 15f, 500))
-            col.addView(Kit.text(c, st, 13f, 400, R.color.pa_muted).apply { setPadding(0, dp(c, 2), 0, 0) })
-            r.addView(col, Kit.weight())
-            steps.addView(r, Kit.lp())
-        }
-        p.addView(steps, Kit.lp())
-        p.addView(gap(c, 20))
-        p.addView(Kit.primary(c, "Run again"), Kit.lp())
+        p.addView(Kit.primary(c, "Run again", onClick = detail.onRun), Kit.lp())
         p.addView(Kit.text(c, "Delete from Activity", 17f, 400, R.color.pa_bad).apply {
             gravity = Gravity.CENTER; setPadding(0, dp(c, 16), 0, dp(c, 8))
+            Kit.pressable(this, 1f, onClick = detail.onDelete)
         }, Kit.lp())
         return FrameLayout(c).apply {
             setBackgroundColor(color(c, R.color.pa_bg))
             addView(Kit.scroll(c, p), FrameLayout.LayoutParams(-1, -1))
         }
+    }
+
+    /** A pushed screen's back link and large title. */
+    private fun pushed(c: Context, nav: Nav, back: String, title: String): LinearLayout {
+        val p = page(c, 20)
+        val row = Kit.hstack(c, 2).apply { setPadding(0, 0, 0, dp(c, 10)) }
+        row.addView(Kit.icon(c, R.drawable.ic_back, 22, R.color.pa_blue))
+        row.addView(Kit.text(c, back, 17f, 400, R.color.pa_blue))
+        Kit.pressable(row, 1f) { nav.back() }
+        p.addView(row, Kit.lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+        p.addView(Kit.largeTitle(c, title).apply { setPadding(dp(c, 4), 0, 0, dp(c, 8)) })
+        return p
+    }
+
+    private fun plain(c: Context, p: View): View = FrameLayout(c).apply {
+        setBackgroundColor(color(c, R.color.pa_bg))
+        addView(Kit.scroll(c, p), FrameLayout.LayoutParams(-1, -1))
+    }
+
+    /** The apps the agent will never open or act in. Mirrors the rules in [dev.pocketagent.safety.BlockedApps]. */
+    fun blockedApps(c: Context, nav: Nav = Nav()): View {
+        val p = pushed(c, nav, "Settings", "Apps it never touches")
+        p.addView(Kit.text(c, "Pocket Agent will not open these, read them or tap in them, even if you ask. It is a safety rule that cannot be turned off.", 15f, 400, R.color.pa_muted).apply {
+            setPadding(dp(c, 4), 0, dp(c, 4), dp(c, 8)); setLineSpacing(dpf(c, 3), 1f)
+        }, Kit.lp())
+        fun block(title: String, icon: Int, vararg names: String) {
+            p.addView(Kit.section(c, title), Kit.lp().apply { topMargin = dp(c, 18) })
+            p.addView(Kit.group(c, names.map { n -> Kit.row(c, n, leading = blueTile(c, icon), minHeight = 52) }, 60), Kit.lp())
+        }
+        block("Banking and payments", R.drawable.ic_lock, "Google Pay", "PhonePe", "Paytm", "BHIM and other UPI apps", "Any bank or wallet app")
+        block("Passwords and sign-in codes", R.drawable.ic_key, "Bitwarden", "1Password", "LastPass", "Google Authenticator")
+        block("Phone controls", R.drawable.ic_settings, "Settings", "System controls and permission screens", "App installer")
+        p.addView(Kit.footnote(c, "It also skips any app whose name contains bank, pay, wallet, UPI or password."))
+        return plain(c, p)
+    }
+
+    /** Open-source components bundled in the app. */
+    fun licences(c: Context, nav: Nav = Nav()): View {
+        val p = pushed(c, nav, "Settings", "Open-source licences")
+        p.addView(Kit.text(c, "Pocket Agent is free and open source. It is built on these projects.", 15f, 400, R.color.pa_muted).apply {
+            setPadding(dp(c, 4), 0, dp(c, 4), dp(c, 8)); setLineSpacing(dpf(c, 3), 1f)
+        }, Kit.lp())
+        p.addView(Kit.group(c, listOf(
+            Kit.row(c, "Inter typeface", "SIL Open Font Licence 1.1", blueTile(c, R.drawable.ic_doc), null, 64),
+            Kit.row(c, "OkHttp", "Apache Licence 2.0", blueTile(c, R.drawable.ic_doc), null, 64),
+            Kit.row(c, "Kotlin and kotlinx", "Apache Licence 2.0", blueTile(c, R.drawable.ic_doc), null, 64),
+            Kit.row(c, "Android Open Source Project", "Apache Licence 2.0", blueTile(c, R.drawable.ic_doc), null, 64),
+        ), 60), Kit.lp().apply { topMargin = dp(c, 14) })
+        p.addView(Kit.footnote(c, "The full licence texts are in the project repository on GitHub."))
+        return plain(c, p)
     }
 
     // ------------------------------------------------------------ Settings
@@ -478,15 +535,19 @@ object Screens {
         p.addView(Kit.largeTitle(c, "Settings").apply { setPadding(dp(c, 4), 0, 0, 0) })
         p.addView(gap(c, 22))
 
-        val about = Kit.row(
-            c, "Pocket Agent", state.version,
-            leading = ImageView(c).apply {
-                setImageResource(R.drawable.logo_mark)
-                layoutParams = LinearLayout.LayoutParams(dp(c, 48), dp(c, 48)).apply { marginEnd = dp(c, 14) }
-            },
-            minHeight = 76,
-        )
-        p.addView(Kit.group(c, listOf(about), 16), Kit.lp())
+        val about = Kit.hstack(c, 14).apply {
+            background = Kit.rounded(color(c, R.color.pa_hero), dpf(c, 22))
+            setPadding(dp(c, 18), dp(c, 18), dp(c, 18), dp(c, 18))
+        }
+        about.addView(ImageView(c).apply {
+            setImageResource(R.drawable.logo_mark)
+            layoutParams = LinearLayout.LayoutParams(dp(c, 52), dp(c, 52))
+        })
+        val aboutText = Kit.vstack(c)
+        aboutText.addView(Kit.text(c, "Pocket Agent", 19f, 600, R.color.pa_on_hero))
+        aboutText.addView(Kit.text(c, state.version, 14f, 400, R.color.pa_hero_muted).apply { setPadding(0, dp(c, 3), 0, 0) })
+        about.addView(aboutText, Kit.weight())
+        p.addView(about, Kit.lp())
         p.addView(gap(c, 26))
 
         p.addView(Kit.section(c, "AI"))
@@ -528,13 +589,13 @@ object Screens {
 
         p.addView(Kit.section(c, "Safety and privacy"))
         val safety = ArrayList<View>()
-        safety.add(Kit.row(c, "Apps it never touches", "Banking, payments, passwords", blueTile(c, R.drawable.ic_shield), null, 64))
-        safety.add(Kit.row(c, "Ask before risky actions", leading = blueTile(c, R.drawable.ic_check), trailing = Kit.value(c, "Always", false)))
+        safety.add(Kit.row(c, "Apps it never touches", "Banking, payments, passwords", blueTile(c, R.drawable.ic_shield), Kit.chevron(c), 64) { nav.push("blocked") })
+        safety.add(Kit.row(c, "Ask before risky actions", leading = blueTile(c, R.drawable.ic_check), trailing = Kit.value(c, "Always"), onClick = state.onRiskyInfo))
         if (state.showHistory) {
-            safety.add(Kit.row(c, "Keep Activity history", leading = blueTile(c, R.drawable.ic_activity), trailing = Kit.toggle(c, true)))
+            safety.add(Kit.row(c, "Keep Activity history", leading = blueTile(c, R.drawable.ic_activity), trailing = Kit.toggle(c, state.historyOn, state.onHistory)))
             safety.add(Kit.row(c, "Clear history",
                 leading = Kit.tile(c, R.drawable.ic_trash, color(c, R.color.pa_bad) and 0x00FFFFFF or 0x24000000, color(c, R.color.pa_bad), 30),
-                titleTint = R.color.pa_bad, onClick = {}))
+                titleTint = R.color.pa_bad, onClick = state.onClearHistory))
         }
         p.addView(Kit.group(c, safety, 60), Kit.lp())
         p.addView(Kit.footnote(c, "What is sent: the text on your screen, to your provider only. Nothing from your screen is stored."))
@@ -542,9 +603,9 @@ object Screens {
 
         p.addView(Kit.section(c, "About"))
         p.addView(settingsGroup(c,
-            Kit.row(c, "Star us on GitHub", leading = blueTile(c, R.drawable.ic_star), trailing = Kit.chevron(c), onClick = {}),
-            Kit.row(c, "Report a problem", leading = blueTile(c, R.drawable.ic_alert), trailing = Kit.chevron(c), onClick = {}),
-            Kit.row(c, "Open-source licences", leading = blueTile(c, R.drawable.ic_doc), trailing = Kit.chevron(c), onClick = {}),
+            Kit.row(c, "Star us on GitHub", leading = blueTile(c, R.drawable.ic_star), trailing = Kit.chevron(c), onClick = state.onStar),
+            Kit.row(c, "Report a problem", leading = blueTile(c, R.drawable.ic_alert), trailing = Kit.chevron(c), onClick = state.onReport),
+            Kit.row(c, "Open-source licences", leading = blueTile(c, R.drawable.ic_doc), trailing = Kit.chevron(c)) { nav.push("licences") },
         ), Kit.lp())
         p.addView(Kit.footnote(c, "Free and open source. No account, no tracking.").apply { gravity = Gravity.CENTER })
         return withTabs(c, p, 2, nav)

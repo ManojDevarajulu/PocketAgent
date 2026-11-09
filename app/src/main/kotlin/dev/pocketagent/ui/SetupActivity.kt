@@ -99,6 +99,10 @@ class SetupActivity : ThemedActivity() {
             setBackgroundColor(color(this@SetupActivity, R.color.pa_bg))
             addView(scroll, FrameLayout.LayoutParams(-1, -1))
         })
+        // Opened from Settings just to ask for the microphone: ask straight away, then go back.
+        if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_REQUEST_MIC, false)) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC)
+        }
     }
 
     override fun onResume() {
@@ -611,7 +615,7 @@ class SetupActivity : ThemedActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_MIC) {
             settings.microphoneAsked = true
-            render()
+            if (intent.getBooleanExtra(EXTRA_REQUEST_MIC, false)) finish() else render()
         }
     }
 
@@ -662,6 +666,7 @@ class SetupActivity : ThemedActivity() {
     }
 
     companion object {
+        const val EXTRA_REQUEST_MIC = "request_mic"
         const val TEST_TASK_TEXT = "Look at my home screen and name three apps on it"
         private const val CUSTOM = "custom"
         private const val GUIDANCE_DIR = "guidance"

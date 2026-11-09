@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
@@ -35,6 +36,7 @@ import dev.pocketagent.ui.kit.Shell
 class MainActivity : ThemedActivity() {
     private val repository by lazy { SetupStores.repository(this) }
     private val settings by lazy { SetupStores.settings(this) }
+    private val history by lazy { SetupStores.history(this) }
     private lateinit var content: FrameLayout
     private lateinit var shell: Shell
     private var editingShortcuts = false
@@ -58,7 +60,7 @@ class MainActivity : ThemedActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::shell.isInitialized && shell.current in setOf("home", "settings")) shell.refresh()
+        if (::shell.isInitialized && shell.current in setOf("home", "settings", "activity")) shell.refresh()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -73,15 +75,49 @@ class MainActivity : ThemedActivity() {
 
     // --- screens ---
 
-    private fun build(name: String, nav: Nav): View = when (name) {
-        "welcome" -> Screens.welcome(this, nav)
-        "notice" -> Screens.notice(this, nav, onAccept = {
+    private fun build(name: String, nav: Nav): View = when {
+        name == "welcome" -> Screens.welcome(this, nav)
+        name == "notice" -> Screens.notice(this, nav, onAccept = {
             settings.noticeAccepted = true
             shell.reset("home", Shell.Transition.FADE)
         })
-        "activity" -> Screens.activity(this, nav, empty = true)
-        "settings" -> Screens.settings(this, settingsState(), nav)
+        name == "activity" -> Screens.activity(this, nav, rows = HistoryFormat.rows(history.all()))
+        name == "settings" -> Screens.settings(this, settingsState(), nav)
+        name == "blocked" -> Screens.blockedApps(this, nav)
+        name == "licences" -> Screens.licences(this, nav)
+        name.startsWith("detail:") -> detailScreen(name.removePrefix("detail:").toLongOrNull(), nav)
         else -> Screens.home(this, homeState(), nav)
+    }
+
+    private fun detailScreen(id: Long?, nav: Nav): View {
+        val entry = id?.let { history.find(it) } ?: return Screens.activity(this, nav, rows = HistoryFormat.rows(history.all()))
+        return Screens.activityDetail(
+            this, nav,
+            HistoryFormat.detail(entry, System.currentTimeMillis(),
+                onRun = { runTask(entry.task) },
+                onDelete = {
+                    history.remove(entry.id)
+                    shell.reset("activity", Shell.Transition.FADE)
+                },
+            ),
+        )
+    }
+
+    private fun runTask(text: String) {
+        val host = TaskScreenHost.current
+        if (host == null) {
+            Toast.makeText(this, "Switch on Pocket Agent in accessibility settings first.", Toast.LENGTH_LONG).show()
+        } else {
+            host.startSetupTask(text)
+        }
+    }
+
+    private fun openUrl(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, "No browser found to open $url", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun accessibilityOn() = AccessibilityState.isEnabled(
@@ -106,6 +142,14 @@ class MainActivity : ThemedActivity() {
         )
     }
 
+    private fun openSettingsPage(intent: Intent) {
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            openSetup()
+        }
+    }
+
     private fun openSetup() = startActivity(Intent(this, SetupActivity::class.java))
 
     private fun openAccessibility() {
@@ -128,8 +172,8 @@ class MainActivity : ThemedActivity() {
         return HomeState(
             statusDetail = "Model works · Accessibility on" + if (settings.bubbleOn) " · Bubble on" else "",
             attention = attention,
-            recent = emptyList(),
-            usage = null,
+            recent = HistoryFormat.recent(history.all()),
+            usage = HistoryFormat.todayLine(history.all()),
             shortcuts = settings.shortcuts ?: DefaultShortcuts,
             editingShortcuts = editingShortcuts,
             onEditShortcuts = { editingShortcuts = !editingShortcuts; shell.refresh() },
@@ -143,14 +187,7 @@ class MainActivity : ThemedActivity() {
                     shell.refresh()
                 }
             },
-            onRun = { text ->
-                val host = TaskScreenHost.current
-                if (host == null) {
-                    Toast.makeText(this, "Switch on Pocket Agent in accessibility settings first.", Toast.LENGTH_LONG).show()
-                } else {
-                    host.startSetupTask(text)
-                }
-            },
+            onRun = { text -> runTask(text) },
         )
     }
 
@@ -171,8 +208,30 @@ class MainActivity : ThemedActivity() {
             onBubble = { settings.bubbleOn = it },
             onProvider = { openSetup() },
             onAccessibility = { openAccessibility() },
-            onMic = { openSetup() },
-            showHistory = false,
+            onMic = {
+                if (micOn()) {
+                    openSettingsPage(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                } else {
+                    startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_REQUEST_MIC, true))
+                }
+            },
+            showHistory = true,
+            historyOn = history.enabled,
+            onHistory = { history.enabled = it },
+            onClearHistory = {
+                SheetDialogs.confirm(this, "Clear history?", "This removes the list of tasks on this phone. It can't be undone.", "Clear") {
+                    history.clear()
+                    shell.refresh()
+                }
+            },
+            onRiskyInfo = {
+                SheetDialogs.info(
+                    this, "Ask before risky actions",
+                    "Pocket Agent always asks before anything that sends, pays, posts or deletes. This is a safety rule and cannot be turned off.",
+                )
+            },
+            onStar = { openUrl(REPO) },
+            onReport = { openUrl("$REPO/issues/new") },
             theme = ThemeMode.current(this),
             onTheme = { mode ->
                 if (mode != ThemeMode.current(this)) {
@@ -181,5 +240,9 @@ class MainActivity : ThemedActivity() {
                 }
             },
         )
+    }
+
+    private companion object {
+        const val REPO = "https://github.com/ManojDevarajulu/PocketAgent"
     }
 }

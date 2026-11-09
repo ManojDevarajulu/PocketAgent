@@ -222,19 +222,20 @@ class BubbleOverlay(
                 BubbleMode.DONE -> Kit.color(context, R.color.pa_good)
                 BubbleMode.ERROR -> Kit.color(context, R.color.pa_bad)
             }
+            // Navy with a white rim reads on a light app and on a dark one; frosted white vanished on light backgrounds.
             if (mode == BubbleMode.IDLE) {
-                disc.color = if (dark) 0x2EFFFFFF else 0x66FFFFFF
-                rim.color = if (dark) 0x47FFFFFF else 0xB3FFFFFF.toInt()
+                disc.color = (Kit.color(context, R.color.pa_tile) and 0x00FFFFFF) or 0xD6000000.toInt()
+                rim.color = 0x80FFFFFF.toInt()
             } else {
                 disc.color = solidFill
-                rim.color = if (dark) 0x33FFFFFF else 0x00000000
+                rim.color = 0x59FFFFFF
             }
+            rim.strokeWidth = 1.5f * u
             canvas.drawCircle(c, c, r, disc)
             canvas.drawCircle(c, c, r, rim)
 
             val glyph = when {
                 mode == BubbleMode.WAITING -> Kit.color(context, R.color.pa_on_accent)
-                mode == BubbleMode.IDLE -> if (dark) 0xFFFFFFFF.toInt() else Kit.color(context, R.color.pa_tile)
                 else -> 0xFFFFFFFF.toInt()
             }
             ink.color = glyph
@@ -379,7 +380,7 @@ class BubbleOverlay(
 
     private companion object {
         const val REST_AFTER_MS = 3_000L
-        const val REST_ALPHA = 0.5f
+        const val REST_ALPHA = 0.7f
         const val DOTS = 10
     }
 }
