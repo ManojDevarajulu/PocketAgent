@@ -96,9 +96,11 @@ object Kit {
     // ------------------------------------------------------------------ motion
 
     /** Press feedback: a small shrink that springs back, like a tapped control on iOS. Row-sized things only dim. */
-    fun pressable(v: View, scale: Float = 0.97f, onClick: (() -> Unit)? = null): View {
+    fun pressable(v: View, scale: Float = 0.97f, blockObscured: Boolean = false, onClick: (() -> Unit)? = null): View {
         v.isClickable = true
         v.setOnTouchListener { view, e ->
+            // For consent buttons: swallow touches that arrived through another window drawn over this one.
+            if (blockObscured && (e.flags and MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED) != 0) return@setOnTouchListener true
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> view.animate().scaleX(scale).scaleY(scale).alpha(if (scale == 1f) 0.55f else 0.9f)
                     .setDuration(90).setInterpolator(ease).start()
@@ -118,6 +120,29 @@ object Kit {
             v.translationY = v.resources.displayMetrics.density * 14
             v.animate().alpha(1f).translationY(0f).setStartDelay(60 + i * stepMs).setDuration(420)
                 .setInterpolator(ease).start()
+        }
+    }
+
+    /** Five dots that rise and fall in turn: "listening". */
+    fun listeningDots(c: Context): View = object : View(c) {
+        private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = color(c, R.color.pa_accent) }
+        private var t = 0f
+        private val anim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 900
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener { t = it.animatedValue as Float; invalidate() }
+        }
+        init { layoutParams = LinearLayout.LayoutParams(dp(c, 44), dp(c, 24)) }
+        override fun onAttachedToWindow() { super.onAttachedToWindow(); anim.start() }
+        override fun onDetachedFromWindow() { anim.cancel(); super.onDetachedFromWindow() }
+        override fun onDraw(canvas: Canvas) {
+            val gap = width / 5f
+            for (i in 0 until 5) {
+                val phase = ((t + i * 0.14f) % 1f)
+                val lift = Math.sin(phase * Math.PI * 2).toFloat().coerceAtLeast(0f)
+                p.alpha = (110 + 145 * lift).toInt()
+                canvas.drawCircle(gap * (i + 0.5f), height / 2f - lift * dpf(c, 5), dpf(c, 2) + lift * dpf(c, 1), p)
+            }
         }
     }
 
@@ -174,7 +199,7 @@ object Kit {
     ): LinearLayout = hstack(c).apply {
         minimumHeight = dp(c, minHeight)
         setPadding(dp(c, 16), 0, dp(c, 16), 0)
-        if (onClick != null) pressable(this, 1f, onClick)
+        if (onClick != null) pressable(this, 1f, onClick = onClick)
         if (leading != null) addView(leading)
         val col = vstack(c).apply {
             addView(text(c, title, 17f, 400, titleTint).apply {
@@ -252,7 +277,7 @@ object Kit {
             isFocusable = true
             background = rounded(fill, dpf(c, 16))
             minimumHeight = dp(c, heightDp)
-            pressable(this, 0.97f, onClick)
+            pressable(this, 0.97f, onClick = onClick)
         }
 
     fun chip(c: Context, label: CharSequence, selected: Boolean = false): TextView = TextView(c).apply {

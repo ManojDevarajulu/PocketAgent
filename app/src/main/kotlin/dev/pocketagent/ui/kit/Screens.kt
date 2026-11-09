@@ -168,7 +168,7 @@ object Screens {
                     background = Kit.rounded(color(c, R.color.pa_accent), dpf(c, 18))
                     setPadding(dp(c, 14), 0, dp(c, 14), 0)
                     minimumHeight = dp(c, 36)
-                    Kit.pressable(this, 0.94f, at.onAction)
+                    Kit.pressable(this, 0.94f, onClick = at.onAction)
                 },
             )
             add(banner, Kit.lp().apply { bottomMargin = dp(c, 14) })

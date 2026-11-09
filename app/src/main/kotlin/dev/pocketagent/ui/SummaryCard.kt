@@ -2,15 +2,14 @@ package dev.pocketagent.ui
 
 import android.app.KeyguardManager
 import android.content.Context
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.WindowManager
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.TextView
 import dev.pocketagent.R
+import dev.pocketagent.ui.kit.Kit
 
 /**
  * The end-of-task card. It closes on tap or 15 seconds after it appears on screen.
@@ -21,11 +20,11 @@ import dev.pocketagent.R
 class SummaryCard(private val context: Context) {
     private val handler = Handler(Looper.getMainLooper())
     private val keyguard = context.getSystemService(KeyguardManager::class.java)
-    private var card: LinearLayout? = null
+    private var card: android.view.View? = null
     private var title = ""
     private var body = ""
     private var pending = false
-    private val autoClose = Runnable { close() }
+    private val autoClose = Runnable { dismiss() }
     private val poll = Runnable { sync() }
 
     fun show(title: String, body: String) {
@@ -72,39 +71,63 @@ class SummaryCard(private val context: Context) {
     }
 
     private fun addWindow(): Boolean {
-        val pad = Overlays.dp(context, 20)
-        val root = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
-            background = GradientDrawable().apply {
-                setColor(context.getColor(R.color.card_background))
-                setStroke(Overlays.dp(context, 1), context.getColor(R.color.brand_border))
-                cornerRadius = Overlays.dp(context, 20).toFloat()
-            }
-            setOnClickListener { close() }
+        val c = context
+        val outer = LinearLayout(c)
+        val root = LinearLayout(c).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+            setPadding(Overlays.dp(c, 16), Overlays.dp(c, 14), Overlays.dp(c, 16), Overlays.dp(c, 16))
+            background = Kit.rounded(c.getColor(R.color.pa_card), Overlays.dp(c, 24).toFloat(), c.getColor(R.color.pa_line), Overlays.dp(c, 1))
+            elevation = Overlays.dp(c, 14).toFloat()
+            setOnClickListener { dismiss() }
         }
-        root.addView(TextView(context).apply {
-            text = title
-            textSize = 20f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(context.getColor(R.color.card_text))
-        })
-        root.addView(TextView(context).apply {
-            text = body
-            textSize = 15f
-            setTextColor(context.getColor(R.color.card_muted))
-            setPadding(0, Overlays.dp(context, 8), 0, 0)
-        })
-        val margin = Overlays.dp(context, 16)
+        root.addView(
+            ImageView(c).apply {
+                setImageResource(R.drawable.logo_mark)
+                layoutParams = LinearLayout.LayoutParams(Overlays.dp(c, 36), Overlays.dp(c, 36)).apply { marginEnd = Overlays.dp(c, 12) }
+            },
+        )
+        val col = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL }
+        val top = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        top.addView(Kit.text(c, "Pocket Agent", 13f, 500, R.color.pa_muted), LinearLayout.LayoutParams(0, -2, 1f))
+        top.addView(Kit.text(c, "now", 12f, 400, R.color.pa_muted))
+        col.addView(top, LinearLayout.LayoutParams(-1, -2))
+        col.addView(Kit.text(c, title, 17f, 600).apply { setPadding(0, Overlays.dp(c, 3), 0, 0) }, LinearLayout.LayoutParams(-1, -2))
+        if (body.isNotBlank()) {
+            col.addView(
+                Kit.text(c, body, 14f, 400, R.color.pa_muted).apply {
+                    setPadding(0, Overlays.dp(c, 4), 0, 0)
+                    setLineSpacing(Overlays.dp(c, 2).toFloat(), 1f)
+                },
+                LinearLayout.LayoutParams(-1, -2),
+            )
+        }
+        root.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
+        val margin = Overlays.dp(c, 16)
         val params = Overlays.params(
-            context.resources.displayMetrics.widthPixels - 2 * margin,
+            c.resources.displayMetrics.widthPixels - 2 * margin,
             WindowManager.LayoutParams.WRAP_CONTENT,
             Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
         ).also { it.y = margin }
-        if (!Overlays.add(context, root, params)) return false
-        card = root
+        outer.addView(root, LinearLayout.LayoutParams(-1, -2))
+        if (!Overlays.add(c, outer, params)) return false
+        card = outer
+        // slides up from the bottom and settles
+        outer.alpha = 0f
+        outer.translationY = Overlays.dp(c, 80).toFloat()
+        outer.animate().alpha(1f).translationY(0f).setDuration(420).setInterpolator(Kit.ease).start()
         return true
+    }
+
+    /** Slides the card away, then removes it. */
+    private fun dismiss() {
+        val v = card ?: return
+        handler.removeCallbacks(poll)
+        handler.removeCallbacks(autoClose)
+        pending = false
+        v.animate().alpha(0f).translationY(Overlays.dp(context, 60).toFloat()).setDuration(240).setInterpolator(Kit.ease)
+            .withEndAction { close() }.start()
     }
 
     private companion object {

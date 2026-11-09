@@ -12,6 +12,7 @@ import android.view.WindowInsetsController
 import android.widget.FrameLayout
 import android.widget.PopupMenu
 import dev.pocketagent.R
+import dev.pocketagent.agent.ConfirmRequest
 import dev.pocketagent.ui.kit.Kit
 import dev.pocketagent.ui.kit.Nav
 import dev.pocketagent.ui.kit.Samples
@@ -56,6 +57,7 @@ class PreviewActivity : Activity() {
             "sheet" -> startActivity(Intent(this, TaskInputActivity::class.java))
             "answer" -> startActivity(Intent(this, TaskInputActivity::class.java).putExtra(TaskInputActivity.EXTRA_QUESTION, "Which Priya should I message: Sharma or Nair?"))
             "setup" -> startActivity(Intent(this, SetupActivity::class.java))
+            "confirm" -> showConfirm()
             else -> shell.reset(name)
         }
     }
@@ -71,6 +73,22 @@ class PreviewActivity : Activity() {
     @Deprecated("Preview only")
     override fun onBackPressed() {
         if (!shell.pop()) super.onBackPressed()
+    }
+
+    /** The real confirmation card, drawn over the home screen so it can be reviewed without a running task. */
+    private fun showConfirm() {
+        shell.reset("home")
+        val c = themed()
+        val card = ConfirmCard(c)
+        val view = card.content(ConfirmRequest("Tap", "Send", "WhatsApp", "I'll be there in 10 minutes")) { host.removeView(host.getChildAt(host.childCount - 1)) }
+        val scrim = View(c).apply { setBackgroundColor(Kit.color(c, R.color.pa_scrim)) }
+        host.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+        host.addView(view, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        view.getChildAt(0).apply {
+            alpha = 0f
+            translationY = Kit.dpf(c, 120)
+            animate().alpha(1f).translationY(0f).setDuration(420).setInterpolator(Kit.ease).start()
+        }
     }
 
     private fun themed(): Context {
