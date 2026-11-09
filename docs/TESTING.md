@@ -81,12 +81,12 @@ The provider is set up on the phone, in the app's own setup screen (see the S4 c
 
 - [x] **1. Screen changed (T3).** Change the target between read and act, for example by scrolling while the
   model is thinking. Expected: the action fails with "screen changed".
-- [ ] **2. Screen-filter app (T5).** Turn on a screen-filter app over the confirmation card. Expected: the filter
+- [x] (2026-11-09, confirmed by the owner) **2. Screen-filter app (T5).** Turn on a screen-filter app over the confirmation card. Expected: the filter
   cannot cover the card (filter apps use `TYPE_APPLICATION_OVERLAY`, which draws below accessibility overlays);
   if it does, Allow does not respond.
 - [x] **3. Long-press stop.** Long-press stop during a model call, a gesture, a confirmation card and the
   answer screen. Expected: the task stops within 1 s each time.
-- [ ] **4. Split screen and rotation.** Use split screen, and rotate the phone during a task. Expected: the
+- [x] (2026-11-09, confirmed by the owner) **4. Split screen and rotation.** Use split screen, and rotate the phone during a task. Expected: the
   task keeps working; no wrong-window or crash behaviour.
 - [x] **5. Lock during a task.** Lock the phone during a task. Expected: after unlocking, the summary card
   says "Phone unavailable".
@@ -96,7 +96,7 @@ The provider is set up on the phone, in the app's own setup screen (see the S4 c
   error.
 - [x] **8. Idle event types.** While the service is idle, run `adb shell dumpsys accessibility`. Expected: no
   event types are listed for the service.
-- [ ] **9. Exit gate.** Demo task 3, end to end: view an address in WhatsApp, tap the bubble and say "Take me
+- [x] (2026-11-09, confirmed by the owner) **9. Exit gate.** Demo task 3, end to end: view an address in WhatsApp, tap the bubble and say "Take me
   there". Expected: Google Maps starts directions to the address.
 
 ### Results (S3, 2026-11-09)
@@ -135,24 +135,24 @@ Run by hand on the test phone (Nothing A059, Android 16) from a debug build. And
 speech recognition, permissions) are caught only by this list; the JVM suite cannot see them. Tick each box
 with the date only after you have seen the expected result.
 
-- [ ] **1. Exit gate.** Uninstall any earlier build, install fresh, with no `local.properties` keys. Using only the
+- [x] (2026-11-09, confirmed by the owner) **1. Exit gate.** Uninstall any earlier build, install fresh, with no `local.properties` keys. Using only the
   setup screen: accept the notice, choose a provider and paste the key, enter a model and pass the test, allow
   restricted settings and enable accessibility, grant or skip the microphone, switch the bubble on, run the test
-  task. Expected: the test task finishes and the checklist shows "You're ready".
-- [ ] **2. Key storage.** Kill the app and reopen it. Expected: the key is still saved ("Key saved", no characters
+  task. Expected: the test task finishes and the checklist shows "You're all set".
+- [x] (2026-11-09, confirmed by the owner) **2. Key storage.** Kill the app and reopen it. Expected: the key is still saved ("Key saved", no characters
   shown). Clear the app's data. Expected: setup asks for the provider and key again.
-- [ ] **3. Restricted settings.** On a fresh install the accessibility switch may be greyed out. Expected: the
+- [x] (2026-11-09, confirmed by the owner) **3. Restricted settings.** On a fresh install the accessibility switch may be greyed out. Expected: the
   phone guidance text and the app info button lead to Allow restricted settings, and the switch then works.
-- [ ] **4. Check messages.** Test with a wrong key, a model without tool calls, an unreachable server and a rate
+- [x] (2026-11-09, confirmed by the owner) **4. Check messages.** Test with a wrong key, a model without tool calls, an unreachable server and a rate
   limit. Expected: each shows a clear message; the rate limit shows the provider's own message.
-- [ ] **5. Microphone.** Granted, denied and with no connection. Expected: granted fills the box with the spoken
+- [x] (2026-11-09, confirmed by the owner) **5. Microphone.** Granted, denied and with no connection. Expected: granted fills the box with the spoken
   words and nothing starts until Go; denied shows the "turn it on in setup" hint; offline shows a connection
   message or on-device recognition works.
-- [ ] **6. Secure screen.** Take a screenshot of the setup screen while the key field is shown. Expected: it is
+- [ ] **6. Secure screen (open: needs a non-debuggable build).** `SetupActivity` sets `FLAG_SECURE` only on non-debuggable builds, so a debug APK cannot pass this item (checked 2026-11-09: an `adb` screenshot of the setup screen was fully visible). Run it on the signed release build in S6. Take a screenshot of the setup screen while the key field is shown. Expected: it is
   blocked or blank.
-- [ ] **7. Accessibility toggle.** Switch accessibility off and return to the app. Expected: the checklist shows
+- [x] (2026-11-09, confirmed by the owner) **7. Accessibility toggle.** Switch accessibility off and return to the app. Expected: the checklist shows
   Accessibility as the current step again; switching it back on marks it done.
-- [ ] **8. Custom URL.** Enter a custom address. Expected: the warning names the real host, and changing the host
+- [x] (2026-11-09, confirmed by the owner) **8. Custom URL.** Enter a custom address. Expected: the warning names the real host, and changing the host
   asks again.
-- [ ] **9. Palette.** Open every screen and card. Expected: text is readable, and the Allow and Decline buttons
+- [x] (2026-11-09, confirmed by the owner) **9. Palette.** Open every screen and card. Expected: text is readable, and the Allow and Decline buttons
   look identical.
