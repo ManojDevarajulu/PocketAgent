@@ -146,11 +146,9 @@ Contributions are welcome, including app playbooks (short Markdown navigation gu
 
 ## Documentation
 
-* [Product Design Spec](docs/superpowers/specs/2026-11-04-pocket-agent-design.md)
-* [Security, Privacy &amp; Threat Model](docs/superpowers/specs/2026-11-08-security-privacy-scenarios.md)
-* [Master Roadmap](docs/superpowers/plans/00-roadmap.md)
-* [Android 16 Feasibility Spike Findings](docs/spikes/2026-11-findings.md)
-* [Device Checklist &amp; Testing Guide](docs/TESTING.md)
+* [Architecture](docs/ARCHITECTURE.md): agent loop, accessibility tree serializer and overlays
+* [Security Model](docs/SECURITY_MODEL.md): threat model, blocked apps and key storage
+* [Testing](docs/TESTING.md): unit tests and the physical-device checklist
 
 ---
 
