@@ -152,6 +152,8 @@ class AccessibilityDevice(
      */
     private suspend fun validatedNode(node: ScreenNode): AccessibilityNodeInfo? {
         val current = observation ?: return null
+        // An unknown app (empty package) never passes, matching the coordinate actions.
+        if (current.screen.packageName.isEmpty()) return null
         if (current.screen.find(node.id) != node) return null
         val live = current.handles[node.id] ?: return null
         val activeWindowId = reader.current().id
