@@ -387,6 +387,7 @@ class AgentLoopTest {
         assertEquals(SYSTEM_PROMPT, first.systemPrompt)
         assertTrue(SYSTEM_PROMPT.contains("<screen_data>"))
         assertTrue(SYSTEM_PROMPT.contains("irreversible"))
+        assertTrue(SYSTEM_PROMPT.contains("always call open_app"))
     }
 
     @Test fun systemPromptDescribesAppTipsAsTrusted() {
