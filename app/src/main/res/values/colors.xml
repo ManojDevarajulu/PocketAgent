@@ -1,16 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="brand_background">#FF090A10</color>
+    <color name="brand_surface">#FF121520</color>
+    <color name="brand_border">#FF1E2333</color>
+    <color name="brand_blue">#FF1E6FFF</color>
+    <color name="brand_blue_subdued">#FF1A2B4C</color>
+    <color name="brand_orange">#FFFF8544</color>
+    <color name="brand_text">#FFF8F9FC</color>
+    <color name="brand_muted">#FF8E95A5</color>
     <color name="bubble_idle">#FF757575</color>
-    <color name="bubble_running">#FF1E6FE0</color>
+    <color name="bubble_running">@color/brand_blue</color>
     <color name="bubble_waiting">#FFF2A100</color>
     <color name="bubble_done">#FF2E9E4F</color>
     <color name="bubble_error">#FFD83A3A</color>
-    <color name="card_background">#FFFFFFFF</color>
-    <color name="card_text">#FF1B1B1B</color>
-    <color name="card_muted">#FF5F5F5F</color>
-    <color name="caption_background">#CC000000</color>
-    <color name="caption_text">#FFFFFFFF</color>
-    <color name="button_allow">#FF1E6FE0</color>
-    <color name="button_decline">#FFE3E3E3</color>
-    <color name="button_allow_text">#FFFFFFFF</color>
+    <color name="card_background">@color/brand_surface</color>
+    <color name="card_text">@color/brand_text</color>
+    <color name="card_muted">@color/brand_muted</color>
+    <color name="caption_background">#E6121520</color>
+    <color name="caption_text">@color/brand_text</color>
+    <color name="button_allow">@color/brand_blue_subdued</color>
+    <color name="button_decline">@color/brand_blue_subdued</color>
+    <color name="button_allow_text">@color/brand_text</color>
 </resources>

@@ -78,6 +78,7 @@ class SummaryCard(private val context: Context) {
             setPadding(pad, pad, pad, pad)
             background = GradientDrawable().apply {
                 setColor(context.getColor(R.color.card_background))
+                setStroke(Overlays.dp(context, 1), context.getColor(R.color.brand_border))
                 cornerRadius = Overlays.dp(context, 20).toFloat()
             }
             setOnClickListener { close() }

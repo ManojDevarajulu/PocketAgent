@@ -6,6 +6,8 @@ import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
 import android.view.WindowManager
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -44,6 +46,13 @@ class TaskInputActivity : Activity() {
             setHint(if (question != null) R.string.answer_hint else R.string.task_hint)
             setTextColor(getColor(R.color.card_text))
             setHintTextColor(getColor(R.color.card_muted))
+            background = GradientDrawable().apply {
+                setColor(getColor(R.color.brand_background))
+                setStroke(Overlays.dp(this@TaskInputActivity, 1), getColor(R.color.brand_border))
+                cornerRadius = Overlays.dp(this@TaskInputActivity, 8).toFloat()
+            }
+            val inner = Overlays.dp(this@TaskInputActivity, 12)
+            setPadding(inner, inner, inner, inner)
             minLines = 2
             maxLines = 6
             gravity = Gravity.TOP or Gravity.START
@@ -70,10 +79,16 @@ class TaskInputActivity : Activity() {
         }
         val cancel = Button(this).apply {
             setText(if (question != null) R.string.answer_skip else R.string.task_cancel)
+            setTextColor(getColor(R.color.brand_muted))
+            setBackgroundColor(0)
             setOnClickListener { dismiss() }
         }
         val go = Button(this).apply {
             setText(if (question != null) R.string.answer_submit else R.string.task_go)
+            // Orange is only for the primary action; dark text on orange.
+            setTextColor(getColor(R.color.brand_background))
+            setTypeface(typeface, Typeface.BOLD)
+            setBackgroundColor(getColor(R.color.brand_orange))
             setOnClickListener {
                 val text = input.text.toString().trim()
                 if (text.isEmpty()) {

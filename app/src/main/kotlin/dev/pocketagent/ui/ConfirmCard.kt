@@ -25,6 +25,7 @@ class ConfirmCard(private val context: Context) {
             setPadding(pad, pad, pad, pad)
             background = GradientDrawable().apply {
                 setColor(context.getColor(R.color.card_background))
+                setStroke(Overlays.dp(context, 1), context.getColor(R.color.brand_border))
                 val r = Overlays.dp(context, 20).toFloat()
                 cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
             }
@@ -44,8 +45,8 @@ class ConfirmCard(private val context: Context) {
             it.marginStart = gap
             it.marginEnd = gap
         }
-        buttons.addView(button(R.string.confirm_decline, R.color.button_decline, R.color.card_text, false, onResult), slot())
-        buttons.addView(button(R.string.confirm_allow, R.color.button_allow, R.color.button_allow_text, true, onResult), slot())
+        buttons.addView(button(R.string.confirm_decline, false, onResult), slot())
+        buttons.addView(button(R.string.confirm_allow, true, onResult), slot())
         root.addView(buttons)
 
         val params = Overlays.params(
@@ -62,11 +63,14 @@ class ConfirmCard(private val context: Context) {
         card = null
     }
 
-    private fun button(label: Int, background: Int, textColor: Int, result: Boolean, onResult: (Boolean) -> Unit) =
+    /** One style for both buttons, so Allow and Decline cannot differ in size, weight or colour. */
+    private fun button(label: Int, result: Boolean, onResult: (Boolean) -> Unit) =
         Button(context).apply {
             setText(label)
-            setTextColor(context.getColor(textColor))
-            setBackgroundColor(context.getColor(background))
+            textSize = 18f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(context.getColor(R.color.button_allow_text))
+            setBackgroundColor(context.getColor(R.color.button_allow))
             filterTouchesWhenObscured = true
             // Swallow touches that arrived through another window drawn over this one.
             setOnTouchListener { _, event ->
