@@ -106,7 +106,7 @@ class AgentLoop(
         run.invalidInARow = 0
         return when (tool) {
             is ToolCall.Done -> Step.End(TaskOutcome(EndReason.DONE, tool.success, tool.summary))
-            is ToolCall.Screenshot -> screenshot(call)
+            is ToolCall.Screenshot -> screenshot(run, call)
             is ToolCall.Wait -> wait(run, call, tool)
             is ToolCall.AskUser -> askUser(run, call, tool)
             else -> act(run, call, tool)
@@ -177,14 +177,14 @@ class AgentLoop(
         }
     }
 
-    private suspend fun screenshot(call: LlmResult.Call): Step {
+    private suspend fun screenshot(run: Run, call: LlmResult.Call): Step {
         if (!llm.supportsImages) return Step.Next(toolError(call, "this model cannot receive images"))
-        // A screenshot is a picture of whatever is in front, so check the foreground app first.
-        if (gate.checkApp(device.readScreen()) is Verdict.Block) {
-            return Step.End(end(EndReason.BLOCKED_APP, "The task moved into an app that is on the block list."))
-        }
-        val png = device.screenshot() ?: return Step.Next(toolError(call, "screenshot blocked by a secure window"))
-        return Step.Next(Turn("", ToolResult(call.callId, "screenshot attached", isError = false), image = png))
+        // A screenshot is a picture of whatever is in front, so check the foreground app first. Reading the screen
+        // gives the device a new observation, so the loop adopts it and sends its text: the model's node ids must match.
+        val next = observe(run) ?: return Step.End(end(EndReason.BLOCKED_APP, "The task moved into an app that is on the block list."))
+        val png = device.screenshot()
+            ?: return Step.Next(toolError(call, "screenshot blocked by a secure window").copy(text = next.text, systemNote = next.note))
+        return Step.Next(Turn(next.text, ToolResult(call.callId, "screenshot attached", isError = false), image = png, systemNote = next.note))
     }
 
     private suspend fun wait(run: Run, call: LlmResult.Call, tool: ToolCall.Wait): Step {

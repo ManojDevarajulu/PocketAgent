@@ -442,6 +442,17 @@ class AgentLoopTest {
         assertFalse(llm.turns[1].toolResult!!.isError)
     }
 
+    @Test fun nodeActionAfterAScreenshotUsesTheScreenTheDeviceNowHolds() = runTest {
+        // The device hands out a new observation (ids with a new letter) on the read the screenshot triggers.
+        val reobserved = screenOf(node("b1", role = "button", text = "Next", clickable = true))
+        val llm = FakeLlm(listOf(call("screenshot"), tap("b1"), done()))
+        val device = FakeDevice(listOf(reobserved))
+        loop(llm, device).run("t", start)
+        assertTrue(llm.turns[1].text.contains("[b1]"), llm.turns[1].text)
+        assertFalse(llm.turns[2].toolResult!!.isError, llm.turns[2].toolResult!!.text)
+        assertEquals("b1", (device.actions.single() as DeviceAction.Tap).node.id)
+    }
+
     @Test fun blockedScreenshotReturnsToolError() = runTest {
         val llm = FakeLlm(listOf(call("screenshot"), done()))
         loop(llm, FakeDevice(listOf(start), screenshotBytes = null)).run("t", start)
