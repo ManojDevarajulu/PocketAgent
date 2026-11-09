@@ -131,6 +131,10 @@ object Screens {
     private fun failTile(c: Context) =
         Kit.tile(c, R.drawable.ic_close, color(c, R.color.pa_bad) and 0x00FFFFFF or 0x24000000, color(c, R.color.pa_bad), 32)
 
+    /** A rounded square in one of the system hues with a white glyph, as in iOS Settings. */
+    private fun colorTile(c: Context, icon: Int, hue: Int) =
+        Kit.tile(c, icon, color(c, hue), 0xFFFFFFFF.toInt(), 30)
+
     private fun blueTile(c: Context, icon: Int) =
         Kit.tile(c, icon, color(c, R.color.pa_tile), color(c, R.color.pa_tile_icon), 30)
 
@@ -499,13 +503,13 @@ object Screens {
         p.addView(Kit.text(c, "Pocket Agent will not open these, read them or tap in them, even if you ask. It is a safety rule that cannot be turned off.", 15f, 400, R.color.pa_muted).apply {
             setPadding(dp(c, 4), 0, dp(c, 4), dp(c, 8)); setLineSpacing(dpf(c, 3), 1f)
         }, Kit.lp())
-        fun block(title: String, icon: Int, vararg names: String) {
+        fun block(title: String, icon: Int, hue: Int, vararg names: String) {
             p.addView(Kit.section(c, title), Kit.lp().apply { topMargin = dp(c, 18) })
-            p.addView(Kit.group(c, names.map { n -> Kit.row(c, n, leading = blueTile(c, icon), minHeight = 52) }, 60), Kit.lp())
+            p.addView(Kit.group(c, names.map { n -> Kit.row(c, n, leading = colorTile(c, icon, hue), minHeight = 52) }, 60), Kit.lp())
         }
-        block("Banking and payments", R.drawable.ic_lock, "Google Pay", "PhonePe", "Paytm", "BHIM and other UPI apps", "Any bank or wallet app")
-        block("Passwords and sign-in codes", R.drawable.ic_key, "Bitwarden", "1Password", "LastPass", "Google Authenticator")
-        block("Phone controls", R.drawable.ic_settings, "Settings", "System controls and permission screens", "App installer")
+        block("Banking and payments", R.drawable.ic_lock, R.color.pa_t_red, "Google Pay", "PhonePe", "Paytm", "BHIM and other UPI apps", "Any bank or wallet app")
+        block("Passwords and sign-in codes", R.drawable.ic_key, R.color.pa_t_orange, "Bitwarden", "1Password", "LastPass", "Google Authenticator")
+        block("Phone controls", R.drawable.ic_settings, R.color.pa_t_gray, "Settings", "System controls and permission screens", "App installer")
         p.addView(Kit.footnote(c, "It also skips any app whose name contains bank, pay, wallet, UPI or password."))
         return plain(c, p)
     }
@@ -517,10 +521,10 @@ object Screens {
             setPadding(dp(c, 4), 0, dp(c, 4), dp(c, 8)); setLineSpacing(dpf(c, 3), 1f)
         }, Kit.lp())
         p.addView(Kit.group(c, listOf(
-            Kit.row(c, "Inter typeface", "SIL Open Font Licence 1.1", blueTile(c, R.drawable.ic_doc), null, 64),
-            Kit.row(c, "OkHttp", "Apache Licence 2.0", blueTile(c, R.drawable.ic_doc), null, 64),
-            Kit.row(c, "Kotlin and kotlinx", "Apache Licence 2.0", blueTile(c, R.drawable.ic_doc), null, 64),
-            Kit.row(c, "Android Open Source Project", "Apache Licence 2.0", blueTile(c, R.drawable.ic_doc), null, 64),
+            Kit.row(c, "Inter typeface", "SIL Open Font Licence 1.1", colorTile(c, R.drawable.ic_doc, R.color.pa_t_gray), null, 64),
+            Kit.row(c, "OkHttp", "Apache Licence 2.0", colorTile(c, R.drawable.ic_doc, R.color.pa_t_gray), null, 64),
+            Kit.row(c, "Kotlin and kotlinx", "Apache Licence 2.0", colorTile(c, R.drawable.ic_doc, R.color.pa_t_gray), null, 64),
+            Kit.row(c, "Android Open Source Project", "Apache Licence 2.0", colorTile(c, R.drawable.ic_doc, R.color.pa_t_gray), null, 64),
         ), 60), Kit.lp().apply { topMargin = dp(c, 14) })
         p.addView(Kit.footnote(c, "The full licence texts are in the project repository on GitHub."))
         return plain(c, p)
@@ -552,17 +556,17 @@ object Screens {
 
         p.addView(Kit.section(c, "AI"))
         p.addView(settingsGroup(c,
-            Kit.row(c, "Provider and model", leading = blueTile(c, R.drawable.ic_globe), trailing = Kit.value(c, state.provider), onClick = state.onProvider),
-            Kit.row(c, "API key", leading = blueTile(c, R.drawable.ic_key), trailing = Kit.value(c, if (state.keySaved) "Saved" else "Not set"), onClick = state.onProvider),
+            Kit.row(c, "Provider and model", leading = colorTile(c, R.drawable.ic_globe, R.color.pa_t_blue), trailing = Kit.value(c, state.provider), onClick = state.onProvider),
+            Kit.row(c, "API key", leading = colorTile(c, R.drawable.ic_key, R.color.pa_t_orange), trailing = Kit.value(c, if (state.keySaved) "Saved" else "Not set"), onClick = state.onProvider),
         ), Kit.lp())
         p.addView(gap(c, 26))
 
         p.addView(Kit.section(c, "Permissions"))
         p.addView(settingsGroup(c,
-            Kit.row(c, "Accessibility", leading = blueTile(c, R.drawable.ic_access),
+            Kit.row(c, "Accessibility", leading = colorTile(c, R.drawable.ic_access, R.color.pa_t_indigo),
                 trailing = Kit.value(c, if (state.accessibilityOn) "On" else "Off", tint = if (state.accessibilityOn) R.color.pa_good else R.color.pa_bad),
                 onClick = state.onAccessibility),
-            Kit.row(c, "Microphone", leading = blueTile(c, R.drawable.ic_mic), trailing = Kit.value(c, if (state.micOn) "On" else "Off"), onClick = state.onMic),
+            Kit.row(c, "Microphone", leading = colorTile(c, R.drawable.ic_mic, R.color.pa_t_red), trailing = Kit.value(c, if (state.micOn) "On" else "Off"), onClick = state.onMic),
         ), Kit.lp())
         p.addView(Kit.footnote(c, "Accessibility is how Pocket Agent reads and taps. It only listens while a task runs."))
         p.addView(gap(c, 26))
@@ -589,10 +593,10 @@ object Screens {
 
         p.addView(Kit.section(c, "Safety and privacy"))
         val safety = ArrayList<View>()
-        safety.add(Kit.row(c, "Apps it never touches", "Banking, payments, passwords", blueTile(c, R.drawable.ic_shield), Kit.chevron(c), 64) { nav.push("blocked") })
-        safety.add(Kit.row(c, "Ask before risky actions", leading = blueTile(c, R.drawable.ic_check), trailing = Kit.value(c, "Always"), onClick = state.onRiskyInfo))
+        safety.add(Kit.row(c, "Apps it never touches", "Banking, payments, passwords", colorTile(c, R.drawable.ic_shield, R.color.pa_t_green), Kit.chevron(c), 64) { nav.push("blocked") })
+        safety.add(Kit.row(c, "Ask before risky actions", leading = colorTile(c, R.drawable.ic_check, R.color.pa_t_green), trailing = Kit.value(c, "Always"), onClick = state.onRiskyInfo))
         if (state.showHistory) {
-            safety.add(Kit.row(c, "Keep Activity history", leading = blueTile(c, R.drawable.ic_activity), trailing = Kit.toggle(c, state.historyOn, state.onHistory)))
+            safety.add(Kit.row(c, "Keep Activity history", leading = colorTile(c, R.drawable.ic_activity, R.color.pa_t_indigo), trailing = Kit.toggle(c, state.historyOn, state.onHistory)))
             safety.add(Kit.row(c, "Clear history",
                 leading = Kit.tile(c, R.drawable.ic_trash, color(c, R.color.pa_bad) and 0x00FFFFFF or 0x24000000, color(c, R.color.pa_bad), 30),
                 titleTint = R.color.pa_bad, onClick = state.onClearHistory))
@@ -603,9 +607,9 @@ object Screens {
 
         p.addView(Kit.section(c, "About"))
         p.addView(settingsGroup(c,
-            Kit.row(c, "Star us on GitHub", leading = blueTile(c, R.drawable.ic_star), trailing = Kit.chevron(c), onClick = state.onStar),
-            Kit.row(c, "Report a problem", leading = blueTile(c, R.drawable.ic_alert), trailing = Kit.chevron(c), onClick = state.onReport),
-            Kit.row(c, "Open-source licences", leading = blueTile(c, R.drawable.ic_doc), trailing = Kit.chevron(c)) { nav.push("licences") },
+            Kit.row(c, "Star us on GitHub", leading = colorTile(c, R.drawable.ic_star, R.color.pa_t_orange), trailing = Kit.chevron(c), onClick = state.onStar),
+            Kit.row(c, "Report a problem", leading = colorTile(c, R.drawable.ic_alert, R.color.pa_t_gray), trailing = Kit.chevron(c), onClick = state.onReport),
+            Kit.row(c, "Open-source licences", leading = colorTile(c, R.drawable.ic_doc, R.color.pa_t_gray), trailing = Kit.chevron(c)) { nav.push("licences") },
         ), Kit.lp())
         p.addView(Kit.footnote(c, "Free and open source. No account, no tracking.").apply { gravity = Gravity.CENTER })
         return withTabs(c, p, 2, nav)

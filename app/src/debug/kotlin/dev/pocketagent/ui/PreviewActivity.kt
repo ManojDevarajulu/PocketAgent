@@ -34,6 +34,7 @@ class PreviewActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        intent.getStringExtra("theme")?.let { dev.pocketagent.ui.kit.ThemeMode.set(this, it) }
         dark = intent.getBooleanExtra("dark", false)
         window.setDecorFitsSystemWindows(false)
         host = FrameLayout(this)
@@ -67,6 +68,7 @@ class PreviewActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        intent.getStringExtra("theme")?.let { dev.pocketagent.ui.kit.ThemeMode.set(this, it) }
         if (intent.hasExtra("dark")) dark = intent.getBooleanExtra("dark", dark)
         applyBars()
         open(intent.getStringExtra("screen") ?: "home")

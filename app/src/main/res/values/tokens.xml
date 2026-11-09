@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="pa_bg">#FFE6EBF4</color>
+    <color name="pa_bg">#FFF2F2F7</color>
     <color name="pa_card">#FFFFFFFF</color>
-    <color name="pa_line">#FFD3DAE8</color>
-    <color name="pa_ink">#FF0E1630</color>
-    <color name="pa_muted">#FF55627F</color>
+    <color name="pa_line">#FFD8D8DD</color>
+    <color name="pa_ink">#FF0B0B0F</color>
+    <color name="pa_muted">#FF6C6C70</color>
     <color name="pa_blue">#FF16233F</color>
     <color name="pa_on_blue">#FFFFFFFF</color>
     <color name="pa_accent">#FFFF8544</color>
     <color name="pa_on_accent">#FF111A33</color>
-    <color name="pa_good">#FF1B8F4E</color>
+    <color name="pa_good">#FF1F9D55</color>
     <color name="pa_bad">#FFD92D20</color>
-    <color name="pa_toggle">#FF16233F</color>
+    <color name="pa_toggle">#FF34C759</color>
     <color name="pa_icon">#FF16233F</color>
     <color name="pa_tile">#FF16233F</color>
     <color name="pa_on_tile">#FFFFFFFF</color>
@@ -20,10 +20,16 @@
     <color name="pa_on_hero">#FFFFFFFF</color>
     <color name="pa_hero_muted">#B3FFFFFF</color>
     <color name="pa_hero_fill">#26FFFFFF</color>
-    <color name="pa_glass">#C7FFFFFF</color>
-    <color name="pa_glass_field">#99FFFFFF</color>
-    <color name="pa_rim">#BFFFFFFF</color>
-    <color name="pa_scrim">#59101A33</color>
+    <color name="pa_t_blue">#FF2F6BFF</color>
+    <color name="pa_t_green">#FF34C759</color>
+    <color name="pa_t_orange">#FFFF9500</color>
+    <color name="pa_t_indigo">#FF5E5CE6</color>
+    <color name="pa_t_red">#FFFF3B30</color>
+    <color name="pa_t_gray">#FF8E8E93</color>
+    <color name="pa_glass">#FFFFFFFF</color>
+    <color name="pa_glass_field">#1F767680</color>
+    <color name="pa_rim">#00FFFFFF</color>
+    <color name="pa_scrim">#66000000</color>
     <color name="pa_fill">#1F767680</color>
     <color name="pa_bar">#FFFFFFFF</color>
     <color name="pa_blue_soft">#1A16233F</color>
