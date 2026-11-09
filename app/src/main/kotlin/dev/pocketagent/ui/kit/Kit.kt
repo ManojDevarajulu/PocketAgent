@@ -1,15 +1,22 @@
 package dev.pocketagent.ui.kit
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.OvershootInterpolator
+import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -17,11 +24,22 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import dev.pocketagent.R
 
+/** Where a screen can send the user. The host (the app shell, or the preview) decides how to show it. */
+class Nav(
+    val tab: (Int) -> Unit = {},
+    val push: (String) -> Unit = {},
+    val back: () -> Unit = {},
+)
+
 /**
  * The building blocks of every screen. One type scale (Inter), one icon weight, one radius scale
- * (12 controls, 20 cards, 28 sheets) and the 60/30/10 colours from `tokens.xml`, so light and dark share the code.
+ * (12 controls, 20 cards, 28 sheets), the 60/30/10 colours from `tokens.xml`, and one motion language:
+ * a quick press that shrinks a little and springs back, and an iOS-style ease for everything that moves.
  */
 object Kit {
+    /** The curve iOS uses for most transitions: fast start, long soft landing. */
+    val ease = PathInterpolator(0.2f, 0.8f, 0.2f, 1f)
+
     fun dp(c: Context, v: Int): Int = (v * c.resources.displayMetrics.density + 0.5f).toInt()
     fun dpf(c: Context, v: Int): Float = v * c.resources.displayMetrics.density
     fun color(c: Context, id: Int): Int = c.getColor(id)
@@ -47,7 +65,7 @@ object Kit {
             if (stroke != null) setStroke(strokePx, stroke)
         }
 
-    fun ripple(c: Context, content: GradientDrawable): RippleDrawable =
+    fun ripple(content: GradientDrawable): RippleDrawable =
         RippleDrawable(ColorStateList.valueOf(0x22808080), content, null)
 
     fun vstack(c: Context, gap: Int = 0): LinearLayout = LinearLayout(c).apply {
@@ -71,6 +89,36 @@ object Kit {
         LinearLayout.LayoutParams(w, h)
 
     fun weight(w: Float = 1f) = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, w)
+
+    // ------------------------------------------------------------------ motion
+
+    /** Press feedback: a small shrink that springs back, like a tapped control on iOS. Row-sized things only dim. */
+    fun pressable(v: View, scale: Float = 0.97f, onClick: (() -> Unit)? = null): View {
+        v.isClickable = true
+        v.setOnTouchListener { view, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> view.animate().scaleX(scale).scaleY(scale).alpha(if (scale == 1f) 0.55f else 0.9f)
+                    .setDuration(90).setInterpolator(ease).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> view.animate().scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(280).setInterpolator(OvershootInterpolator(2.2f)).start()
+            }
+            false
+        }
+        if (onClick != null) v.setOnClickListener { onClick() }
+        return v
+    }
+
+    /** Fades blocks up into place one after another. Used once, when a screen first appears. */
+    fun reveal(views: List<View>, stepMs: Long = 45) {
+        views.forEachIndexed { i, v ->
+            v.alpha = 0f
+            v.translationY = v.resources.displayMetrics.density * 14
+            v.animate().alpha(1f).translationY(0f).setStartDelay(60 + i * stepMs).setDuration(420)
+                .setInterpolator(ease).start()
+        }
+    }
+
+    // ------------------------------------------------------------------ pieces
 
     fun icon(c: Context, res: Int, sizeDp: Int = 20, tint: Int = R.color.pa_ink): ImageView =
         ImageView(c).apply {
@@ -119,10 +167,11 @@ object Kit {
         trailing: View? = null,
         minHeight: Int = 56,
         titleTint: Int = R.color.pa_ink,
+        onClick: (() -> Unit)? = null,
     ): LinearLayout = hstack(c).apply {
         minimumHeight = dp(c, minHeight)
         setPadding(dp(c, 16), 0, dp(c, 16), 0)
-        isClickable = true
+        if (onClick != null) pressable(this, 1f, onClick)
         if (leading != null) addView(leading)
         val col = vstack(c).apply {
             addView(text(c, title, 17f, 400, titleTint).apply {
@@ -145,32 +194,50 @@ object Kit {
 
     fun chevron(c: Context): View = icon(c, R.drawable.ic_chevron, 14, R.color.pa_muted).apply { alpha = .7f }
 
-    fun toggle(c: Context, on: Boolean): View = object : View(c) {
-        private val track = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-        private val knob = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    /** An iOS switch: the knob slides and the track fades between off and on. Tap it. */
+    fun toggle(c: Context, on: Boolean, onChange: ((Boolean) -> Unit)? = null): View = object : View(c) {
+        private val track = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val knob = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var checked = on
+        private var progress = if (on) 1f else 0f
+        private val offColor = color(c, R.color.pa_fill)
+        private val onColor = color(c, R.color.pa_toggle)
+
         init {
             layoutParams = LinearLayout.LayoutParams(dp(c, 51), dp(c, 31))
             knob.color = Color.WHITE
             knob.setShadowLayer(dpf(c, 2), 0f, dpf(c, 1), 0x40000000)
             setLayerType(LAYER_TYPE_SOFTWARE, null)
+            pressable(this, 0.95f) {
+                checked = !checked
+                ValueAnimator.ofFloat(progress, if (checked) 1f else 0f).apply {
+                    duration = 260
+                    interpolator = OvershootInterpolator(1.4f)
+                    addUpdateListener { progress = it.animatedValue as Float; invalidate() }
+                }.start()
+                onChange?.invoke(checked)
+            }
         }
-        override fun onDraw(canvas: android.graphics.Canvas) {
-            track.color = if (on) color(c, R.color.pa_toggle) else color(c, R.color.pa_fill)
+
+        override fun onDraw(canvas: Canvas) {
+            val t = progress.coerceIn(0f, 1f)
+            track.color = ArgbEvaluator().evaluate(t, offColor, onColor) as Int
             val w = width.toFloat(); val h = height.toFloat()
             canvas.drawRoundRect(0f, 0f, w, h, h / 2, h / 2, track)
             val r = h / 2 - dpf(c, 2)
-            val cx = if (on) w - h / 2 else h / 2
-            canvas.drawCircle(cx, h / 2, r, knob)
+            val left = h / 2
+            val right = w - h / 2
+            canvas.drawCircle(left + (right - left) * progress, h / 2, r, knob)
         }
     }
 
-    fun primary(c: Context, label: CharSequence, heightDp: Int = 54): TextView =
-        button(c, label, color(c, R.color.pa_accent), color(c, R.color.pa_on_accent), heightDp, glow = true)
+    fun primary(c: Context, label: CharSequence, heightDp: Int = 54, onClick: (() -> Unit)? = null): TextView =
+        button(c, label, color(c, R.color.pa_accent), color(c, R.color.pa_on_accent), heightDp, onClick)
 
-    fun secondary(c: Context, label: CharSequence, heightDp: Int = 50): TextView =
-        button(c, label, color(c, R.color.pa_fill), color(c, R.color.pa_ink), heightDp, glow = false)
+    fun secondary(c: Context, label: CharSequence, heightDp: Int = 50, onClick: (() -> Unit)? = null): TextView =
+        button(c, label, color(c, R.color.pa_fill), color(c, R.color.pa_ink), heightDp, onClick)
 
-    private fun button(c: Context, label: CharSequence, fill: Int, textColor: Int, heightDp: Int, glow: Boolean) =
+    private fun button(c: Context, label: CharSequence, fill: Int, textColor: Int, heightDp: Int, onClick: (() -> Unit)?) =
         TextView(c).apply {
             text = label
             textSize = 17f
@@ -178,37 +245,69 @@ object Kit {
             setTextColor(textColor)
             gravity = Gravity.CENTER
             includeFontPadding = false
-            isClickable = true
             isFocusable = true
-            background = ripple(c, rounded(fill, dpf(c, 16)))
+            background = rounded(fill, dpf(c, 16))
             minimumHeight = dp(c, heightDp)
+            pressable(this, 0.97f, onClick)
         }
 
     fun chip(c: Context, label: CharSequence, selected: Boolean = false): TextView = TextView(c).apply {
         text = label
         textSize = 15f
         typeface = face(c, 500)
-        setTextColor(color(c, if (selected) R.color.pa_on_navy else R.color.pa_ink))
+        setTextColor(color(c, if (selected) R.color.pa_on_blue else R.color.pa_ink))
         gravity = Gravity.CENTER
         includeFontPadding = false
         setPadding(dp(c, 14), 0, dp(c, 14), 0)
         minimumHeight = dp(c, 36)
-        background = rounded(color(c, if (selected) R.color.pa_navy else R.color.pa_fill), dpf(c, 18))
+        background = rounded(color(c, if (selected) R.color.pa_blue else R.color.pa_fill), dpf(c, 18))
+        pressable(this, 0.95f)
     }
 
-    fun segmented(c: Context, items: List<String>, selected: Int): View = hstack(c).apply {
-        background = rounded(color(c, R.color.pa_fill), dpf(c, 10))
-        setPadding(dp(c, 2), dp(c, 2), dp(c, 2), dp(c, 2))
+    /** A segmented control whose white pill slides to the chosen segment. */
+    fun segmented(c: Context, items: List<String>, selected: Int, onChange: ((Int) -> Unit)? = null): View {
+        val pad = dp(c, 2)
+        val frame = FrameLayout(c).apply {
+            background = rounded(color(c, R.color.pa_fill), dpf(c, 10))
+            setPadding(pad, pad, pad, pad)
+        }
+        val pill = View(c).apply {
+            background = rounded(color(c, R.color.pa_card), dpf(c, 8))
+            elevation = dpf(c, 1)
+        }
+        frame.addView(pill, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT))
+        val labels = ArrayList<TextView>()
+        val row = hstack(c)
+        var current = selected
+        fun paint() = labels.forEachIndexed { i, t ->
+            t.typeface = face(c, if (i == current) 600 else 500)
+            t.setTextColor(color(c, if (i == current) R.color.pa_ink else R.color.pa_muted))
+        }
         items.forEachIndexed { i, s ->
-            addView(text(c, s, 14f, if (i == selected) 600 else 500, if (i == selected) R.color.pa_ink else R.color.pa_muted).apply {
+            val t = text(c, s, 14f, 500, R.color.pa_muted).apply {
                 gravity = Gravity.CENTER
                 setPadding(0, dp(c, 8), 0, dp(c, 8))
-                if (i == selected) {
-                    background = rounded(color(c, R.color.pa_card), dpf(c, 8))
-                    elevation = dpf(c, 1)
+                setOnClickListener {
+                    if (i == current) return@setOnClickListener
+                    current = i
+                    paint()
+                    pill.animate().translationX(pill.width * i.toFloat()).setDuration(280).setInterpolator(ease).start()
+                    onChange?.invoke(i)
                 }
-            }, weight())
+            }
+            labels.add(t)
+            row.addView(t, weight())
         }
+        paint()
+        frame.addView(row, FrameLayout.LayoutParams(-1, -2))
+        frame.addOnLayoutChangeListener { _, l, _, r, _, _, _, _, _ ->
+            val w = (r - l - pad * 2) / items.size
+            if (pill.layoutParams.width != w) {
+                pill.layoutParams = (pill.layoutParams as FrameLayout.LayoutParams).apply { width = w }
+                pill.translationX = w * current.toFloat()
+            }
+        }
+        return frame
     }
 
     fun largeTitle(c: Context, s: CharSequence): TextView = text(c, s, 34f, 700).apply { letterSpacing = -0.02f }
@@ -240,8 +339,8 @@ object Kit {
         addView(content)
     }
 
-    /** The three-tab bar. Selected: ink and a heavier stroke; the rest muted. Hairline on top, near-opaque so lists never show through. */
-    fun tabBar(c: Context, selected: Int): View {
+    /** The three-tab bar. Selected: blue and a heavier label; the rest muted. Tapping an icon bounces it. */
+    fun tabBar(c: Context, selected: Int, onTab: (Int) -> Unit = {}): View {
         val items = listOf(
             Triple("Home", R.drawable.ic_home, 0),
             Triple("Activity", R.drawable.ic_activity, 1),
@@ -253,22 +352,29 @@ object Kit {
             setPadding(dp(c, 16), dp(c, 8), dp(c, 16), dp(c, 6))
             items.forEach { (label, res, idx) ->
                 val on = idx == selected
-                addView(
-                    vstack(c).apply {
-                        gravity = Gravity.CENTER_HORIZONTAL
-                        addView(icon(c, res, 26, if (on) R.color.pa_ink else R.color.pa_muted).apply {
-                            layoutParams = LinearLayout.LayoutParams(dp(c, 26), dp(c, 26)).apply { gravity = Gravity.CENTER_HORIZONTAL }
-                        })
-                        addView(
-                            text(c, label, 11f, if (on) 600 else 500, if (on) R.color.pa_ink else R.color.pa_muted).apply {
-                                gravity = Gravity.CENTER
-                                setPadding(0, dp(c, 4), 0, 0)
-                            },
-                            LinearLayout.LayoutParams(-2, -2).apply { gravity = Gravity.CENTER_HORIZONTAL },
-                        )
-                    },
-                    weight(),
-                )
+                val item = vstack(c).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    val ic = icon(c, res, 26, if (on) R.color.pa_blue else R.color.pa_muted).apply {
+                        layoutParams = LinearLayout.LayoutParams(dp(c, 26), dp(c, 26)).apply { gravity = Gravity.CENTER_HORIZONTAL }
+                    }
+                    addView(ic)
+                    addView(
+                        text(c, label, 11f, if (on) 600 else 500, if (on) R.color.pa_blue else R.color.pa_muted).apply {
+                            gravity = Gravity.CENTER
+                            setPadding(0, dp(c, 4), 0, 0)
+                        },
+                        LinearLayout.LayoutParams(-2, -2).apply { gravity = Gravity.CENTER_HORIZONTAL },
+                    )
+                    pressable(this, 0.88f) {
+                        if (!on) {
+                            ic.animate().scaleX(1.18f).scaleY(1.18f).setDuration(120).withEndAction {
+                                ic.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(OvershootInterpolator(3f)).start()
+                            }.start()
+                            onTab(idx)
+                        }
+                    }
+                }
+                addView(item, weight())
             }
         }
         return vstack(c).apply {

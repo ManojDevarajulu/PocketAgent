@@ -2,52 +2,73 @@ package dev.pocketagent.ui
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.widget.FrameLayout
-import android.widget.LinearLayout
+import android.widget.PopupMenu
 import dev.pocketagent.R
 import dev.pocketagent.ui.kit.Kit
+import dev.pocketagent.ui.kit.Nav
 import dev.pocketagent.ui.kit.Screens
 
 /**
- * Debug-only gallery. Shows each screen with sample data in light or dark so the design can be checked on a
- * real phone. Start one directly: `adb shell am start -n dev.pocketagent/.ui.PreviewActivity --es screen home --ez dark true`.
+ * Debug-only gallery with the same navigation the app will have: tabs cross-fade, pushed screens slide in
+ * over the old one with a parallax, back slides out. The small button at the top right jumps between screens.
+ * Start one directly: `adb shell am start -n dev.pocketagent/.ui.PreviewActivity --es screen home --ez dark true`.
  */
 class PreviewActivity : Activity() {
-    private val screens = linkedMapOf<String, (Context) -> View>(
-        "welcome" to Screens::welcome,
-        "notice" to Screens::notice,
-        "home" to { c -> Screens.home(c) },
-        "fix" to { c -> Screens.home(c, needsAttention = true) },
-        "activity" to Screens::activity,
-        "detail" to Screens::activityDetail,
-        "settings" to Screens::settings,
-    )
-    private var current = "home"
+    private val tabs = listOf("home", "activity", "settings")
     private var dark = false
-    private lateinit var host: FrameLayout
     private var topInset = 0
     private var bottomInset = 0
+    private lateinit var host: FrameLayout
+    private lateinit var content: FrameLayout
+    private val stack = ArrayList<Pair<String, View>>()
+
+    private val nav: Nav by lazy {
+        Nav(tab = { show(tabs[it], Transition.FADE, replace = true) }, push = { show(it, Transition.PUSH) }, back = { pop() })
+    }
+
+    private enum class Transition { NONE, FADE, PUSH }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        current = intent.getStringExtra("screen")?.takeIf { it in screens } ?: current
         dark = intent.getBooleanExtra("dark", false)
         window.setDecorFitsSystemWindows(false)
         host = FrameLayout(this)
+        content = FrameLayout(this)
+        host.addView(content, FrameLayout.LayoutParams(-1, -1))
         host.setOnApplyWindowInsetsListener { _, insets ->
             val bars = insets.getInsets(WindowInsets.Type.systemBars())
             topInset = bars.top
             bottomInset = bars.bottom
-            render()
+            (content.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topInset; bottomMargin = bottomInset }
+            content.requestLayout()
             insets
         }
         setContentView(host)
-        render()
+        applyBars()
+        host.addView(menuButton(), FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END))
+        show(intent.getStringExtra("screen") ?: "home", Transition.NONE, replace = true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.hasExtra("dark")) dark = intent.getBooleanExtra("dark", dark)
+        applyBars()
+        stack.clear(); content.removeAllViews()
+        show(intent.getStringExtra("screen") ?: "home", Transition.NONE, replace = true)
+    }
+
+    @Deprecated("Preview only")
+    override fun onBackPressed() {
+        if (stack.size > 1) pop() else super.onBackPressed()
     }
 
     private fun themed(): Context {
@@ -57,48 +78,94 @@ class PreviewActivity : Activity() {
         return createConfigurationContext(cfg).also { it.setTheme(R.style.Theme_PocketAgent) }
     }
 
-    override fun onNewIntent(intent: android.content.Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        intent.getStringExtra("screen")?.takeIf { it in screens }?.let { current = it }
-        if (intent.hasExtra("dark")) dark = intent.getBooleanExtra("dark", dark)
-        render()
+    private fun applyBars() {
+        window.insetsController?.setSystemBarsAppearance(
+            if (dark) 0 else WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+        )
+        host.setBackgroundColor(themed().getColor(R.color.pa_bg))
     }
 
-    private fun render() {
+    private fun build(name: String): View {
         val c = themed()
-        host.removeAllViews()
-        host.setBackgroundColor(c.getColor(R.color.pa_bg))
-        val body = screens.getValue(current)(c)
-        host.addView(body, FrameLayout.LayoutParams(-1, -1).apply { topMargin = topInset + Kit.dp(c, 52); bottomMargin = bottomInset })
-        window.insetsController?.setSystemBarsAppearance(
-            if (dark) 0 else android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-            android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-        )
+        return when (name) {
+            "welcome" -> Screens.welcome(c, nav)
+            "notice" -> Screens.notice(c, nav)
+            "fix" -> Screens.home(c, needsAttention = true, nav = nav)
+            "activity" -> Screens.activity(c, nav)
+            "detail" -> Screens.activityDetail(c, nav)
+            "settings" -> Screens.settings(c, nav)
+            else -> Screens.home(c, nav = nav)
+        }
+    }
 
-        // floating switcher: never part of the design, only a way to move around
-        val bar = LinearLayout(c).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(Kit.dp(c, 8), Kit.dp(c, 6), Kit.dp(c, 8), Kit.dp(c, 6))
-            background = Kit.rounded(0xE6101010.toInt(), Kit.dpf(c, 22))
+    private fun show(name: String, kind: Transition, replace: Boolean = false) {
+        val view = build(name)
+        val old = stack.lastOrNull()?.second
+        if (replace && stack.isNotEmpty()) stack.removeAt(stack.lastIndex)
+        stack.add(name to view)
+        content.addView(view, FrameLayout.LayoutParams(-1, -1))
+        val w = content.width.toFloat().coerceAtLeast(1f)
+        when (kind) {
+            Transition.NONE -> old?.let { content.removeView(it) }
+            Transition.FADE -> {
+                view.alpha = 0f
+                view.animate().alpha(1f).setDuration(220).setInterpolator(Kit.ease).withEndAction {
+                    old?.let { content.removeView(it) }
+                }.start()
+            }
+            Transition.PUSH -> {
+                view.elevation = Kit.dpf(this, 24)
+                view.translationX = w
+                view.animate().translationX(0f).setDuration(420).setInterpolator(Kit.ease).start()
+                old?.animate()?.translationX(-w * 0.28f)?.setDuration(420)?.setInterpolator(Kit.ease)?.withEndAction {
+                    old.visibility = View.INVISIBLE
+                }?.start()
+            }
         }
-        val names = screens.keys.toList() + (if (dark) "light" else "dark")
-        names.forEach { n ->
-            bar.addView(
-                Kit.text(c, n, 13f, if (n == current) 700 else 500, R.color.pa_on_navy).apply {
-                    alpha = if (n == current) 1f else .6f
-                    setPadding(Kit.dp(c, 9), Kit.dp(c, 8), Kit.dp(c, 9), Kit.dp(c, 8))
-                    setOnClickListener {
-                        if (n == "dark" || n == "light") dark = !dark else current = n
-                        render()
+    }
+
+    private fun pop() {
+        if (stack.size < 2) return
+        val top = stack.removeAt(stack.lastIndex).second
+        val below = stack.last().second
+        val w = content.width.toFloat()
+        below.visibility = View.VISIBLE
+        below.animate().translationX(0f).setDuration(380).setInterpolator(Kit.ease).start()
+        top.animate().translationX(w).setDuration(380).setInterpolator(Kit.ease).withEndAction {
+            content.removeView(top)
+        }.start()
+    }
+
+    private fun menuButton(): View {
+        val c = themed()
+        val b = Kit.text(c, "···", 20f, 700, R.color.pa_ink).apply {
+            gravity = Gravity.CENTER
+            background = Kit.rounded(c.getColor(R.color.pa_fill), Kit.dpf(c, 18))
+            layoutParams = FrameLayout.LayoutParams(Kit.dp(c, 36), Kit.dp(c, 36), Gravity.TOP or Gravity.END)
+                .apply { topMargin = 0; marginEnd = Kit.dp(c, 12) }
+            translationY = Kit.dpf(c, 6)
+        }
+        b.post { (b.layoutParams as FrameLayout.LayoutParams).topMargin = topInset }
+        b.setOnClickListener {
+            PopupMenu(this, b).apply {
+                listOf("welcome", "notice", "home", "fix", "activity", "detail", "settings").forEach { menu.add(it) }
+                menu.add(if (dark) "Light mode" else "Dark mode")
+                setOnMenuItemClickListener {
+                    val t = it.title.toString()
+                    if (t.endsWith("mode")) {
+                        dark = !dark
+                        val cur = stack.lastOrNull()?.first ?: "home"
+                        applyBars(); stack.clear(); content.removeAllViews()
+                        show(cur, Transition.NONE, replace = true)
+                    } else {
+                        stack.clear(); content.removeAllViews()
+                        show(t, Transition.FADE, replace = true)
                     }
-                },
-            )
+                    true
+                }
+            }.show()
         }
-        host.addView(
-            android.widget.HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; addView(bar) },
-            FrameLayout.LayoutParams(-2, Kit.dp(c, 44), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = topInset + Kit.dp(c, 4) },
-        )
+        return b
     }
 }
