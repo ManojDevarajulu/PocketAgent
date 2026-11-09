@@ -79,7 +79,7 @@ class SetupActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        val pad = Overlays.dp(this, 16)
+        val pad = Overlays.dp(this, 20)
         column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
@@ -141,25 +141,25 @@ class SetupActivity : Activity() {
         val eval = SetupModel.evaluate(f)
         column.removeAllViews()
 
-        if (eval.isReady) {
-            column.addView(TextView(this).apply {
-                setText(R.string.setup_ready_title)
-                textSize = 24f
-                setTextColor(getColor(R.color.brand_text))
-            })
-            column.addView(SetupViews.body(this, getString(R.string.setup_ready_body), muted = true))
-            column.addView(SetupViews.gap(this, 12))
-        } else {
-            column.addView(TextView(this).apply {
-                setText(R.string.setup_title)
-                textSize = 24f
-                setTextColor(getColor(R.color.brand_text))
-            })
-            column.addView(SetupViews.gap(this, 12))
-        }
+        val required = eval.steps.filter { it.step != SetupStep.MICROPHONE }
+        val doneCount = required.count { it.status == StepStatus.DONE }
+        column.addView(TextView(this).apply {
+            setText(if (eval.isReady) R.string.setup_ready_title else R.string.setup_title)
+            textSize = 30f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setTextColor(getColor(R.color.brand_text))
+            setPadding(0, Overlays.dp(this@SetupActivity, 12), 0, 0)
+        })
+        column.addView(SetupViews.body(
+            this,
+            if (eval.isReady) getString(R.string.setup_ready_body) else getString(R.string.setup_progress, doneCount, required.size),
+            muted = true,
+        ))
+        column.addView(SetupViews.progress(this, doneCount, required.size))
+        column.addView(SetupViews.gap(this, 28))
 
-        for (state in eval.steps) {
-            val card = StepCard(this, state.step, titleFor(state.step))
+        for ((index, state) in eval.steps.withIndex()) {
+            val card = StepCard(this, state.step, titleFor(state.step), index + 1, isLast = index == eval.steps.lastIndex)
             card.setStatus(state.status)
             val expanded = !eval.isReady && state.status == StepStatus.CURRENT ||
                 expandedOverride == state.step ||
@@ -184,7 +184,7 @@ class SetupActivity : Activity() {
             if (expanded) fillBody(card, state.step, config, state.needsFirst)
             column.addView(card, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { bottomMargin = Overlays.dp(this@SetupActivity, 12) })
+            ))
         }
     }
 
@@ -249,16 +249,14 @@ class SetupActivity : Activity() {
         val custom = isCustom(config)
 
         body.addView(SetupViews.body(this, getString(R.string.setup_provider_intro)))
-        val presets = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        ProviderPresets.all.forEach { p ->
-            presets.addView(
-                choiceButton(p.label, !custom && preset?.id == p.id) { captureDrafts(); presetId = p.id; imagesDraft = null; render() },
-            )
-        }
-        presets.addView(choiceButton(getString(R.string.setup_provider_custom), custom) {
+        val chips = ProviderPresets.all.map { p ->
+            SetupViews.chip(this, p.label, !custom && preset?.id == p.id) {
+                captureDrafts(); presetId = p.id; imagesDraft = null; render()
+            }
+        } + SetupViews.chip(this, getString(R.string.setup_provider_custom), custom) {
             captureDrafts(); presetId = CUSTOM; render()
-        })
-        body.addView(presets)
+        }
+        body.addView(SetupViews.chipGrid(this, chips))
 
         var urlField: EditText? = null
         if (custom) {
@@ -356,13 +354,8 @@ class SetupActivity : Activity() {
 
     private var pendingHost: String? = null
 
-    private fun choiceButton(label: String, selected: Boolean, onClick: () -> Unit) =
-        if (selected) SetupViews.primaryButton(this, label, onClick) else SetupViews.secondaryButton(this, label, onClick)
-
     private fun styleField(field: EditText) {
-        field.setTextColor(getColor(R.color.brand_text))
-        field.setHintTextColor(getColor(R.color.brand_muted))
-        field.setSingleLine(true)
+        SetupViews.field(this, field)
     }
 
     /** Copies what was typed into the drafts, so a redraw does not lose it. */
@@ -402,6 +395,8 @@ class SetupActivity : Activity() {
         body.addView(modelField)
         val images = Switch(this).apply {
             text = getString(R.string.setup_model_images)
+            textSize = 15f
+            layoutParams = SetupViews.blockParams(this@SetupActivity, 16)
             setTextColor(getColor(R.color.brand_text))
             isChecked = imagesDraft ?: config.supportsImages
             setOnCheckedChangeListener { _, checked -> imagesDraft = checked }
@@ -417,7 +412,8 @@ class SetupActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             visibility = if (checking) View.VISIBLE else View.GONE
         }
-        spinnerRow.addView(ProgressBar(this))
+        spinnerRow.layoutParams = SetupViews.blockParams(this)
+        spinnerRow.addView(ProgressBar(this), LinearLayout.LayoutParams(Overlays.dp(this, 32), Overlays.dp(this, 32)))
         spinnerRow.addView(SetupViews.secondaryButton(this, getString(R.string.task_cancel)) {
             checkJob?.cancel()
             checkJob = null
@@ -484,11 +480,7 @@ class SetupActivity : Activity() {
             openSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
         body.addView(SetupViews.gap(this))
-        body.addView(TextView(this).apply {
-            setText(R.string.setup_greyed_heading)
-            textSize = 16f
-            setTextColor(getColor(R.color.brand_text))
-        })
+        body.addView(SetupViews.heading(this, getString(R.string.setup_greyed_heading)))
         body.addView(SetupViews.body(this, guidance.forManufacturer(Build.MANUFACTURER).body, muted = true))
         body.addView(SetupViews.secondaryButton(this, getString(R.string.setup_app_info)) {
             openSettings(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
@@ -545,6 +537,8 @@ class SetupActivity : Activity() {
         body.addView(SetupViews.body(this, getString(R.string.setup_bubble_intro)))
         body.addView(Switch(this).apply {
             text = getString(R.string.setup_bubble_switch)
+            textSize = 16f
+            layoutParams = SetupViews.blockParams(this@SetupActivity, 16)
             setTextColor(getColor(R.color.brand_text))
             isChecked = settings.bubbleOn
             setOnCheckedChangeListener { _, checked ->
@@ -561,9 +555,8 @@ class SetupActivity : Activity() {
             filters = arrayOf(InputFilter.LengthFilter(TaskInputActivity.MAX_TEXT))
             setText(testTaskDraft)
             minLines = 2
-            setTextColor(getColor(R.color.brand_text))
-            setHintTextColor(getColor(R.color.brand_muted))
         }
+        SetupViews.field(this, field, singleLine = false)
         body.addView(field)
         if (needsFirst != null) {
             body.addView(SetupViews.body(this, getString(R.string.setup_finish_first, titleFor(needsFirst)), muted = true))

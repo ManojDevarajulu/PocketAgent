@@ -37,6 +37,7 @@
     <string name="mic_listening">Listening…</string>
     <string name="mic_button_description">Speak your task</string>
     <string name="setup_title">Set up Pocket Agent</string>
+    <string name="setup_progress">%1$d of %2$d steps done</string>
     <string name="setup_ready_title">You\'re ready</string>
     <string name="setup_ready_body">Tap the bubble on any screen to give Pocket Agent a task. Tap a card\'s Edit button to change a setting.</string>
     <string name="setup_edit">Edit</string>
@@ -58,8 +59,8 @@
     <string name="setup_summary_bubble">The bubble is on</string>
     <string name="setup_summary_test">The test task finished</string>
     <string name="setup_mic_skipped">Skipped, voice input is off</string>
-    <string name="setup_provider_intro">Choose who provides the AI. You bring your own key; it is stored encrypted on this phone.</string>
-    <string name="setup_provider_custom">Custom address</string>
+    <string name="setup_provider_intro">Pick the AI service you already use. Your key is stored encrypted on this phone and sent only to that service.</string>
+    <string name="setup_provider_custom">Other address</string>
     <string name="setup_custom_url_label">Base address of an OpenAI-compatible API</string>
     <string name="setup_custom_url_hint">https://llm.example.com/v1</string>
     <string name="setup_key_hint">API key</string>
