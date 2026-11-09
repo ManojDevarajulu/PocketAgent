@@ -2,6 +2,7 @@ package dev.pocketagent.agent
 
 import dev.pocketagent.device.ActionResult
 import dev.pocketagent.device.DeviceAction
+import dev.pocketagent.device.DeviceUnavailable
 import dev.pocketagent.device.ScreenSerializer
 import dev.pocketagent.device.node
 import dev.pocketagent.device.screenOf
@@ -14,6 +15,7 @@ import dev.pocketagent.llm.TokenUsage
 import dev.pocketagent.playbook.PlaybookStore
 import dev.pocketagent.safety.BlockedApps
 import dev.pocketagent.safety.SafetyGate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -68,7 +70,8 @@ class AgentLoopTest {
         ui: FakeUi = FakeUi(),
         playbooks: PlaybookStore = noPlaybooks,
         maxSteps: Int = 25,
-    ) = AgentLoop(llm, device, SafetyGate(BlockedApps(), own), playbooks, ScreenSerializer(own), ui, maxSteps)
+        confirmTimeoutMs: Long = 120_000,
+    ) = AgentLoop(llm, device, SafetyGate(BlockedApps(), own), playbooks, ScreenSerializer(own), ui, maxSteps, confirmTimeoutMs)
 
     /** A screen whose text differs per [tag], so no two are equal. */
     private fun distinctScreen(tag: String, pkg: String = "com.app") =
@@ -384,6 +387,7 @@ class AgentLoopTest {
         assertEquals(SYSTEM_PROMPT, first.systemPrompt)
         assertTrue(SYSTEM_PROMPT.contains("<screen_data>"))
         assertTrue(SYSTEM_PROMPT.contains("irreversible"))
+        assertTrue(SYSTEM_PROMPT.contains("always call open_app"))
     }
 
     @Test fun systemPromptDescribesAppTipsAsTrusted() {
@@ -439,6 +443,17 @@ class AgentLoopTest {
         assertFalse(llm.turns[1].toolResult!!.isError)
     }
 
+    @Test fun nodeActionAfterAScreenshotUsesTheScreenTheDeviceNowHolds() = runTest {
+        // The device hands out a new observation (ids with a new letter) on the read the screenshot triggers.
+        val reobserved = screenOf(node("b1", role = "button", text = "Next", clickable = true))
+        val llm = FakeLlm(listOf(call("screenshot"), tap("b1"), done()))
+        val device = FakeDevice(listOf(reobserved))
+        loop(llm, device).run("t", start)
+        assertTrue(llm.turns[1].text.contains("[b1]"), llm.turns[1].text)
+        assertFalse(llm.turns[2].toolResult!!.isError, llm.turns[2].toolResult!!.text)
+        assertEquals("b1", (device.actions.single() as DeviceAction.Tap).node.id)
+    }
+
     @Test fun blockedScreenshotReturnsToolError() = runTest {
         val llm = FakeLlm(listOf(call("screenshot"), done()))
         loop(llm, FakeDevice(listOf(start), screenshotBytes = null)).run("t", start)
@@ -486,5 +501,38 @@ class AgentLoopTest {
         assertTrue(device.actions.isEmpty())
         assertEquals(listOf(true, false), ui.waiting)
         assertTrue(job.isCancelled)
+    }
+
+    // ---- the device becoming unavailable ----
+
+    @Test fun deviceUnavailableOnReadEndsTheTask() = runTest {
+        // The first read after the tap succeeds; the second one finds the phone locked.
+        val llm = FakeLlm(listOf(tap("a1"), scroll(), done()))
+        val device = FakeDevice(listOf(start), failReadsFrom = 1)
+        val outcome = loop(llm, device).run("t", start)
+        assertEquals(TaskOutcome(EndReason.DEVICE_UNAVAILABLE, false, "The phone locked"), outcome)
+    }
+
+    @Test fun deviceUnavailableOnActionEndsTheTask() = runTest {
+        val message = "Pocket Agent's accessibility service was turned off"
+        val llm = FakeLlm(listOf(tap("a1"), done()))
+        val device = FakeDevice(listOf(start), resultFor = { throw DeviceUnavailable(message) })
+        val outcome = loop(llm, device).run("t", start)
+        assertEquals(TaskOutcome(EndReason.DEVICE_UNAVAILABLE, false, message), outcome)
+    }
+
+    @Test fun cancellationIsNotTurnedIntoAnOutcome() = runTest {
+        val llm = FakeLlm(listOf(tap("a1"), done()))
+        val device = FakeDevice(listOf(start), resultFor = { throw CancellationException("cancelled") })
+        assertFailsWith<CancellationException> { loop(llm, device).run("t", start) }
+    }
+
+    @Test fun askUserTimesOutToNoAnswer() = runTest {
+        val ui = FakeUi().apply { onAsk = { awaitCancellation() } }
+        val llm = FakeLlm(listOf(call("ask_user", "question" to "Which?"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, confirmTimeoutMs = 1_000).run("t", start)
+        assertEquals("(no answer)", llm.turns[1].toolResult!!.text)
+        assertEquals(1_000L, testScheduler.currentTime)
+        assertEquals(listOf(true, false), ui.waiting)
     }
 }

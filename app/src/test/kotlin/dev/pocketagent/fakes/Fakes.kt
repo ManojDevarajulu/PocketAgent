@@ -6,6 +6,7 @@ import dev.pocketagent.agent.ToolDefinition
 import dev.pocketagent.device.ActionResult
 import dev.pocketagent.device.DeviceAction
 import dev.pocketagent.device.DevicePort
+import dev.pocketagent.device.DeviceUnavailable
 import dev.pocketagent.device.Screen
 import dev.pocketagent.llm.LlmClient
 import dev.pocketagent.llm.LlmResult
@@ -47,6 +48,7 @@ class FakeLlm(
 class FakeDevice(
     private val screens: List<Screen>,
     private val screenshotBytes: ByteArray? = byteArrayOf(1, 2, 3),
+    private val failReadsFrom: Int? = null,
     private val resultFor: (DeviceAction) -> ActionResult = { ActionResult.Ok },
 ) : DevicePort {
     val actions = mutableListOf<DeviceAction>()
@@ -55,7 +57,10 @@ class FakeDevice(
     var reads = 0
         private set
 
-    override suspend fun readScreen(): Screen = screens[minOf(reads++, screens.lastIndex)]
+    override suspend fun readScreen(): Screen {
+        if (failReadsFrom != null && reads >= failReadsFrom) throw DeviceUnavailable("The phone locked")
+        return screens[minOf(reads++, screens.lastIndex)]
+    }
 
     override suspend fun perform(action: DeviceAction): ActionResult {
         actions += action

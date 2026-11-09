@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bubble_idle">#FF757575</color>
+    <color name="bubble_running">#FF1E6FE0</color>
+    <color name="bubble_waiting">#FFF2A100</color>
+    <color name="bubble_done">#FF2E9E4F</color>
+    <color name="bubble_error">#FFD83A3A</color>
+    <color name="card_background">#FFFFFFFF</color>
+    <color name="card_text">#FF1B1B1B</color>
+    <color name="card_muted">#FF5F5F5F</color>
+    <color name="caption_background">#CC000000</color>
+    <color name="caption_text">#FFFFFFFF</color>
+    <color name="button_allow">#FF1E6FE0</color>
+    <color name="button_decline">#FFE3E3E3</color>
+    <color name="button_allow_text">#FFFFFFFF</color>
+</resources>

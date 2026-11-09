@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bubble_description">Pocket Agent</string>
+    <string name="confirm_title">Allow this action?</string>
+    <string name="confirm_action">Action: %1$s</string>
+    <string name="confirm_target">Target: %1$s</string>
+    <string name="confirm_app">App: %1$s</string>
+    <string name="confirm_will_send">Will send: %1$s</string>
+    <string name="confirm_allow">Allow</string>
+    <string name="confirm_decline">Decline</string>
+    <string name="task_hint">What should I do?</string>
+    <string name="task_go">Go</string>
+    <string name="task_cancel">Cancel</string>
+    <string name="task_empty">Type a task first</string>
+    <string name="answer_hint">Your answer</string>
+    <string name="answer_submit">Submit</string>
+    <string name="answer_skip">Skip</string>
+    <string name="service_label">Pocket Agent</string>
+    <string name="service_description">Pocket Agent reads the screen and acts on it (taps, typing, scrolling, opening apps) only when you start a task from its bubble. What it reads is sent to the AI provider you set up. It asks before actions that may send, pay, post or delete. While no task runs it receives no screen events. It stores nothing.</string>
+    <string name="service_stopped">Pocket Agent stopped: accessibility was turned off</string>
+    <string name="launcher_intro">Pocket Agent works through an accessibility service. Turn on Pocket Agent in the accessibility settings, then tap the bubble to give it a task.</string>
+    <string name="launcher_open_settings">Open accessibility settings</string>
+    <string name="no_model_title">No model configured</string>
+    <string name="no_model_debug">Set pocketagent.kind, pocketagent.baseUrl, pocketagent.apiKey, pocketagent.model and pocketagent.supportsImages in local.properties, then rebuild.</string>
+    <string name="no_model_release">This build has no model settings yet.</string>
+    <string name="phone_unavailable_title">Phone unavailable</string>
+    <string name="read_failed">Could not read the screen. Please try again.</string>
+</resources>

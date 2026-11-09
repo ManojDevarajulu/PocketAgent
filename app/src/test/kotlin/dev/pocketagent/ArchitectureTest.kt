@@ -1,7 +1,9 @@
 package dev.pocketagent
 
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Test
+import org.w3c.dom.Element
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -10,8 +12,11 @@ class ArchitectureTest {
     private val corePackages = listOf("agent", "llm", "safety", "playbook", "device")
     private val mainRoot = File("src/main/kotlin/dev/pocketagent")
 
+    /** Every shipped source set (main, debug, release); test and androidTest sets are left out. */
+    private val shippedRoots = listOf("src/main", "src/debug", "src/release").map { File(it) }
+
     private fun mainSources(): List<File> =
-        File("src/main/kotlin").walk().filter { it.extension == "kt" }.toList()
+        shippedRoots.flatMap { root -> root.walk().filter { it.extension == "kt" }.toList() }
 
     private fun codeLines(f: File): List<String> =
         f.readLines().map { it.trim() }.filterNot { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") }
@@ -106,11 +111,128 @@ class ArchitectureTest {
         assertEquals(emptyList(), leaks, "apiKey interpolated into a string")
     }
 
-    /** Test sources are excluded because they hold fake keys. Matches `sk-...` and Anthropic's `sk-ant-...`. */
     @Test
-    fun noHardcodedKeysInMainSources() {
+    fun apiKeyBuildFieldsAppearOnlyInTheDebugBuildType() {
+        val lines = File("build.gradle.kts").readLines()
+        val start = lines.indexOfFirst { it.trim().startsWith("debug {") }
+        assertTrue(start >= 0, "no debug { } block")
+        var depth = 0
+        var end = start
+        for (i in start until lines.size) {
+            depth += lines[i].count { it == '{' } - lines[i].count { it == '}' }
+            if (depth == 0) { end = i; break }
+        }
+        val keyLines = lines.withIndex().filter { (_, l) -> l.contains("pocketagent.apiKey") || l.contains("API_KEY") }
+        assertTrue(keyLines.isNotEmpty(), "expected the debug key field")
+        assertEquals(emptyList(), keyLines.filter { it.index !in start..end }.map { it.value }, "key fields outside debug { }")
+    }
+
+    @Test
+    fun releaseDevConfigNeverMentionsKeyFields() {
+        val text = File("src/release/kotlin/dev/pocketagent/android/DevConfig.kt").readText()
+        assertTrue(!text.contains("BuildConfig") && !text.contains("apiKey"), "release DevConfig mentions key fields")
+    }
+
+    // ---- Manifest and accessibility service (S3 spec §3, §6 and §9) ----
+
+    private fun parseXml(path: String): Element {
+        val factory = DocumentBuilderFactory.newInstance()
+        factory.isNamespaceAware = false
+        return factory.newDocumentBuilder().parse(File(path)).documentElement
+    }
+
+    private fun manifest(): Element = parseXml("src/main/AndroidManifest.xml")
+
+    private fun Element.children(tag: String): List<Element> {
+        val nodes = getElementsByTagName(tag)
+        return (0 until nodes.length).map { nodes.item(it) as Element }
+    }
+
+    private fun components(): List<Element> =
+        manifest().children("application").single().let { app ->
+            listOf("activity", "activity-alias", "service", "receiver", "provider").flatMap { app.children(it) }
+        }
+
+    private fun component(name: String): Element =
+        components().singleOrNull { it.getAttribute("android:name") == name } ?: error("$name is not in the manifest")
+
+    @Test
+    fun onlyTheLauncherIsExported() {
+        val exported = components().filter { it.getAttribute("android:exported") == "true" }.map { it.getAttribute("android:name") }
+        assertEquals(listOf(".ui.LauncherActivity"), exported)
+        val launcher = component(".ui.LauncherActivity")
+        val categories = launcher.children("category").map { it.getAttribute("android:name") }
+        assertTrue("android.intent.category.LAUNCHER" in categories, "the launcher needs the LAUNCHER category")
+        // Every other component states exported="false" explicitly.
+        components().filter { it.getAttribute("android:name") != ".ui.LauncherActivity" }.forEach {
+            assertEquals("false", it.getAttribute("android:exported"), "${it.getAttribute("android:name")} must not be exported")
+        }
+    }
+
+    @Test
+    fun serviceRequiresTheBindPermission() {
+        val service = component(".android.PocketAccessibilityService")
+        assertEquals("service", service.tagName)
+        assertEquals("false", service.getAttribute("android:exported"))
+        assertEquals("android.permission.BIND_ACCESSIBILITY_SERVICE", service.getAttribute("android:permission"))
+        val actions = service.children("action").map { it.getAttribute("android:name") }
+        assertEquals(listOf("android.accessibilityservice.AccessibilityService"), actions)
+        val meta = service.children("meta-data").single()
+        assertEquals("android.accessibilityservice", meta.getAttribute("android:name"))
+        assertEquals("@xml/accessibility_config", meta.getAttribute("android:resource"))
+    }
+
+    @Test
+    fun serviceConfigRequestsNoEventsAndTheMinimumFlags() {
+        val config = parseXml("src/main/res/xml/accessibility_config.xml")
+        assertEquals("accessibility-service", config.tagName)
+        assertTrue(!config.hasAttribute("android:accessibilityEventTypes"), "event types are switched on in code, never in the XML")
+        assertEquals("flagRetrieveInteractiveWindows", config.getAttribute("android:accessibilityFlags"))
+        listOf("canRetrieveWindowContent", "canPerformGestures", "canTakeScreenshot").forEach {
+            assertEquals("true", config.getAttribute("android:$it"), "$it must be true")
+        }
+        assertTrue(!config.hasAttribute("android:canRequestFilterKeyEvents"), "key-event filtering is never requested")
+        assertTrue(!config.hasAttribute("android:isAccessibilityTool"), "the service is not declared an accessibility tool")
+        assertEquals("50", config.getAttribute("android:notificationTimeout"))
+    }
+
+    @Test
+    fun manifestDeclaresLauncherQueriesOnly() {
+        val root = manifest()
+        val text = File("src/main/AndroidManifest.xml").readText()
+        assertTrue(!text.contains("QUERY_ALL_PACKAGES"), "QUERY_ALL_PACKAGES is not used")
+        val queries = root.children("queries").single()
+        val intents = queries.children("intent")
+        assertEquals(1, intents.size, "one launcher intent")
+        assertTrue(queries.children("package").isEmpty() && queries.children("provider").isEmpty(), "launcher intent only")
+        val intent = intents.single()
+        assertEquals(listOf("android.intent.action.MAIN"), intent.children("action").map { it.getAttribute("android:name") })
+        assertEquals(listOf("android.intent.category.LAUNCHER"), intent.children("category").map { it.getAttribute("android:name") })
+    }
+
+    @Test
+    fun taskScreenHasItsOwnTask() {
+        val screen = component(".ui.TaskInputActivity")
+        assertEquals("activity", screen.tagName)
+        assertTrue(screen.hasAttribute("android:taskAffinity"), "taskAffinity must be set")
+        assertEquals("", screen.getAttribute("android:taskAffinity"))
+        assertEquals("true", screen.getAttribute("android:excludeFromRecents"))
+        assertEquals("false", screen.getAttribute("android:exported"))
+    }
+
+    /** Shipped sources are main, debug and release. Test sources are excluded because they hold fake keys. Matches `sk-...` and Anthropic's `sk-ant-...`. */
+    /** Android's regex engine throws on this flag at runtime, while desktop Java (where the unit tests run) accepts it. */
+    @Test
+    fun noRegexFlagsThatAndroidRejects() {
+        val unsupported = Regex("""UNICODE_CHARACTER_CLASS|\(\?[a-zA-Z]*U[a-zA-Z]*[:)]""")
+        val offenders = mainSources().filter { f -> codeLines(f).any { unsupported.containsMatchIn(it) } }
+        assertEquals(emptyList(), offenders.map { it.path })
+    }
+
+    @Test
+    fun noHardcodedKeysInShippedSources() {
         val key = Regex("""sk-[A-Za-z0-9_-]{20,}""")
-        val offenders = File("src/main").walk().filter { it.isFile }.filter { key.containsMatchIn(it.readText()) }.toList()
+        val offenders = shippedRoots.flatMap { it.walk().filter { f -> f.isFile }.toList() }.filter { key.containsMatchIn(it.readText()) }.toList()
         assertEquals(emptyList(), offenders.map { it.path })
     }
 }

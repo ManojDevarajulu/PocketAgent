@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    S3 spec §3. No event types here: while idle the service subscribes to nothing, and AgentSession switches
+    the four task-time event types on and off in code. Resource ids and not-important views are not requested,
+    and key events are never filtered. The service is deliberately not declared an accessibility tool.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/service_description"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true"
+    android:canTakeScreenshot="true"
+    android:notificationTimeout="50" />
