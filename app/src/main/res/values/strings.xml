@@ -25,4 +25,15 @@
     <string name="no_model_release">This build has no model settings yet.</string>
     <string name="phone_unavailable_title">Phone unavailable</string>
     <string name="read_failed">Could not read the screen. Please try again.</string>
+    <string name="notice_title">Before you start</string>
+    <string name="notice_body">1. The text on your screen, and a screenshot when the agent asks for one, is sent directly to the AI provider you choose, and nowhere else. There is no telemetry, no analytics and no Pocket Agent server.
+
+2. Nothing from your screen is stored after a task ends.
+
+3. While a task runs, the agent can tap and type on your phone. It asks before actions that may send, pay, post or delete, and it does not work in banking, payment, password-manager or Settings apps. This check is a rule of thumb and can miss unusual wording.
+
+4. You can stop a running task at any time by long-pressing the bubble.</string>
+    <string name="notice_accept">I understand</string>
+    <string name="notice_custom_host">Your screen text will be sent to %1$s.</string>
+    <string name="notice_mic">Voice input uses the speech recogniser built into your phone. On-device recognition is requested first, but the recogniser may send your audio online, to the phone maker or Google, in the cloud. Pocket Agent itself does not store or send the audio. This is optional.</string>
 </resources>
