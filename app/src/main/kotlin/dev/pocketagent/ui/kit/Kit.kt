@@ -42,7 +42,10 @@ object Kit {
 
     fun dp(c: Context, v: Int): Int = (v * c.resources.displayMetrics.density + 0.5f).toInt()
     fun dpf(c: Context, v: Int): Float = v * c.resources.displayMetrics.density
-    fun color(c: Context, id: Int): Int = c.getColor(id)
+    fun color(c: Context, id: Int): Int = Skin.resolve(c, id) ?: c.getColor(id)
+
+    /** The whole type scale, one knob. Inter runs large for its point size, so everything sits a little under iOS's numbers. */
+    private const val TYPE_SCALE = 0.86f
 
     private fun face(c: Context, weight: Int): Typeface =
         Typeface.create(c.resources.getFont(R.font.inter), weight, false)
@@ -51,7 +54,7 @@ object Kit {
         c: Context, s: CharSequence, sp: Float = 17f, weight: Int = 400, tint: Int = R.color.pa_ink,
     ): TextView = TextView(c).apply {
         text = s
-        textSize = sp
+        textSize = sp * TYPE_SCALE
         typeface = face(c, weight)
         setTextColor(color(c, tint))
         includeFontPadding = false
@@ -240,7 +243,7 @@ object Kit {
     private fun button(c: Context, label: CharSequence, fill: Int, textColor: Int, heightDp: Int, onClick: (() -> Unit)?) =
         TextView(c).apply {
             text = label
-            textSize = 17f
+            textSize = 16f * TYPE_SCALE
             typeface = face(c, 600)
             setTextColor(textColor)
             gravity = Gravity.CENTER
@@ -253,7 +256,7 @@ object Kit {
 
     fun chip(c: Context, label: CharSequence, selected: Boolean = false): TextView = TextView(c).apply {
         text = label
-        textSize = 15f
+        textSize = 15f * TYPE_SCALE
         typeface = face(c, 500)
         setTextColor(color(c, if (selected) R.color.pa_on_blue else R.color.pa_ink))
         gravity = Gravity.CENTER
@@ -310,7 +313,7 @@ object Kit {
         return frame
     }
 
-    fun largeTitle(c: Context, s: CharSequence): TextView = text(c, s, 34f, 700).apply { letterSpacing = -0.02f }
+    fun largeTitle(c: Context, s: CharSequence): TextView = text(c, s, 32f, 600).apply { letterSpacing = -0.025f }
 
     fun section(c: Context, s: CharSequence): TextView = text(c, s, 13f, 600, R.color.pa_muted).apply {
         setPadding(dp(c, 20), 0, dp(c, 20), dp(c, 8))

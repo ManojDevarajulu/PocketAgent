@@ -51,11 +51,11 @@ object Screens {
         Kit.tile(c, R.drawable.ic_close, color(c, R.color.pa_bad) and 0x00FFFFFF or 0x24000000, color(c, R.color.pa_bad), 32)
 
     private fun blueTile(c: Context, icon: Int) =
-        Kit.tile(c, icon, color(c, R.color.pa_blue), color(c, R.color.pa_on_blue), 30)
+        Kit.tile(c, icon, color(c, R.color.pa_tile), color(c, R.color.pa_tile_icon), 30)
 
     private fun sectionTitle(c: Context, title: String, action: String? = null): View {
         val h = Kit.hstack(c).apply { setPadding(dp(c, 4), 0, dp(c, 4), dp(c, 10)) }
-        h.addView(Kit.text(c, title, 22f, 700).apply { letterSpacing = -0.01f }, Kit.weight())
+        h.addView(Kit.text(c, title, 19f, 600).apply { letterSpacing = -0.01f }, Kit.weight())
         if (action != null) h.addView(Kit.text(c, action, 16f, 500, R.color.pa_blue))
         return h
     }
@@ -100,13 +100,13 @@ object Screens {
         // composer: the hero. One card, no inner box.
         val composer = Kit.vstack(c).apply {
             background = Kit.rounded(color(c, R.color.pa_card), dpf(c, 28))
-            setPadding(dp(c, 20), dp(c, 18), dp(c, 14), dp(c, 14))
-            elevation = dpf(c, 2)
+            setPadding(dp(c, 18), dp(c, 16), dp(c, 12), dp(c, 12))
+            elevation = dpf(c, 1)
             alpha = if (needsAttention) .5f else 1f
         }
         composer.addView(
-            Kit.text(c, if (needsAttention) "Turn on accessibility first" else "What should I do?", 22f, 500, R.color.pa_muted).apply {
-                minimumHeight = dp(c, 56)
+            Kit.text(c, if (needsAttention) "Turn on accessibility first" else "What should I do?", 19f, 400, R.color.pa_muted).apply {
+                minimumHeight = dp(c, 40)
             },
         )
         val controls = Kit.hstack(c).apply { setPadding(0, dp(c, 6), 0, 0) }
@@ -133,12 +133,12 @@ object Screens {
         // shortcuts: solid blue tiles
         add(sectionTitle(c, "Shortcuts", "Edit"), Kit.lp().apply { topMargin = dp(c, 32) })
         fun tile(icon: Int, title: String): View = Kit.vstack(c).apply {
-            background = Kit.rounded(color(c, R.color.pa_blue), dpf(c, 20))
+            background = Kit.rounded(color(c, R.color.pa_tile), dpf(c, 20))
             setPadding(dp(c, 16), dp(c, 16), dp(c, 14), dp(c, 16))
             minimumHeight = dp(c, 112)
-            addView(Kit.icon(c, icon, 26, R.color.pa_on_blue))
+            addView(Kit.icon(c, icon, 26, R.color.pa_tile_icon))
             addView(View(c), LinearLayout.LayoutParams(1, 0, 1f))
-            addView(Kit.text(c, title, 16f, 600, R.color.pa_on_blue).apply { setLineSpacing(dpf(c, 1), 1f) })
+            addView(Kit.text(c, title, 16f, 600, R.color.pa_on_tile).apply { setLineSpacing(dpf(c, 1), 1f) })
             Kit.pressable(this, 0.96f)
         }
         val ghost = Kit.vstack(c).apply {
@@ -253,7 +253,7 @@ object Screens {
         back.addView(Kit.text(c, "Activity", 17f, 400, R.color.pa_blue))
         Kit.pressable(back, 1f) { nav.back() }
         p.addView(back, Kit.lp(ViewGroup.LayoutParams.WRAP_CONTENT))
-        p.addView(Kit.text(c, "Take me to the address in this message", 26f, 700).apply { letterSpacing = -0.02f; setLineSpacing(dpf(c, 2), 1f) })
+        p.addView(Kit.text(c, "Take me to the address in this message", 24f, 600).apply { letterSpacing = -0.02f; setLineSpacing(dpf(c, 2), 1f) })
         p.addView(Kit.text(c, "Today, 6:42 pm", 15f, 400, R.color.pa_muted).apply { setPadding(0, dp(c, 6), 0, dp(c, 18)) })
 
         val res = Kit.card(c, 22, 16)
@@ -384,7 +384,7 @@ object Screens {
         }
         p.addView(logo, Kit.lp(dp(c, 104), dp(c, 104)).apply { gravity = Gravity.CENTER_HORIZONTAL })
         blocks.add(logo)
-        val title = Kit.text(c, "Welcome to\nPocket Agent", 34f, 700).apply {
+        val title = Kit.text(c, "Welcome to\nPocket Agent", 30f, 600).apply {
             gravity = Gravity.CENTER; letterSpacing = -0.025f; setLineSpacing(dpf(c, 2), 1f)
         }
         p.addView(title, Kit.lp().apply { topMargin = dp(c, 28) })
@@ -419,11 +419,11 @@ object Screens {
     fun notice(c: Context, nav: Nav = Nav()): View {
         val p = Kit.vstack(c).apply { setPadding(dp(c, 28), dp(c, 48), dp(c, 28), dp(c, 24)) }
         val badge = FrameLayout(c).apply {
-            background = Kit.rounded(color(c, R.color.pa_blue), dpf(c, 20))
-            addView(Kit.icon(c, R.drawable.ic_shield, 32, R.color.pa_on_blue), FrameLayout.LayoutParams(dp(c, 32), dp(c, 32), Gravity.CENTER))
+            background = Kit.rounded(color(c, R.color.pa_tile), dpf(c, 20))
+            addView(Kit.icon(c, R.drawable.ic_shield, 32, R.color.pa_tile_icon), FrameLayout.LayoutParams(dp(c, 32), dp(c, 32), Gravity.CENTER))
         }
         p.addView(badge, Kit.lp(dp(c, 64), dp(c, 64)).apply { gravity = Gravity.CENTER_HORIZONTAL })
-        p.addView(Kit.text(c, "Before you start", 30f, 700).apply { gravity = Gravity.CENTER; letterSpacing = -0.02f },
+        p.addView(Kit.text(c, "Before you start", 28f, 600).apply { gravity = Gravity.CENTER; letterSpacing = -0.02f },
             Kit.lp().apply { topMargin = dp(c, 22) })
         p.addView(Kit.text(c, "Four things worth knowing, in plain words.", 16f, 400, R.color.pa_muted).apply { gravity = Gravity.CENTER },
             Kit.lp().apply { topMargin = dp(c, 10) })
@@ -436,9 +436,9 @@ object Screens {
             "You can stop it any time." to "Long-press the bubble and it stops at once.",
         ).forEachIndexed { i, (b, rest) ->
             val r = Kit.hstack(c, 14).apply { gravity = Gravity.TOP; setPadding(0, dp(c, 14), 0, dp(c, 14)) }
-            r.addView(Kit.text(c, "${i + 1}", 14f, 600, R.color.pa_on_blue).apply {
+            r.addView(Kit.text(c, "${i + 1}", 14f, 600, R.color.pa_on_tile).apply {
                 gravity = Gravity.CENTER
-                background = Kit.rounded(color(c, R.color.pa_blue), dpf(c, 14))
+                background = Kit.rounded(color(c, R.color.pa_tile), dpf(c, 14))
                 layoutParams = LinearLayout.LayoutParams(dp(c, 28), dp(c, 28))
             })
             val col = Kit.vstack(c)

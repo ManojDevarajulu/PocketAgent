@@ -15,6 +15,7 @@ import dev.pocketagent.R
 import dev.pocketagent.ui.kit.Kit
 import dev.pocketagent.ui.kit.Nav
 import dev.pocketagent.ui.kit.Screens
+import dev.pocketagent.ui.kit.Skin
 
 /**
  * Debug-only gallery with the same navigation the app will have: tabs cross-fade, pushed screens slide in
@@ -39,6 +40,7 @@ class PreviewActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         dark = intent.getBooleanExtra("dark", false)
+        Skin.ink = intent.getStringExtra("skin") == "ink"
         window.setDecorFitsSystemWindows(false)
         host = FrameLayout(this)
         content = FrameLayout(this)
@@ -53,7 +55,7 @@ class PreviewActivity : Activity() {
         }
         setContentView(host)
         applyBars()
-        host.addView(menuButton(), FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END))
+        host.addView(menuButton())
         show(intent.getStringExtra("screen") ?: "home", Transition.NONE, replace = true)
     }
 
@@ -61,6 +63,7 @@ class PreviewActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.hasExtra("dark")) dark = intent.getBooleanExtra("dark", dark)
+        if (intent.hasExtra("skin")) Skin.ink = intent.getStringExtra("skin") == "ink"
         applyBars()
         stack.clear(); content.removeAllViews()
         show(intent.getStringExtra("screen") ?: "home", Transition.NONE, replace = true)
@@ -83,7 +86,7 @@ class PreviewActivity : Activity() {
             if (dark) 0 else WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
             WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
         )
-        host.setBackgroundColor(themed().getColor(R.color.pa_bg))
+        host.setBackgroundColor(Kit.color(themed(), R.color.pa_bg))
     }
 
     private fun build(name: String): View {
@@ -141,19 +144,32 @@ class PreviewActivity : Activity() {
         val c = themed()
         val b = Kit.text(c, "···", 20f, 700, R.color.pa_ink).apply {
             gravity = Gravity.CENTER
-            background = Kit.rounded(c.getColor(R.color.pa_fill), Kit.dpf(c, 18))
+            background = Kit.rounded(Kit.color(c, R.color.pa_fill), Kit.dpf(c, 18))
             layoutParams = FrameLayout.LayoutParams(Kit.dp(c, 36), Kit.dp(c, 36), Gravity.TOP or Gravity.END)
                 .apply { topMargin = 0; marginEnd = Kit.dp(c, 12) }
             translationY = Kit.dpf(c, 6)
         }
-        b.post { (b.layoutParams as FrameLayout.LayoutParams).topMargin = topInset }
+        host.setOnApplyWindowInsetsListener { _, insets ->
+            val bars = insets.getInsets(WindowInsets.Type.systemBars())
+            topInset = bars.top; bottomInset = bars.bottom
+            (content.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topInset; bottomMargin = bottomInset }
+            (b.layoutParams as FrameLayout.LayoutParams).topMargin = topInset + Kit.dp(c, 2)
+            content.requestLayout()
+            insets
+        }
         b.setOnClickListener {
             PopupMenu(this, b).apply {
                 listOf("welcome", "notice", "home", "fix", "activity", "detail", "settings").forEach { menu.add(it) }
                 menu.add(if (dark) "Light mode" else "Dark mode")
+                menu.add(if (Skin.ink) "Skin: tonal blue" else "Skin: ink")
                 setOnMenuItemClickListener {
                     val t = it.title.toString()
-                    if (t.endsWith("mode")) {
+                    if (t.startsWith("Skin")) {
+                        Skin.ink = !Skin.ink
+                        val cur = stack.lastOrNull()?.first ?: "home"
+                        applyBars(); stack.clear(); content.removeAllViews()
+                        show(cur, Transition.NONE, replace = true)
+                    } else if (t.endsWith("mode")) {
                         dark = !dark
                         val cur = stack.lastOrNull()?.first ?: "home"
                         applyBars(); stack.clear(); content.removeAllViews()
