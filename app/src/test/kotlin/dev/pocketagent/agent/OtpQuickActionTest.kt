@@ -132,4 +132,13 @@ class OtpQuickActionTest {
         assertTrue(params.isNotEmpty())
         assertFalse(params.any { it.name.contains("LlmClient") })
     }
+
+    @Test fun triggerWordInTheTitleFindsTheCodeInALine() {
+        val r = run(Port(items = listOf(n(null, minute, title = "Login OTP", lines = listOf("Use 4829 within 5 min")))))
+        assertEquals(OtpResult.Found("4829", "Login OTP", 1), r)
+    }
+
+    @Test fun digitsWithNoTriggerAnywhereAreNotACode() {
+        assertEquals(OtpResult.NoneRecent, run(Port(items = listOf(n(null, minute, title = "Rahul", lines = listOf("Room 4821 at 5pm"))))))
+    }
 }

@@ -33,7 +33,8 @@ class OtpQuickAction(
         for (n in items) {
             val age = now - n.postedAtMs
             if (age > WINDOW_MS) continue
-            val code = (listOfNotNull(n.title) + n.lines).firstNotNullOfOrNull { CodeFinder.find(it) } ?: continue
+            // One trigger word anywhere in the notification counts for all of it, as in the filter's masking.
+            val code = CodeFinder.findIn(listOfNotNull(n.title, n.conversation) + n.lines) ?: continue
             if (best == null || n.postedAtMs > best.first) {
                 val minutes = (maxOf(age, 0L) / 60_000L).toInt()
                 best = n.postedAtMs to OtpResult.Found(code, n.title ?: n.appLabel ?: n.packageName, minutes)

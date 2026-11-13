@@ -141,4 +141,26 @@ class NotificationFilterTest {
             n("com.whatsapp", "Balancer", "hello", key = "d", ageMin = 4),
         ))
     }
+
+    @Test fun triggerWordInTheTitleMasksTheCodeInTheText() {
+        val out = filter.forModel(listOf(n("com.example.app", "Login OTP", "Use 4829 within 5 min")), now).single()
+        assertEquals(listOf("Use •••••• within 5 min"), out.lines)
+    }
+
+    @Test fun triggerWordInAnEarlierChatLineMasksTheCodeInALaterOne() {
+        val out = filter.forModel(listOf(n("com.whatsapp", "Rahul", "", lines = listOf("Rahul: what's the OTP?", "Rahul: 482913"))), now).single()
+        assertEquals(listOf("Rahul: what's the OTP?", "Rahul: ••••••"), out.lines)
+    }
+
+    @Test fun triggerWordInTheConversationMasksTheTitleAndLines() {
+        val out = filter.forModel(listOf(n("com.whatsapp", "Rahul 4829", "send 482913", conversation = "OTP sharing")), now).single()
+        assertEquals("Rahul ••••••", out.title)
+        assertEquals(listOf("send ••••••"), out.lines)
+    }
+
+    @Test fun digitsStayWhenNoFieldHasATrigger() {
+        val out = filter.forModel(listOf(n("com.whatsapp", "Rahul", "Room 4821 at 5pm", conversation = "Trip 2026")), now).single()
+        assertEquals(listOf("Room 4821 at 5pm"), out.lines)
+        assertEquals("Trip 2026", out.conversation)
+    }
 }
