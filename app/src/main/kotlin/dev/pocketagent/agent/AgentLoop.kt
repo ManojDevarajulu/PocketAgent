@@ -21,6 +21,7 @@ import dev.pocketagent.playbook.PlaybookStore
 import dev.pocketagent.safety.NotificationFilter
 import dev.pocketagent.safety.SafetyGate
 import dev.pocketagent.safety.Verdict
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -217,7 +218,8 @@ class AgentLoop(
         val filter = checkNotNull(notificationFilter) // set together with notifications, see init
         ui.onCaption(Captions.readingNotifications)
         val now = wallMs()
-        val visible = filter.forModel(port.recent(), now)
+        val all = portCall { port.recent() } ?: return Step.Next(toolError(call, "could not read notifications"))
+        val visible = filter.forModel(all, now)
         val serialized = notificationSerializer.serialize(visible, now)
         val byKey = visible.associateBy { it.key }
         run.notificationKeys = serialized.keysById.mapNotNull { (id, key) -> byKey[key]?.let { id to it } }.toMap()
@@ -235,6 +237,12 @@ class AgentLoop(
         val item = run.notificationKeys[tool.id]
             ?: return Step.Next(toolError(call, "notification ${tool.id} is not in the latest read_notifications result"))
         if (!item.canReply) return Step.Next(toolError(call, "this notification can't be replied to"))
+        // The user approves exactly what the card shows, so nothing longer than the card and nothing that displays
+        // differently from what is sent (line breaks, zero-width or direction-changing characters).
+        if (tool.text.length > MAX_DETAIL) return Step.Next(toolError(call, "reply is too long; keep it under $MAX_DETAIL characters"))
+        if (tool.text.any { it.isISOControl() || Character.getType(it) == Character.FORMAT.toInt() }) {
+            return Step.Next(toolError(call, "reply contains hidden characters"))
+        }
 
         // Blank names fall through, so the card never names nobody.
         val app = item.appLabel?.takeIf { it.isNotBlank() } ?: item.packageName
@@ -246,13 +254,27 @@ class AgentLoop(
             action = Captions.forReply(sender, app),
             target = Captions.oneLine(sender, MAX_TARGET),
             app = Captions.oneLine(app, MAX_TARGET),
-            detail = tool.text.take(MAX_DETAIL),
+            detail = tool.text,
         )
         if (!confirmed(request)) return afterWaiting(run, toolError(call, "user declined"))
 
         ui.onCaption(Captions.forReply(sender, app))
-        val result = port.reply(item.key, tool.text)
+        val result = portCall { port.reply(item.key, tool.text) } ?: ActionResult.Failed("the app did not accept the reply")
         return afterAction(run, call, result)
+    }
+
+    /**
+     * A notification call that fails becomes a tool error, like a failed action, instead of ending the task.
+     * Cancellation and a lost device still propagate.
+     */
+    private inline fun <T : Any> portCall(block: () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: DeviceUnavailable) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 
     /**

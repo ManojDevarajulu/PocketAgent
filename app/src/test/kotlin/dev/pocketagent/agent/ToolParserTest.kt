@@ -239,7 +239,7 @@ class ToolParserTest {
     fun parsesReplyNotification() {
         assertEquals(ToolCall.ReplyNotification("n2", "on my way"), parse("reply_notification", """{"id":"n2","text":"on my way"}""").getOrThrow())
         assertEquals(ToolCall.ReplyNotification("n123", "x"), parse("reply_notification", """{"id":"n123","text":"x"}""").getOrThrow())
-        val longest = "a".repeat(1000)
+        val longest = "a".repeat(200)
         assertEquals(longest, (parse("reply_notification", """{"id":"n1","text":"$longest"}""").getOrThrow() as ToolCall.ReplyNotification).text)
     }
 
@@ -258,10 +258,17 @@ class ToolParserTest {
     }
 
     @Test
+    fun replyToolDescriptionStatesTheLimit() {
+        val reply = Tools.definitions.single { it.name == "reply_notification" }
+        assertTrue(reply.description.contains("200 characters"), reply.description)
+    }
+
+    @Test
     fun rejectsBadReplyText() {
-        assertRejected(parse("reply_notification", """{"id":"n1","text":""}"""), "text must be 1 to 1000 characters")
-        val tooLong = "a".repeat(1001)
-        assertRejected(parse("reply_notification", """{"id":"n1","text":"$tooLong"}"""), "text must be 1 to 1000 characters")
+        assertRejected(parse("reply_notification", """{"id":"n1","text":""}"""), "text must be 1 to 200 characters")
+        // The card shows at most 200 characters, so a reply may not be longer than what the user sees.
+        val tooLong = "a".repeat(201)
+        assertRejected(parse("reply_notification", """{"id":"n1","text":"$tooLong"}"""), "text must be 1 to 200 characters")
         assertRejected(parse("reply_notification", """{"id":"n1","text":5}"""), "text must be a string")
     }
 

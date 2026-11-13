@@ -157,10 +157,11 @@ object Tools {
         Spec(
             "reply_notification",
             "Reply to a message notification by its id from the latest read_notifications. " +
-                "Only for messages the user asked you to answer. The user approves every reply.",
+                "Only for messages the user asked you to answer. The user approves every reply. " +
+                "Keep the text under 200 characters, on one line.",
             listOf(
                 Field("id", Kind.STRING, "The notification id, like n1.", min = 2, max = 4),
-                Field("text", Kind.STRING, "The reply text.", min = 1, max = 1000),
+                Field("text", Kind.STRING, "The reply text, at most 200 characters.", min = 1, max = 200),
             ),
         ) { a -> ToolCall.ReplyNotification(notificationId(a["id"] as String), a["text"] as String) },
         Spec("screenshot", "Get a screenshot of the current screen. Use it only when the screen data lacks what you need.", emptyList()) { ToolCall.Screenshot },

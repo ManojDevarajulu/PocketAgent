@@ -81,10 +81,12 @@ class AgentLoopTest {
         nowMs: () -> Long = { 0L },
         notifications: NotificationPort? = null,
         wallMs: () -> Long = { WALL },
+        gateBlocks: BlockedApps = BlockedApps(),
+        filterBlocks: BlockedApps = BlockedApps(),
     ) = AgentLoop(
-        llm, device, SafetyGate(BlockedApps(), own), playbooks, ScreenSerializer(own), ui, maxSteps, confirmTimeoutMs, nowMs,
+        llm, device, SafetyGate(gateBlocks, own), playbooks, ScreenSerializer(own), ui, maxSteps, confirmTimeoutMs, nowMs,
         notifications = notifications,
-        notificationFilter = notifications?.let { NotificationFilter(BlockedApps(), own) },
+        notificationFilter = notifications?.let { NotificationFilter(filterBlocks, own) },
         wallMs = wallMs,
     )
 
@@ -737,13 +739,94 @@ class AgentLoopTest {
         assertTrue('\n' !in request.target && '\n' !in request.action, request.toString())
     }
 
-    @Test fun replyDetailIsCappedAt200Characters() = runTest {
+    @Test fun aReplyLongerThanTheCardSendsNothingAndShowsNoCard() = runTest {
+        // The user may only approve text they can read in full, so a reply longer than the card shows is refused.
         val ui = FakeUi()
         val llm = FakeLlm(listOf(readNotifications(), reply("n1", "y".repeat(900)), done()))
         val port = FakeNotifications(items = listOf(rahul))
         loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
-        assertEquals("y".repeat(200), ui.confirmRequests.single().detail)
-        assertEquals(900, port.replies.single().second.length, "the full text is sent, only the card is shortened")
+        assertTrue(port.replies.isEmpty())
+        assertTrue(ui.confirmRequests.isEmpty())
+        val result = llm.turns[2].toolResult!!
+        assertTrue(result.isError)
+        assertTrue(result.text.contains("200"), result.text)
+    }
+
+    @Test fun aReplyOf200CharactersIsSentExactlyAsTheCardShowedIt() = runTest {
+        val ui = FakeUi()
+        val text = "y".repeat(199) + "z"
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", text), done()))
+        val port = FakeNotifications(items = listOf(rahul))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
+        assertEquals(listOf("key-0" to text), port.replies)
+        assertEquals(port.replies.single().second, ui.confirmRequests.single().detail)
+    }
+
+    @Test fun aReplyWithHiddenCharactersSendsNothingAndShowsNoCard() = runTest {
+        // A right-to-left override or a zero-width space makes the card read differently from what is sent.
+        for (hidden in listOf("pay me back \u202Esdrawkcab", "on my\u200Bway", "line one\nline two")) {
+            val ui = FakeUi()
+            val llm = FakeLlm(listOf(readNotifications(), reply("n1", hidden), done()))
+            val port = FakeNotifications(items = listOf(rahul))
+            loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
+            assertTrue(port.replies.isEmpty(), hidden)
+            assertTrue(ui.confirmRequests.isEmpty(), hidden)
+            assertEquals(ToolResultText("reply contains hidden characters", true), llm.turns[2].toolResult!!.let { ToolResultText(it.text, it.isError) })
+        }
+    }
+
+    private data class ToolResultText(val text: String, val isError: Boolean)
+
+    @Test fun aReplyToAnAppTheGateBlocksShowsNoCardAndSendsNothing() = runTest {
+        // Defence in depth: even if the filter let a blocked app's notification through, the gate refuses the reply.
+        val ui = FakeUi()
+        val port = FakeNotifications(items = listOf(rahul))
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        val gateBlocks = BlockedApps(packages = BlockedApps.DEFAULT_PACKAGES + "com.whatsapp")
+        val filterBlocks = BlockedApps(packages = emptySet(), patterns = emptyList(), names = emptySet())
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = port, gateBlocks = gateBlocks, filterBlocks = filterBlocks).run("t", start)
+        assertTrue(llm.turns[1].toolResult!!.text.contains("are you coming?"), "the filter must have let it through")
+        val result = llm.turns[2].toolResult!!
+        assertTrue(result.isError)
+        assertTrue(result.text.contains("block list"), result.text)
+        assertTrue(ui.confirmRequests.isEmpty())
+        assertTrue(port.replies.isEmpty())
+    }
+
+    @Test fun aReadThatThrowsBecomesAToolError() = runTest {
+        val throwing = object : NotificationPort by FakeNotifications() {
+            override suspend fun recent(): List<PhoneNotification> = throw IllegalStateException("listener disconnected")
+        }
+        val llm = FakeLlm(listOf(readNotifications(), done()))
+        val outcome = loop(llm, FakeDevice(listOf(start)), notifications = throwing).run("t", start)
+        assertEquals(EndReason.DONE, outcome.reason)
+        val result = llm.turns[1].toolResult!!
+        assertTrue(result.isError)
+        assertEquals("could not read notifications", result.text)
+        assertFalse(outcome.usedNotifications)
+    }
+
+    @Test fun aReplyThatThrowsBecomesAToolErrorAndReleasesTheWaitingState() = runTest {
+        val ui = FakeUi()
+        val inner = FakeNotifications(items = listOf(rahul))
+        val throwing = object : NotificationPort by inner {
+            override suspend fun reply(key: String, text: String): ActionResult = throw IllegalStateException("PendingIntent cancelled")
+        }
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        val outcome = loop(llm, FakeDevice(listOf(start)), ui, notifications = throwing).run("t", start)
+        assertEquals(EndReason.DONE, outcome.reason)
+        val result = llm.turns[2].toolResult!!
+        assertTrue(result.isError)
+        assertEquals("the app did not accept the reply", result.text)
+        assertEquals(listOf(true, false), ui.waiting)
+    }
+
+    @Test fun cancellationDuringAReplyIsNotSwallowed() = runTest {
+        val throwing = object : NotificationPort by FakeNotifications(items = listOf(rahul)) {
+            override suspend fun reply(key: String, text: String): ActionResult = throw CancellationException("cancelled")
+        }
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        assertFailsWith<CancellationException> { loop(llm, FakeDevice(listOf(start)), notifications = throwing).run("t", start) }
     }
 
     @Test fun approvedReplyIsSent() = runTest {
