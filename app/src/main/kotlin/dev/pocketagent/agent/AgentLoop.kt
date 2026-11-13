@@ -78,7 +78,8 @@ class AgentLoop(
     suspend fun run(task: String, initialScreen: Screen): TaskOutcome {
         (gate.checkApp(initialScreen) as? Verdict.Block)?.let { return end(EndReason.BLOCKED_APP, it.reason) }
 
-        val tools = Tools.definitions.filter { llm.supportsImages || it.name != "screenshot" }
+        // Task 7 offers the notification tools when notification access is on; until then they are never offered.
+        val tools = Tools.definitions.filter { (llm.supportsImages || it.name != "screenshot") && it.name !in Tools.NOTIFICATION_TOOLS }
         val run = Run(llm.newSession(SYSTEM_PROMPT, tools), initialScreen)
         val serialized = serializer.serialize(initialScreen)
         run.stuck.afterAction(forComparison(serialized))

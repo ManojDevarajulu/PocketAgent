@@ -251,6 +251,13 @@ class ToolParserTest {
     }
 
     @Test
+    fun notificationIdRegexSemantics() {
+        assertEquals(ToolCall.ReplyNotification("n01", "hi"), parse("reply_notification", """{"id":"n01","text":"hi"}""").getOrThrow())
+        assertRejected(parse("reply_notification", """{"id":"n1\n","text":"hi"}"""), "id must be")
+        assertRejected(parse("reply_notification", "{\"id\":\"n१\",\"text\":\"hi\"}"), "id must be")
+    }
+
+    @Test
     fun rejectsBadReplyText() {
         assertRejected(parse("reply_notification", """{"id":"n1","text":""}"""), "text must be 1 to 1000 characters")
         val tooLong = "a".repeat(1001)

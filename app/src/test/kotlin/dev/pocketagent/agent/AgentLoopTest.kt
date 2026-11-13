@@ -429,7 +429,16 @@ class AgentLoopTest {
         loop(vision, FakeDevice(listOf(start))).run("t", start)
         assertFalse(text.tools.any { it.name == "screenshot" })
         assertTrue(vision.tools.any { it.name == "screenshot" })
-        assertEquals(Tools.definitions.size - 1, text.tools.size)
+        assertEquals(Tools.definitions.size - 1 - Tools.NOTIFICATION_TOOLS.size, text.tools.size)
+    }
+
+    @Test fun notificationToolsAreNotOffered() = runTest {
+        val llm = FakeLlm(listOf(done()))
+        loop(llm, FakeDevice(listOf(start))).run("t", start)
+        val names = llm.tools.map { it.name }
+        assertFalse("read_notifications" in names, names.toString())
+        assertFalse("reply_notification" in names, names.toString())
+        assertTrue("tap" in names && "done" in names, names.toString())
     }
 
     @Test fun screenshotCallOnTextOnlyModelReturnsToolError() = runTest {
