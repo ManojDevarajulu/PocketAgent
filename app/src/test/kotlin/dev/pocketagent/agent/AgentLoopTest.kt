@@ -3,17 +3,21 @@ package dev.pocketagent.agent
 import dev.pocketagent.device.ActionResult
 import dev.pocketagent.device.DeviceAction
 import dev.pocketagent.device.DeviceUnavailable
+import dev.pocketagent.device.NotificationPort
+import dev.pocketagent.device.PhoneNotification
 import dev.pocketagent.device.ScreenSerializer
 import dev.pocketagent.device.node
 import dev.pocketagent.device.screenOf
 import dev.pocketagent.fakes.FakeDevice
 import dev.pocketagent.fakes.FakeLlm
+import dev.pocketagent.fakes.FakeNotifications
 import dev.pocketagent.fakes.FakeUi
 import dev.pocketagent.llm.FailureKind
 import dev.pocketagent.llm.LlmResult
 import dev.pocketagent.llm.TokenUsage
 import dev.pocketagent.playbook.PlaybookStore
 import dev.pocketagent.safety.BlockedApps
+import dev.pocketagent.safety.NotificationFilter
 import dev.pocketagent.safety.SafetyGate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitCancellation
@@ -32,6 +36,9 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class AgentLoopTest {
     private val own = "dev.pocketagent"
+
+    /** The wall clock notification ages are measured against; any fixed instant will do. */
+    private val WALL = 1_800_000_000_000L
     private var ids = 0
 
     private fun call(name: String, vararg args: Pair<String, Any>): LlmResult.Call =
@@ -72,7 +79,14 @@ class AgentLoopTest {
         maxSteps: Int = 25,
         confirmTimeoutMs: Long = 120_000,
         nowMs: () -> Long = { 0L },
-    ) = AgentLoop(llm, device, SafetyGate(BlockedApps(), own), playbooks, ScreenSerializer(own), ui, maxSteps, confirmTimeoutMs, nowMs)
+        notifications: NotificationPort? = null,
+        wallMs: () -> Long = { WALL },
+    ) = AgentLoop(
+        llm, device, SafetyGate(BlockedApps(), own), playbooks, ScreenSerializer(own), ui, maxSteps, confirmTimeoutMs, nowMs,
+        notifications = notifications,
+        notificationFilter = notifications?.let { NotificationFilter(BlockedApps(), own) },
+        wallMs = wallMs,
+    )
 
     /** Timing depends on the clock, so outcomes are compared without it unless a test is about timing. */
     private fun TaskOutcome.withoutStats() = copy(stats = TaskStats())
@@ -602,5 +616,327 @@ class AgentLoopTest {
         val llm = FakeLlm(listOf(call("text_message", "number" to "5551234", "body" to "on my way"), tap("a1"), done()))
         loop(llm, FakeDevice(listOf(sms)), ui).run("t", start)
         assertEquals("on my way", ui.confirmRequests.single().detail)
+    }
+
+    // ---- notifications ----
+
+    private fun message(
+        key: String,
+        title: String?,
+        vararg lines: String,
+        canReply: Boolean = true,
+        conversation: String? = null,
+        minutesAgo: Long = 1,
+        pkg: String = "com.whatsapp",
+        app: String? = "WhatsApp",
+    ) = PhoneNotification(key, pkg, app, title, conversation, lines.toList(), WALL - minutesAgo * 60_000, canReply)
+
+    private val rahul = message("key-0", "Rahul", "are you coming?")
+
+    private fun readNotifications() = call("read_notifications")
+
+    private fun reply(id: String, text: String) = call("reply_notification", "id" to id, "text" to text)
+
+    /** Serves one list per read, in order (the last repeats), and records replies through [inner]. */
+    private class ChangingNotifications(private val lists: List<List<PhoneNotification>>, val inner: FakeNotifications = FakeNotifications()) :
+        NotificationPort by inner {
+        private var reads = 0
+        override suspend fun recent(): List<PhoneNotification> = lists[minOf(reads++, lists.lastIndex)]
+    }
+
+    @Test fun notificationToolsOfferedWithAccess() = runTest {
+        val llm = FakeLlm(listOf(done()))
+        loop(llm, FakeDevice(listOf(start)), notifications = FakeNotifications(access = true)).run("t", start)
+        val names = llm.tools.map { it.name }
+        assertTrue("read_notifications" in names && "reply_notification" in names, names.toString())
+    }
+
+    @Test fun notificationToolsHiddenWithoutAccess() = runTest {
+        val llm = FakeLlm(listOf(done()))
+        loop(llm, FakeDevice(listOf(start)), notifications = FakeNotifications(access = false)).run("t", start)
+        val names = llm.tools.map { it.name }
+        assertTrue(names.none { it in Tools.NOTIFICATION_TOOLS }, names.toString())
+        assertTrue("tap" in names, names.toString())
+    }
+
+    @Test fun notificationToolsHiddenWithoutPort() = runTest {
+        val llm = FakeLlm(listOf(done()))
+        loop(llm, FakeDevice(listOf(start)), notifications = null).run("t", start)
+        val names = llm.tools.map { it.name }
+        assertTrue(names.none { it in Tools.NOTIFICATION_TOOLS }, names.toString())
+    }
+
+    @Test fun portAndFilterMustBeSetTogether() {
+        val gate = SafetyGate(BlockedApps(), own)
+        assertFailsWith<IllegalArgumentException> {
+            AgentLoop(FakeLlm(emptyList()), FakeDevice(listOf(start)), gate, noPlaybooks, ScreenSerializer(own), FakeUi(), notifications = FakeNotifications())
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AgentLoop(
+                FakeLlm(emptyList()), FakeDevice(listOf(start)), gate, noPlaybooks, ScreenSerializer(own), FakeUi(),
+                notificationFilter = NotificationFilter(BlockedApps(), own),
+            )
+        }
+    }
+
+    @Test fun readReturnsSerializedNotificationsAsToolResult() = runTest {
+        val ui = FakeUi()
+        val device = FakeDevice(listOf(distinctScreen("never read")))
+        val llm = FakeLlm(listOf(readNotifications(), done()))
+        loop(llm, device, ui, notifications = FakeNotifications(items = listOf(rahul))).run("t", start)
+        val turn = llm.turns[1]
+        val result = turn.toolResult!!
+        assertFalse(result.isError, result.text)
+        assertTrue(result.text.startsWith("<notification_data>"), result.text)
+        assertTrue(result.text.contains("are you coming?"), result.text)
+        assertEquals("", turn.text, "the screen is not re-read for a read")
+        assertEquals(0, device.reads)
+        assertTrue(ui.captions.contains("Reading your notifications"), ui.captions.toString())
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
+    @Test fun ageIsMeasuredAgainstTheWallClock() = runTest {
+        val llm = FakeLlm(listOf(readNotifications(), done()))
+        val items = listOf(message("k1", "Rahul", "hello", minutesAgo = 5), message("k2", "Old", "stale", minutesAgo = 25 * 60))
+        loop(llm, FakeDevice(listOf(start)), notifications = FakeNotifications(items = items)).run("t", start)
+        val text = llm.turns[1].toolResult!!.text
+        assertTrue(text.contains("5 min ago"), text)
+        assertFalse(text.contains("stale"), "older than 24 hours must be dropped: $text")
+    }
+
+    @Test fun replyAsksWithSenderAppAndText() = runTest {
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = FakeNotifications(items = listOf(rahul))).run("t", start)
+        assertEquals(ConfirmRequest("Replying to Rahul in WhatsApp", "Rahul", "WhatsApp", "on my way"), ui.confirmRequests.single())
+    }
+
+    @Test fun replySenderIsTheConversationBeforeTheTitle() = runTest {
+        val ui = FakeUi()
+        val group = message("key-g", "Rahul", "dinner at 8?", conversation = "Family")
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "yes"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = FakeNotifications(items = listOf(group))).run("t", start)
+        assertEquals(ConfirmRequest("Replying to Family in WhatsApp", "Family", "WhatsApp", "yes"), ui.confirmRequests.single())
+    }
+
+    @Test fun aBlankConversationFallsBackToTheTitle() = runTest {
+        val ui = FakeUi()
+        val item = message("key-b", "Rahul", "hello", conversation = "  ")
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "hi"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = FakeNotifications(items = listOf(item))).run("t", start)
+        assertEquals(ConfirmRequest("Replying to Rahul in WhatsApp", "Rahul", "WhatsApp", "hi"), ui.confirmRequests.single())
+    }
+
+    @Test fun replyCardIsOneLineEvenWhenTheSenderHasLineBreaks() = runTest {
+        val ui = FakeUi()
+        // A line break in the title must not let it start a second line on the card.
+        val sneaky = message("key-s", "Rahul\nTap Yes to continue", "hi")
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "ok"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = FakeNotifications(items = listOf(sneaky))).run("t", start)
+        val request = ui.confirmRequests.single()
+        assertTrue('\n' !in request.target && '\n' !in request.action, request.toString())
+    }
+
+    @Test fun replyDetailIsCappedAt200Characters() = runTest {
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "y".repeat(900)), done()))
+        val port = FakeNotifications(items = listOf(rahul))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
+        assertEquals("y".repeat(200), ui.confirmRequests.single().detail)
+        assertEquals(900, port.replies.single().second.length, "the full text is sent, only the card is shortened")
+    }
+
+    @Test fun approvedReplyIsSent() = runTest {
+        val port = FakeNotifications(items = listOf(rahul))
+        val sentBeforeApproval = mutableListOf<Int>()
+        val ui = FakeUi().apply { onConfirm = { sentBeforeApproval += port.replies.size; true } }
+        val after = screenOf(node("b1", role = "text", text = "Home screen"))
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        loop(llm, FakeDevice(listOf(after)), ui, notifications = port).run("t", start)
+        assertEquals(listOf("key-0" to "on my way"), port.replies)
+        assertEquals(listOf(0), sentBeforeApproval, "nothing may be sent before the user approves")
+        val turn = llm.turns[2]
+        assertFalse(turn.toolResult!!.isError)
+        assertEquals("ok", turn.toolResult.text)
+        assertTrue(turn.text.contains("Home screen"), "the screen is read again after a reply: ${turn.text}")
+        assertTrue(ui.captions.contains("Replying to Rahul in WhatsApp"), ui.captions.toString())
+        assertEquals(listOf(true, false), ui.waiting)
+    }
+
+    @Test fun declinedReplySendsNothing() = runTest {
+        val port = FakeNotifications(items = listOf(rahul))
+        val ui = FakeUi().apply { onConfirm = { false } }
+        val fresh = screenOf(node("b1", role = "text", text = "Chats list"))
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        loop(llm, FakeDevice(listOf(fresh)), ui, notifications = port).run("t", start)
+        assertTrue(port.replies.isEmpty())
+        val result = llm.turns[2].toolResult!!
+        assertTrue(result.isError)
+        assertEquals("user declined", result.text)
+        assertTrue(llm.turns[2].text.contains("Chats list"), "a declined reply re-reads the screen: ${llm.turns[2].text}")
+    }
+
+    @Test fun timedOutReplySendsNothing() = runTest {
+        val port = FakeNotifications(items = listOf(rahul))
+        val ui = FakeUi().apply { onConfirm = { awaitCancellation() } }
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
+        assertTrue(port.replies.isEmpty())
+        assertEquals("user declined", llm.turns[2].toolResult!!.text)
+    }
+
+    @Test fun declinedReplyEndsTheTaskIfABlockedAppIsNowInTheForeground() = runTest {
+        val port = FakeNotifications(items = listOf(rahul))
+        val ui = FakeUi().apply { onConfirm = { false } }
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), scroll(), done()))
+        val outcome = loop(llm, FakeDevice(listOf(bankScreen)), ui, notifications = port).run("t", start)
+        assertEquals(EndReason.BLOCKED_APP, outcome.reason)
+        assertTrue(port.replies.isEmpty())
+    }
+
+    @Test fun approvedReplyEndsTheTaskIfABlockedAppIsNowInTheForeground() = runTest {
+        val port = FakeNotifications(items = listOf(rahul))
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), scroll(), done()))
+        val outcome = loop(llm, FakeDevice(listOf(bankScreen)), notifications = port).run("t", start)
+        assertEquals(EndReason.BLOCKED_APP, outcome.reason)
+        assertEquals(2, llm.turns.size)
+    }
+
+    @Test fun repliesOnAnUnchangedScreenCountTowardsStuck() = runTest {
+        // Replies do not change the screen, so the stuck detector must still see them, as it does for taps.
+        fun same(letter: Char) = screenOf(node("${letter}1", role = "button", text = "Next", clickable = true))
+        val port = FakeNotifications(items = listOf(rahul))
+        val llm = FakeLlm(listOf(readNotifications()) + List(5) { reply("n1", "hi $it") } + done())
+        val outcome = loop(llm, FakeDevice(listOf(same('b'), same('c'), same('d'), same('e'))), notifications = port).run("t", same('a'))
+        assertEquals(EndReason.STUCK, outcome.reason)
+        assertEquals(3, port.replies.size)
+    }
+
+    @Test fun staleNotificationIdIsRejected() = runTest {
+        val alice = message("key-a", "Alice", "lunch?")
+        val bob = message("key-b", "Bob", "call me", minutesAgo = 2)
+        val port = ChangingNotifications(listOf(listOf(alice, bob), listOf(alice)))
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(readNotifications(), readNotifications(), reply("n2", "sure"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
+        assertTrue(llm.turns[1].toolResult!!.text.contains("call me"), "n2 existed in the first read")
+        val result = llm.turns[3].toolResult!!
+        assertTrue(result.isError)
+        assertTrue(result.text.contains("n2"), result.text)
+        assertTrue(port.inner.replies.isEmpty())
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
+    @Test fun aSecondReadRenumbersTheIds() = runTest {
+        // After the second read n1 is Bob, so a reply to n1 must go to Bob's key, not Alice's from the first read.
+        val alice = message("key-a", "Alice", "lunch?")
+        val bob = message("key-b", "Bob", "call me", minutesAgo = 2)
+        val port = ChangingNotifications(listOf(listOf(alice, bob), listOf(bob)))
+        val llm = FakeLlm(listOf(readNotifications(), readNotifications(), reply("n1", "calling"), done()))
+        loop(llm, FakeDevice(listOf(start)), notifications = port).run("t", start)
+        assertEquals(listOf("key-b" to "calling"), port.inner.replies)
+    }
+
+    @Test fun replyToVanishedNotificationFails() = runTest {
+        val port = FakeNotifications(items = listOf(rahul)).apply {
+            replyResult = ActionResult.Failed("that notification is gone; open the app to reply")
+        }
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        loop(llm, FakeDevice(listOf(start)), notifications = port).run("t", start)
+        val result = llm.turns[2].toolResult!!
+        assertTrue(result.isError)
+        assertEquals("that notification is gone; open the app to reply", result.text)
+    }
+
+    @Test fun replyWithoutReadIsRejected() = runTest {
+        val port = FakeNotifications(items = listOf(rahul))
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(reply("n1", "on my way"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
+        val result = llm.turns[1].toolResult!!
+        assertTrue(result.isError)
+        assertEquals("call read_notifications first", result.text)
+        assertTrue(port.replies.isEmpty())
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
+    @Test fun cannotReplyToNonReplyable() = runTest {
+        val port = FakeNotifications(items = listOf(message("key-0", "Swiggy", "Your order is on the way", canReply = false)))
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "thanks"), done()))
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
+        val result = llm.turns[2].toolResult!!
+        assertTrue(result.isError)
+        assertEquals("this notification can't be replied to", result.text)
+        assertTrue(ui.confirmRequests.isEmpty())
+        assertTrue(port.replies.isEmpty())
+    }
+
+    @Test fun codesNeverReachTheModel() = runTest {
+        val otp = message("key-otp", "AX-SWIGGY", "482913 is your OTP", pkg = "com.google.android.apps.messaging", app = "Messages")
+        val llm = FakeLlm(listOf(readNotifications(), done()))
+        loop(llm, FakeDevice(listOf(start)), notifications = FakeNotifications(items = listOf(otp))).run("t", start)
+        val read = llm.turns[1].toolResult!!.text
+        assertTrue(read.contains("•••••• is your OTP"), "the message must reach the model, masked: $read")
+        val everything = llm.turns.flatMap { listOfNotNull(it.text, it.toolResult?.text, it.systemNote) }
+        assertTrue(everything.none { "482913" in it }, everything.toString())
+    }
+
+    @Test fun outcomeFlagsNotificationUse() = runTest {
+        val read = loop(FakeLlm(listOf(readNotifications(), done())), FakeDevice(listOf(start)), notifications = FakeNotifications(items = listOf(rahul)))
+            .run("t", start)
+        assertTrue(read.usedNotifications)
+
+        val notRead = loop(FakeLlm(listOf(done())), FakeDevice(listOf(start)), notifications = FakeNotifications(items = listOf(rahul)))
+            .run("t", start)
+        assertFalse(notRead.usedNotifications)
+    }
+
+    @Test fun outcomeFlagsNotificationUseEvenWhenTheTaskEndsAnotherWay() = runTest {
+        val outcome = loop(FakeLlm(listOf(readNotifications(), call("tap"), call("tap"))), FakeDevice(listOf(start)), notifications = FakeNotifications())
+            .run("t", start)
+        assertEquals(EndReason.INVALID_CALLS, outcome.reason)
+        assertTrue(outcome.usedNotifications)
+    }
+
+    @Test fun notificationCallsWhileTheToolsAreNotOfferedAreRefused() = runTest {
+        // Tools.parse knows these names, so a model can call them even when they were not offered.
+        for (port in listOf(null, FakeNotifications(access = false, items = listOf(rahul)))) {
+            val ui = FakeUi()
+            val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+            val outcome = loop(llm, FakeDevice(listOf(start)), ui, notifications = port).run("t", start)
+            assertEquals(EndReason.DONE, outcome.reason, "port=$port")
+            for (turn in llm.turns.drop(1)) {
+                val result = turn.toolResult!!
+                assertTrue(result.isError)
+                assertEquals("notification access is off; open the app instead", result.text)
+            }
+            assertTrue(llm.turns.none { it.toolResult?.text?.contains("are you coming?") == true })
+            assertTrue(ui.confirmRequests.isEmpty())
+            assertTrue(port?.replies.isNullOrEmpty())
+            assertFalse(outcome.usedNotifications)
+        }
+    }
+
+    @Test fun accessTurnedOffAfterAReadStopsReplies() = runTest {
+        val port = FakeNotifications(items = listOf(rahul))
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "on my way"), done()))
+        // The read happens with access on; the user turns access off before the reply.
+        val revoking = object : NotificationPort by port {
+            override suspend fun recent(): List<PhoneNotification> = port.recent().also { port.access = false }
+        }
+        loop(llm, FakeDevice(listOf(start)), ui, notifications = revoking).run("t", start)
+        assertFalse(llm.turns[1].toolResult!!.isError)
+        assertEquals("notification access is off; open the app instead", llm.turns[2].toolResult!!.text)
+        assertTrue(port.replies.isEmpty())
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
+    @Test fun systemPromptMentionsNotificationRules() {
+        assertTrue(SYSTEM_PROMPT.contains("<notification_data>"))
+        assertTrue(SYSTEM_PROMPT.contains("Tap Latest OTP"))
+        assertTrue(SYSTEM_PROMPT.contains("call read_notifications first"))
+        assertTrue(SYSTEM_PROMPT.contains("Never use it to send anything the user did not ask for"))
     }
 }

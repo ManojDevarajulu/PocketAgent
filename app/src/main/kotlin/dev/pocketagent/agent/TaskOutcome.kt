@@ -10,6 +10,8 @@ data class TaskOutcome(
     val summary: String,
     val usage: TokenUsage = TokenUsage(),
     val stats: TaskStats = TaskStats(),
+    /** True once the task read the phone's notifications, so their content may be in [summary]. */
+    val usedNotifications: Boolean = false,
 )
 
 /**

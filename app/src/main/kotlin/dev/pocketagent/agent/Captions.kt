@@ -10,6 +10,11 @@ import dev.pocketagent.device.ScreenNode
 object Captions {
     private const val MAX_LABEL = 30
 
+    val readingNotifications: String = "Reading your notifications"
+
+    /** Sender and app come from a notification, which any app or stranger can write, so both are cut to one short line. */
+    fun forReply(sender: String, app: String): String = "Replying to ${oneLine(sender)} in ${oneLine(app)}"
+
     fun forAction(call: ToolCall, target: ScreenNode?): String = when (call) {
         is ToolCall.Tap -> "Tapping " + (labelOf(target) ?: "an item")
         is ToolCall.TypeText -> (if (call.submit) "Searching in " else "Typing into ") + (labelOf(target) ?: "a field")
@@ -21,7 +26,7 @@ object Captions {
         is ToolCall.Dial -> "Opening the phone app"
         is ToolCall.TextMessage -> "Writing a text message"
         is ToolCall.WebSearch -> "Searching the web"
-        ToolCall.ReadNotifications -> "Reading your notifications"
+        ToolCall.ReadNotifications -> readingNotifications
         is ToolCall.ReplyNotification -> "Replying to a message"
         ToolCall.Screenshot -> "Taking a screenshot"
         is ToolCall.Wait -> "Waiting"
