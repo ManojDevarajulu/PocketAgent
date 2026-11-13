@@ -64,6 +64,9 @@ Matching is by package, by app name, and by word-start patterns (`bank`, `pay`, 
 on the name and on each part of the package. The built-in list lives in
 `app/src/main/kotlin/dev/pocketagent/safety/BlockedApps.kt` and currently includes:
 
+- **Banks and cards:** any app whose name or package part starts with `bank`, plus YONO SBI, HDFC, Axis Mobile,
+  Kotak 811 and Kotak Mobile, ICICI iMobile and CRED by package, and the names YONO, SBI, HDFC, ICICI, iMobile,
+  Axis, Kotak and CRED as whole app names only
 - **Payments and wallets:** Google Pay, Paytm, PhonePe, BHIM/UPI apps, Google Wallet
 - **Passwords and authenticators:** Bitwarden, 1Password, LastPass, Google Authenticator
 - **System screens:** Settings, System UI, package installers, permission controller
@@ -71,19 +74,26 @@ on the name and on each part of the package. The built-in list lives in
 ## Notifications
 
 Optional. Off until the user turns on notification access in Android settings (setup has an "Open notification
-access" button). Without it the notification tools are not offered and the agent works the old way, through
-apps.
+access" button). Without it the notification tools are not offered, the system prompt does not mention them,
+and the agent works the old way, through apps. With access on, the notification rules are added to the prompt
+for that task.
 
 - **What is read.** The notifications currently in the shade, only when a task calls `read_notifications` or
   when the user taps the "Latest OTP" tile. The listener has no event handling and keeps nothing; each read goes
   to the live shade.
 - **What the model never sees.** `NotificationFilter` drops Pocket Agent's own notifications, ongoing ones,
-  group summaries, anything older than 24 hours, apps on the block list (by package and label), and bank or
-  payment messages (`MoneyMessages`: bank-style sender headers and transaction words, English and Hindi).
-  What is left is the newest 15, the last 5 lines each, 300 characters per line.
-- **Codes.** Verification codes are masked as "••••••" in titles and lines before the model sees them.
+  group summaries, anything older than 24 hours, apps on the block list (by package and label), apps whose
+  label itself looks like money, and bank or payment messages (`MoneyMessages`: bank-style sender headers, bare
+  bank short names such as "HDFCBK", transaction words, and a rupee sign "₹" or "रु" before an amount, English
+  and Hindi). What is left is the newest 15, the last 5 lines each, 300 characters per line. In a chat
+  notification the phone owner's own messages are marked "Me: ", so the model can tell them from the other person's.
+- **Codes.** Verification codes (4 to 8 digits, including "123-456" and "123 456") are masked as "••••••" before
+  the model sees them. A trigger word in any part of a notification (title, chat name or any line) masks codes in
+  every part of it, so a title "Login OTP" hides the code in "Use 4829 within 5 min". Spaced phone numbers such
+  as "98765 43210", amounts and dates are not treated as codes.
   "Latest OTP" is the only place a code is shown. It runs on the phone with no AI call, looks at notifications
-  from the last 10 minutes (including bank and blocked-app ones, since nothing leaves the phone), writes nothing
+  from the last 10 minutes (including bank and blocked-app ones, since nothing leaves the phone) with the same
+  whole-notification trigger rule, writes nothing
   to history, and copies with the clipboard's "sensitive" flag on Android 13 and newer.
 - **Nothing stored.** A task that read notifications is saved to history with "Summary hidden (it used your
   notifications)". Notification text is not logged or written anywhere.
@@ -138,9 +148,8 @@ it can be turned off there at any time.
   with a zero-width joiner (family, rainbow flag, a person at a laptop) and Persian or Urdu text with
   zero-width non-joiners are therefore refused, and the agent shortens the text or tells the user.
 - Bank and payment detection is word-list based and can miss unusual wording. Verification-code masking needs a
-  trigger word (OTP, code, PIN and similar) near the code.
+  trigger word (OTP, code, PIN and similar) somewhere in the same notification.
 - Codes visible on the screen (not in a notification) are still visible to the AI, as before.
-- The phone owner's own messages inside a chat notification are not marked as "me", so a draft may sometimes
-  reply to the user's own last line. This is a known limitation; the confirmation card shows the text before
-  anything is sent.
+- On Android 15 and newer the system may hide sensitive notification content, such as one-time codes, from
+  notification listeners. "Latest OTP" may then find nothing for those notifications. Not yet checked on a device.
 - The screen text goes to whichever provider the user configures, including a custom server they type in.

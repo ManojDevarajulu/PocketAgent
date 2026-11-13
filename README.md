@@ -33,12 +33,12 @@ Turn on notification access and the agent can catch you up on messages and reply
 
 * **What it reads:** the notifications currently in your shade, only while a task runs or when you tap **Latest OTP**. It has no background handler and keeps nothing.
 * **What it skips:** banking and payment apps, bank and payment messages, its own and ongoing notifications, and anything older than 24 hours.
-* **Codes stay on the phone:** verification codes are masked before the AI sees anything. **Latest OTP** shows the newest code from the last 10 minutes with no AI call.
+* **Codes stay on the phone:** verification codes (including "123 456" style) are masked before the AI sees anything, in every part of a notification that mentions an OTP or code anywhere. **Latest OTP** shows the newest code from the last 10 minutes with no AI call.
 * **Nothing is stored:** history shows "Summary hidden (it used your notifications)" for these tasks.
 * **Replies are always confirmed:** you see the exact text first, and only a notification's reply action is ever used. Replies are limited to 200 characters on one line.
 * **Turn it off:** Settings > Notification access.
 
-Limits: bank detection is word-list based and can miss unusual wording; code masking needs a word like OTP or code nearby; codes visible on screen still go to the AI; emoji joined with zero-width joiners and Persian or Urdu text with zero-width non-joiners are refused in replies; and a draft may reply to your own last line in a chat. See the [Security Model](docs/SECURITY_MODEL.md).
+Limits: bank detection is word-list based and can miss unusual wording; code masking needs a word like OTP or code somewhere in the same notification; codes visible on screen still go to the AI; and emoji joined with zero-width joiners and Persian or Urdu text with zero-width non-joiners are refused in replies. See the [Security Model](docs/SECURITY_MODEL.md).
 
 ---
 

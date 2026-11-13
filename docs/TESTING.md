@@ -172,6 +172,17 @@ The provider and key are entered in the app's setup screen. There is no build-ti
 - [ ] **Card matches send.** Approve a reply. Expected: the text on the card is exactly the text that arrives.
 - [ ] **Name matching.** Get notifications from a contact named "Bankey" and from "HDFC Bank". Expected:
   "Catch me up" includes Bankey and drops HDFC Bank.
+- [ ] **Latest OTP on Android 15+.** On Android 15 or newer, get an SMS OTP and tap "Latest OTP". Expected: the
+  code shows. The platform may hide sensitive notification content from third-party listeners; if it does, note
+  the phone model and Android version in the report.
+- [ ] **Listener binds while not exported.** Open Settings > Notification access. Expected: Pocket Agent is
+  listed, and after switching it on "Catch me up" reads notifications (the listener is `exported="false"`).
+- [ ] **Three replies in one task.** Get messages from three different people and ask the agent to reply to
+  all three. Expected: three confirmation cards, three replies sent, and the task does not end as stuck.
+- [ ] **Own messages.** In a chat where your own message is the last line, run "Catch me up". Expected: the
+  summary does not treat your own line as a new message to you.
+- [ ] **Catch me up without access.** With access off, run "Catch me up". Expected: the agent opens your
+  messaging apps instead of reporting a notification access error.
 
 When you report a failure, include the phone model, Android version, app version and provider. Never paste an
 API key.
