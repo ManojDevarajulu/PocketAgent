@@ -2,6 +2,7 @@ package dev.pocketagent.android
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.app.Person
 import android.app.RemoteInput
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,6 +11,7 @@ import android.service.notification.StatusBarNotification
 import dev.pocketagent.device.ActionResult
 import dev.pocketagent.device.NotificationPort
 import dev.pocketagent.device.PhoneNotification
+import dev.pocketagent.device.messageLine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -88,20 +90,35 @@ object AndroidNotifications : NotificationPort {
         )
     }
 
-    /** MessagingStyle messages as "sender: text" (a message from the phone's owner has no sender), else the text. */
+    /**
+     * MessagingStyle messages as "sender: text", else the text. The platform gives the phone owner's own messages no
+     * sender, and some apps give them the owner's Person from EXTRA_MESSAGING_PERSON; both become "Me: text".
+     */
     private fun lines(extras: Bundle): List<String> {
         @Suppress("DEPRECATION") // the typed overload needs API 33; minSdk is 30
         val bundles = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+        @Suppress("DEPRECATION") // the typed overload needs API 33; minSdk is 30
+        val me = extras.getParcelable<Person>(Notification.EXTRA_MESSAGING_PERSON)
         val messages = Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles)
             .mapNotNull { m ->
                 val text = m.text?.toString() ?: return@mapNotNull null
-                val sender = m.senderPerson?.name?.toString()
-                if (sender.isNullOrBlank()) text else "$sender: $text"
+                val person = m.senderPerson
+                messageLine(person?.name?.toString(), fromOwner = person == null || isSamePerson(person, me), text = text)
             }
         if (messages.isNotEmpty()) return messages
         val body = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()
         val inbox = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES).orEmpty().mapNotNull { it?.toString() }
         return (listOfNotNull(body) + inbox).filter { it.isNotBlank() }
+    }
+
+    /** Same key when both have one, else the same name when neither has a key. */
+    private fun isSamePerson(a: Person, me: Person?): Boolean {
+        if (me == null) return false
+        val (ka, km) = a.key to me.key
+        if (ka != null && km != null) return ka == km
+        if (ka != null || km != null) return false
+        val name = me.name?.toString()
+        return !name.isNullOrBlank() && name == a.name?.toString()
     }
 
     private fun appLabel(pm: PackageManager, packageName: String): String? =
