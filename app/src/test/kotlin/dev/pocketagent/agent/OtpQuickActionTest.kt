@@ -141,4 +141,9 @@ class OtpQuickActionTest {
     @Test fun digitsWithNoTriggerAnywhereAreNotACode() {
         assertEquals(OtpResult.NoneRecent, run(Port(items = listOf(n(null, minute, title = "Rahul", lines = listOf("Room 4821 at 5pm"))))))
     }
+
+    @Test fun aNumericShortCodeTitleDoesNotHideTheRealCode() {
+        val port = Port(items = listOf(n(null, minute, title = "22000", lines = listOf("G-482913 is your Google verification code"))))
+        assertEquals(OtpResult.Found("482913", "22000", 1), run(port))
+    }
 }

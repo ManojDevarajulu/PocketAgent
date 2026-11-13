@@ -32,11 +32,15 @@ object CodeFinder {
 
     fun mask(text: String): String = maskAll(listOf(text)).single()
 
-    /** The first code in [fields], in order, when any field holds a trigger word. */
+    /**
+     * The first code in [fields] when any field holds a trigger word. Fields that hold a trigger themselves are
+     * searched first (so a numeric title such as "22000" does not beat "G-482913 is your Google code"), then the rest.
+     */
     fun findIn(fields: List<String>): String? {
         val forms = fields.map(::matchForm)
         if (forms.none { triggers.find(it) }) return null
-        for (form in forms) {
+        val (triggered, others) = forms.partition { triggers.find(it) }
+        for (form in triggered + others) {
             val r = codeRanges(form).firstOrNull() ?: continue
             return form.substring(r.first, r.last + 1).filter(Char::isDigit).map { Character.digit(it, 10) }.joinToString("")
         }

@@ -67,4 +67,23 @@ class CodeFinderTest {
         assertNull(CodeFinder.find("OTP 12-11-2026"))
     }
     @Test fun aShortNumberAfterTheCodeDoesNotHideIt() = assertEquals("4829", CodeFinder.find("OTP 4829 5 min left"))
+
+    // ---- findIn prefers fields that hold a trigger word ----
+
+    @Test fun findInPrefersTheTriggeredFieldOverANumericTitle() {
+        assertEquals("482913", CodeFinder.findIn(listOf("22000", "G-482913 is your Google verification code")))
+    }
+    @Test fun findInPrefersTheTriggeredFieldOverAGroupName() {
+        assertEquals("482913", CodeFinder.findIn(listOf("Flat 1204", "Your OTP is 482913")))
+    }
+    @Test fun findInFallsBackToOtherFieldsWhenTheTriggerFieldHasNoCode() {
+        assertEquals("4829", CodeFinder.findIn(listOf("Login OTP", "Use 4829 within 5 min")))
+    }
+    @Test fun findInWithNoTriggerAnywhereIsNull() {
+        assertNull(CodeFinder.findIn(listOf("22000", "Room 4821 at 5pm")))
+        assertNull(CodeFinder.findIn(listOf("Login OTP", "OTP for Rs 5000")))
+    }
+    @Test fun findInTakesTheFirstTriggeredFieldWhenTwoHaveCodes() {
+        assertEquals("111111", CodeFinder.findIn(listOf("Your OTP is 111111", "Your OTP is 222222")))
+    }
 }
