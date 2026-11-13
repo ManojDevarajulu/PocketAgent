@@ -182,6 +182,18 @@ class ArchitectureTest {
     }
 
     @Test
+    fun notificationListenerIsPinned() {
+        val service = component(".android.PocketNotificationListener")
+        assertEquals("service", service.tagName)
+        assertEquals("false", service.getAttribute("android:exported"))
+        assertEquals("android.permission.BIND_NOTIFICATION_LISTENER_SERVICE", service.getAttribute("android:permission"))
+        assertEquals(
+            listOf("android.service.notification.NotificationListenerService"),
+            service.children("action").map { it.getAttribute("android:name") },
+        )
+    }
+
+    @Test
     fun serviceConfigRequestsNoEventsAndTheMinimumFlags() {
         val config = parseXml("src/main/res/xml/accessibility_config.xml")
         assertEquals("accessibility-service", config.tagName)

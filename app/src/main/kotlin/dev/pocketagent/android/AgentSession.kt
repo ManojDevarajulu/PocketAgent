@@ -27,6 +27,7 @@ import dev.pocketagent.llm.OkHttpTransport
 import dev.pocketagent.llm.Providers
 import dev.pocketagent.playbook.PlaybookStore
 import dev.pocketagent.safety.BlockedApps
+import dev.pocketagent.safety.NotificationFilter
 import dev.pocketagent.safety.SafetyGate
 import dev.pocketagent.setup.ConfigRepository
 import dev.pocketagent.setup.HistoryStore
@@ -132,7 +133,13 @@ class AgentSession(
 
     private val runner = AgentRunner(
         scope,
-        { ui -> AgentLoop(checkNotNull(pendingClient), device, gate, playbooks, serializer, ui) },
+        { ui ->
+            AgentLoop(
+                checkNotNull(pendingClient), device, gate, playbooks, serializer, ui,
+                notifications = AndroidNotifications,
+                notificationFilter = NotificationFilter(blocked, ownPackage),
+            )
+        },
         guardedUi,
     )
 
