@@ -16,4 +16,14 @@ class CodeFinderTest {
     @Test fun ignoresDigitsWithoutTriggerWord() = assertNull(CodeFinder.find("Room 4821 at 5pm"))
     @Test fun maskKeepsTheRest() = assertEquals("•••••• is your OTP", CodeFinder.mask("482913 is your OTP"))
     @Test fun spacedDigitsAreMaskedWhenNextToTriggerWord() = assertEquals("OTP ••••••", CodeFinder.mask("OTP 4 8 2 9 1 3"))
+    @Test fun triggeredInputsStillRejectNonCodes() {
+        assertNull(CodeFinder.find("OTP for Rs 5000"))
+        assertNull(CodeFinder.find("code 9876543210"))
+        assertNull(CodeFinder.find("OTP 12-11-2026"))
+    }
+    @Test fun hindiDigitsAreFoundAndMasked() {
+        assertEquals("4829", CodeFinder.find("आपका ओटीपी ४८२९ है"))
+        assertEquals("आपका ओटीपी •••••• है", CodeFinder.mask("आपका ओटीपी ४८२९ है"))
+    }
+    @Test fun rsInsideAWordIsNotCurrency() = assertEquals("users •••••• OTP", CodeFinder.mask("users 482913 OTP"))
 }

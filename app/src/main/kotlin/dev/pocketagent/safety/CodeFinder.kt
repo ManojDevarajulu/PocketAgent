@@ -19,14 +19,14 @@ object CodeFinder {
     )
 
     private val shape: Pattern = Pattern.compile(
-        """(?<!\p{N})(?:\d(?: \d){3,7}|\d{2,4}-\d{2,4}|\d{4,8})(?!\p{N})""",
+        """(?<!\p{N})(?:\p{Nd}(?: \p{Nd}){3,7}|\p{Nd}{2,4}-\p{Nd}{2,4}|\p{Nd}{4,8})(?!\p{N})""",
     )
-    private val currencyBefore: Pattern = Pattern.compile("""(?:rs\.?|inr|₹|\$)\s*$""", Pattern.CASE_INSENSITIVE)
+    private val currencyBefore: Pattern = Pattern.compile("""(?<![\p{L}\p{N}])(?:rs\.?|inr|₹|\$)\s*$""", Pattern.CASE_INSENSITIVE)
 
     fun find(text: String): String? {
         val form = matchForm(text)
         if (!triggers.find(form)) return null
-        return codeRanges(form).firstOrNull()?.let { form.substring(it.first, it.last + 1).filter(Char::isDigit) }
+        return codeRanges(form).firstOrNull()?.let { form.substring(it.first, it.last + 1).filter(Char::isDigit).map { Character.digit(it, 10) }.joinToString("") }
     }
 
     fun mask(text: String): String {
