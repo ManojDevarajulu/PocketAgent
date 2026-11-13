@@ -11,7 +11,8 @@ class SummaryTextTest {
         success: Boolean = true,
         summary: String = "ok",
         usage: TokenUsage = TokenUsage(10, 5),
-    ) = TaskOutcome(reason, success, summary, usage)
+        usedNotifications: Boolean = false,
+    ) = TaskOutcome(reason, success, summary, usage).copy(usedNotifications = usedNotifications)
 
     @Test
     fun everyEndReasonHasATitle() {
@@ -79,5 +80,31 @@ class SummaryTextTest {
     fun shortTimesKeepOneDecimal() {
         assertEquals("Time: 4.3 s, 1 step, 3.0 s of it waiting for the model", SummaryText.time(TaskStats(1, 2_960, 4_260)))
         assertEquals(null, SummaryText.time(TaskStats()))
+    }
+
+    @Test
+    fun historyHidesNotificationSummaries() =
+        assertEquals(SummaryText.HIDDEN_SUMMARY, SummaryText.forHistory(outcome(usedNotifications = true, summary = "Mom: dinner at 8")))
+
+    @Test
+    fun historyHidesFailedAndEmptyNotificationSummaries() {
+        assertEquals(SummaryText.HIDDEN_SUMMARY, SummaryText.forHistory(outcome(success = false, usedNotifications = true, summary = "Code 123456")))
+        assertEquals(SummaryText.HIDDEN_SUMMARY, SummaryText.forHistory(outcome(usedNotifications = true, summary = "")))
+    }
+
+    @Test
+    fun hiddenSummaryTextIsFixed() =
+        assertEquals("Summary hidden (it used your notifications)", SummaryText.HIDDEN_SUMMARY)
+
+    @Test
+    fun historyKeepsOtherSummaries() {
+        assertEquals("Opened Maps", SummaryText.forHistory(outcome(summary = "Opened Maps")))
+        assertEquals("Checked notifications settings", SummaryText.forHistory(outcome(summary = "Checked notifications settings")))
+        assertEquals("", SummaryText.forHistory(outcome(summary = "")))
+    }
+
+    @Test
+    fun bodyStillShowsFullSummaryWhenNotificationsWereUsed() {
+        assertEquals("Agent's summary: Mom: dinner at 8\nTokens: 10 in, 5 out", SummaryText.body(outcome(usedNotifications = true, summary = "Mom: dinner at 8")))
     }
 }

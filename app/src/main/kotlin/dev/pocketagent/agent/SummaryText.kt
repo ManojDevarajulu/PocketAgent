@@ -4,6 +4,13 @@ package dev.pocketagent.agent
 object SummaryText {
     private const val MAX_SUMMARY_CHARS = 300
 
+    /** Stored in task history instead of the summary when the task read notifications. */
+    const val HIDDEN_SUMMARY = "Summary hidden (it used your notifications)"
+
+    /** The summary to store on disk: a task that read notifications never keeps its summary. */
+    fun forHistory(outcome: TaskOutcome): String =
+        if (outcome.usedNotifications) HIDDEN_SUMMARY else outcome.summary
+
     fun title(state: AgentState.Finished): String {
         val outcome = state.outcome
         return when (outcome.reason) {

@@ -282,7 +282,7 @@ class AgentSession(
         when (state) {
             is AgentState.Finished -> {
                 if (setupTaskRunning && state.outcome.success) repository.testTaskDone = true
-                record(state.outcome.success, state.outcome.summary, state.outcome.usage.inputTokens + state.outcome.usage.outputTokens)
+                record(state.outcome.success, SummaryText.forHistory(state.outcome), state.outcome.usage.inputTokens + state.outcome.usage.outputTokens)
                 setupTaskRunning = false
                 endTask(SummaryText.title(state), SummaryText.body(state.outcome))
             }
