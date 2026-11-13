@@ -739,8 +739,8 @@ class AgentLoopTest {
         assertTrue('\n' !in request.target && '\n' !in request.action, request.toString())
     }
 
-    @Test fun aReplyLongerThanTheCardSendsNothingAndShowsNoCard() = runTest {
-        // The user may only approve text they can read in full, so a reply longer than the card shows is refused.
+    @Test fun aReplyLongerThanTheCardIsStoppedByTheParserFirst() = runTest {
+        // The parser is the first line of defence (max 200); replyProblem in the loop is the backstop, tested directly below.
         val ui = FakeUi()
         val llm = FakeLlm(listOf(readNotifications(), reply("n1", "y".repeat(900)), done()))
         val port = FakeNotifications(items = listOf(rahul))
@@ -764,7 +764,7 @@ class AgentLoopTest {
 
     @Test fun aReplyWithHiddenCharactersSendsNothingAndShowsNoCard() = runTest {
         // A right-to-left override or a zero-width space makes the card read differently from what is sent.
-        for (hidden in listOf("pay me back \u202Esdrawkcab", "on my\u200Bway", "line one\nline two")) {
+        for (hidden in listOf("pay me back \u202Esdrawkcab", "on my\u200Bway", "line one\nline two", "ok" + cp(0xE0041))) {
             val ui = FakeUi()
             val llm = FakeLlm(listOf(readNotifications(), reply("n1", hidden), done()))
             val port = FakeNotifications(items = listOf(rahul))
@@ -776,6 +776,45 @@ class AgentLoopTest {
     }
 
     private data class ToolResultText(val text: String, val isError: Boolean)
+
+    // ---- replyProblem: the loop's own check, reachable without the parser ----
+
+    private fun cp(codePoint: Int) = String(Character.toChars(codePoint))
+
+    @Test fun replyProblemRefusesTextLongerThanTheCard() {
+        assertEquals("reply is too long; keep it under 200 characters", replyProblem("a".repeat(201)))
+        assertNull(replyProblem("a".repeat(200)))
+    }
+
+    @Test fun replyProblemRefusesCharactersThatDisplayDifferently() {
+        val hidden = mapOf(
+            "tag A U+E0041" to "ok" + cp(0xE0041),
+            "line separator U+2028" to "ok\u2028yes",
+            "paragraph separator U+2029" to "ok\u2029yes",
+            "private use U+E000" to "ok\uE000",
+            "lone high surrogate" to "ok\uD83D",
+            "lone low surrogate" to "ok\uDC4D",
+            "right-to-left override U+202E" to "ok\u202Eyes",
+            "zero-width space U+200B" to "ok\u200Byes",
+            "newline" to "ok\nyes",
+            "unassigned U+0378" to "ok\u0378",
+        )
+        for ((name, text) in hidden) assertEquals("reply contains hidden characters", replyProblem(text), name)
+    }
+
+    @Test fun replyProblemAllowsEmojiAndIndicScripts() {
+        for (text in listOf("👍🏽", "❤️", "मैं 10 मिनट में आ रहा हूँ", "ok 👍", "on my way")) {
+            assertNull(replyProblem(text), text)
+        }
+    }
+
+    @Test fun aHindiReplyWithAnEmojiIsSent() = runTest {
+        val text = "मैं 10 मिनट में आ रहा हूँ 👍🏽"
+        val port = FakeNotifications(items = listOf(rahul))
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", text), done()))
+        loop(llm, FakeDevice(listOf(start)), notifications = port).run("t", start)
+        assertEquals(listOf("key-0" to text), port.replies)
+    }
 
     @Test fun aReplyToAnAppTheGateBlocksShowsNoCardAndSendsNothing() = runTest {
         // Defence in depth: even if the filter let a blocked app's notification through, the gate refuses the reply.
@@ -817,7 +856,7 @@ class AgentLoopTest {
         assertEquals(EndReason.DONE, outcome.reason)
         val result = llm.turns[2].toolResult!!
         assertTrue(result.isError)
-        assertEquals("the app did not accept the reply", result.text)
+        assertEquals("the app did not confirm the reply (it may or may not have been sent); tell the user instead of retrying", result.text)
         assertEquals(listOf(true, false), ui.waiting)
     }
 
