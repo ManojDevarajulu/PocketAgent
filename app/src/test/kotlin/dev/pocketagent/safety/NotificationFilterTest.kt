@@ -163,4 +163,20 @@ class NotificationFilterTest {
         assertEquals(listOf("Room 4821 at 5pm"), out.lines)
         assertEquals("Trip 2026", out.conversation)
     }
+
+    @Test fun bankAppWithoutBankInItsNameIsDropped() {
+        assertEquals(listOf("keep"), keys(
+            n("com.sbi.lotusintouch", "YONO SBI", "Your FD matures tomorrow", key = "yono"),
+            n("com.example.finance", "Reminder", "Your FD matures tomorrow", label = "CRED", key = "cred"),
+            n("com.example.chat", "Rahul", "Your FD matures tomorrow", label = "Chat", key = "keep"),
+        ))
+    }
+
+    @Test fun appLabelThatLooksLikeMoneyIsDropped() {
+        // "Instant Loan" is not on the block list, but the label is a money name, so its notifications stay away.
+        assertEquals(listOf("keep"), keys(
+            n("com.example.lender", "Reminder", "Your plan is ready", label = "Instant Loan", key = "loan"),
+            n("com.example.chat", "Reminder", "Your plan is ready", label = "Family Chat", key = "keep"),
+        ))
+    }
 }

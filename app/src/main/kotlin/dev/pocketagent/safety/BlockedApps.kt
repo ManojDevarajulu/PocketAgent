@@ -31,6 +31,9 @@ class BlockedApps(
             "com.lastpass.lpandroid", "com.google.android.apps.authenticator2",
             "com.android.settings", "com.android.systemui", "com.google.android.packageinstaller",
             "com.android.packageinstaller", "com.google.android.permissioncontroller", "com.android.permissioncontroller",
+            // Banking and card apps whose names and packages hold none of the patterns below.
+            "com.sbi.lotusintouch", "com.sbi.SBIFreedomPlus", "com.snapwork.hdfc", "com.axis.mobile", "com.msf.kbank.mobile",
+            "com.kotak811mobilebankingapp.instantsavingsbankaccount", "com.csam.icici.bank.imobile", "com.dreamplug.androidapp",
         )
         val DEFAULT_PATTERNS: List<String> = listOf("bank", "pay", "wallet", "upi", "password")
 
@@ -38,6 +41,9 @@ class BlockedApps(
         val DEFAULT_NAMES: Set<String> = setOf(
             "phonepe", "paytm", "google pay", "gpay", "bhim", "bitwarden", "1password", "lastpass", "authenticator",
             "google authenticator", "settings",
+            // Bank names as whole names only: a word pattern "sbi" or "axis" would also block unrelated apps.
+            "yono", "yono sbi", "yono lite sbi", "sbi", "hdfc", "icici", "imobile", "axis", "axis mobile", "kotak",
+            "kotak 811", "cred",
         )
     }
 }

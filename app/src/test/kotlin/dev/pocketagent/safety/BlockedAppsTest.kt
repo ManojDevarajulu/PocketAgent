@@ -52,4 +52,20 @@ class BlockedAppsTest {
         assertTrue(blocked.isBlocked("com.example.y", "Ｐａｙtm"))
         assertTrue(blocked.isBlocked("", "Phone­Pe"))
     }
+
+    @Test
+    fun blocksBankingAppsWhoseNamesLackBankOrPay() = listOf(
+        "com.sbi.lotusintouch", "com.sbi.SBIFreedomPlus", "com.snapwork.hdfc", "com.axis.mobile", "com.msf.kbank.mobile",
+        "com.kotak811mobilebankingapp.instantsavingsbankaccount", "com.csam.icici.bank.imobile", "com.dreamplug.androidapp",
+    ).forEach { assertTrue(blocked.isBlocked(it, null), it) }
+
+    @Test
+    fun blocksBankingAppsByNameWhenOnlyTheNameIsKnown() = listOf(
+        "YONO SBI", "YONO", "yono lite sbi", "Axis Mobile", "Kotak 811", "iMobile", "CRED", "Kotak", "HDFC", "ICICI", "SBI", "Axis",
+    ).forEach { assertTrue(blocked.isBlocked("", it), it) }
+
+    @Test
+    fun bankShortNamesBlockOnlyAsTheWholeName() = listOf(
+        "Credit Karma Notes", "Axis Notes", "Sbitube", "Credo", "Taxis Now", "Yonder",
+    ).forEach { assertFalse(blocked.isBlocked("com.example.app", it), it) }
 }

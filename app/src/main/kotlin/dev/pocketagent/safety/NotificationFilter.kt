@@ -4,16 +4,16 @@ import dev.pocketagent.device.PhoneNotification
 
 /**
  * Chooses which notifications the model may see: drops Pocket Agent's own, ongoing and group-summary ones, anything
- * older than 24 hours, blocked apps, and bank or payment messages from any app. What is left is newest first, at
- * most 15, with the last 5 lines each, codes masked in every field when any field has a trigger word, and every
- * line cut to 300 characters.
+ * older than 24 hours, blocked apps, apps whose name looks like money, and bank or payment messages from any app.
+ * What is left is newest first, at most 15, with the last 5 lines each, codes masked in every field when any field
+ * has a trigger word, and every line cut to 300 characters.
  */
 class NotificationFilter(private val blocked: BlockedApps, private val ownPackage: String) {
     fun forModel(all: List<PhoneNotification>, nowMs: Long): List<PhoneNotification> =
         all.asSequence()
             .filterNot { it.packageName == ownPackage || it.ongoing || it.groupSummary }
             .filter { nowMs - it.postedAtMs <= MAX_AGE_MS }
-            .filterNot { blocked.isBlocked(it.packageName, it.appLabel) }
+            .filterNot { blocked.isBlocked(it.packageName, it.appLabel) || MoneyMessages.isMoneyName(it.appLabel) }
             .filterNot { isMoney(it) }
             .sortedByDescending { it.postedAtMs }
             .take(MAX_COUNT)
