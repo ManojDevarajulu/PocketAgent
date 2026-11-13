@@ -6,7 +6,7 @@ import dev.pocketagent.llm.ProviderPresets
 import java.net.URI
 import java.net.URISyntaxException
 
-enum class SetupStep { NOTICE, PROVIDER, MODEL_CHECK, ACCESSIBILITY, MICROPHONE, BUBBLE, TEST_TASK }
+enum class SetupStep { NOTICE, PROVIDER, MODEL_CHECK, ACCESSIBILITY, MICROPHONE, NOTIFICATIONS, BUBBLE, TEST_TASK }
 
 enum class MicState { NOT_ASKED, GRANTED, DENIED }
 
@@ -22,6 +22,7 @@ data class SetupFacts(
     val microphone: MicState,
     val bubbleOn: Boolean,
     val testTaskDone: Boolean,
+    val notificationsOn: Boolean,
 )
 
 /** [needsFirst] is the step to finish before an undone step can be used, or null. */
@@ -34,19 +35,22 @@ data class SetupEvaluation(val steps: List<StepState>, val isReady: Boolean) {
 object SetupModel {
     private val presetHosts: Set<String> = ProviderPresets.all.map { hostOf(it.baseUrl) }.filter { it.isNotEmpty() }.toSet()
 
+    /** Steps that are never CURRENT and never block readiness. */
+    private val OPTIONAL = setOf(SetupStep.MICROPHONE, SetupStep.NOTIFICATIONS)
+
     fun evaluate(facts: SetupFacts): SetupEvaluation {
         val done = SetupStep.entries.associateWith { isDone(it, facts) }
         var currentTaken = false
         val steps = SetupStep.entries.map { step ->
             val status = when {
                 done.getValue(step) -> StepStatus.DONE
-                step == SetupStep.MICROPHONE -> StepStatus.TODO
+                step in OPTIONAL -> StepStatus.TODO
                 !currentTaken -> StepStatus.CURRENT.also { currentTaken = true }
                 else -> StepStatus.TODO
             }
             StepState(step, status, if (done.getValue(step)) null else needsFirst(step, done))
         }
-        val ready = SetupStep.entries.all { it == SetupStep.MICROPHONE || done.getValue(it) }
+        val ready = SetupStep.entries.all { it in OPTIONAL || done.getValue(it) }
         return SetupEvaluation(steps, ready)
     }
 
@@ -62,6 +66,7 @@ object SetupModel {
         SetupStep.MODEL_CHECK -> f.modelCheck == CheckResult.Works && f.config?.model?.isNotBlank() == true
         SetupStep.ACCESSIBILITY -> f.accessibilityOn
         SetupStep.MICROPHONE -> f.microphone == MicState.GRANTED
+        SetupStep.NOTIFICATIONS -> f.notificationsOn
         SetupStep.BUBBLE -> f.bubbleOn
         SetupStep.TEST_TASK -> f.testTaskDone
     }

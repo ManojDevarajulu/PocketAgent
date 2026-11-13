@@ -5,10 +5,16 @@ import android.animation.ArgbEvaluator
 import android.animation.LayoutTransition
 import android.animation.ValueAnimator
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -22,11 +28,20 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import dev.pocketagent.R
+import dev.pocketagent.agent.OnPhone
+import dev.pocketagent.agent.OtpQuickAction
+import dev.pocketagent.agent.OtpResult
 import dev.pocketagent.agent.QuickTasks
+import dev.pocketagent.android.AndroidNotifications
 import dev.pocketagent.ui.kit.Kit
 import dev.pocketagent.ui.kit.Kit.color
 import dev.pocketagent.ui.kit.Kit.dp
 import dev.pocketagent.ui.kit.Kit.dpf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /** What the task screen needs from the session. The session sets [current] while the service is on. */
 interface TaskScreenHost {
@@ -47,6 +62,10 @@ interface TaskScreenHost {
  * the sheet follows your finger when you drag it down. With [EXTRA_QUESTION] it answers a question from the agent.
  */
 class TaskInputActivity : ThemedActivity() {
+    // Plain Activity, so no lifecycleScope: the Latest OTP lookup runs here and is cancelled in onDestroy.
+    private val otpScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var otpLine: LinearLayout? = null
+
     private var question: String? = null
     private var handled = false
     private var closing = false
@@ -187,11 +206,19 @@ class TaskInputActivity : ThemedActivity() {
                 row.addView(Kit.icon(c, R.drawable.ic_chevron, 14, R.color.pa_muted).apply { alpha = .6f })
                 Kit.pressable(row, 1f) {
                     row.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                    input.setText(quick.task)
-                    input.setSelection(input.text.length)
+                    if (quick.onPhone == OnPhone.LATEST_OTP) {
+                        showLatestOtp()
+                    } else {
+                        input.setText(quick.task)
+                        input.setSelection(input.text.length)
+                    }
                 }
                 list.addView(row, Kit.lp())
             }
+            // The Latest OTP answer: one line under the tiles, hidden until the tile is tapped.
+            val line = Kit.hstack(c, 10).apply { visibility = View.GONE; setPadding(dp(c, 4), dp(c, 8), dp(c, 4), dp(c, 4)) }
+            otpLine = line
+            list.addView(line, Kit.lp())
             suggestions = list
             sheet.addView(list, Kit.lp())
             blocks.add(list)
@@ -290,6 +317,42 @@ class TaskInputActivity : ThemedActivity() {
         return blocks
     }
 
+    /** Reads the code on the phone with no AI, history or logging; the answer is only ever held in this view. */
+    private fun showLatestOtp() {
+        otpScope.launch {
+            val result = OtpQuickAction(AndroidNotifications, System::currentTimeMillis).run()
+            val line = otpLine ?: return@launch
+            val c = this@TaskInputActivity
+            line.removeAllViews()
+            when (result) {
+                is OtpResult.Found -> {
+                    line.addView(Kit.text(c, "OTP ${result.code}, from ${result.from}, ${result.minutesAgo} min ago", 15f, 500), Kit.weight())
+                    line.addView(Kit.text(c, "Copy", 16f, 600, R.color.pa_blue).apply {
+                        setPadding(dp(c, 10), dp(c, 8), dp(c, 4), dp(c, 8))
+                        Kit.pressable(this, 1f) { copySensitive(result.code) }
+                    })
+                }
+                OtpResult.NoneRecent ->
+                    line.addView(Kit.text(c, "No recent code in your notifications.", 15f, 400, R.color.pa_muted), Kit.weight())
+                OtpResult.NoAccess -> line.addView(
+                    Kit.text(c, "Turn on notification access in setup to use this.", 15f, 500, R.color.pa_blue).apply {
+                        Kit.pressable(this, 1f) { startActivity(Intent(c, SetupActivity::class.java)) }
+                    },
+                    Kit.weight(),
+                )
+            }
+            line.visibility = View.VISIBLE
+        }
+    }
+
+    private fun copySensitive(code: String) {
+        val clip = ClipData.newPlainText("OTP", code)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+        }
+        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
+    }
+
     /** Dragging the grabber or header pulls the sheet down with your finger; past a point it closes, otherwise it springs back. */
     private fun attachDragToDismiss(handle: View) {
         var startY = 0f
@@ -359,6 +422,9 @@ class TaskInputActivity : ThemedActivity() {
 
     override fun onDestroy() {
         voice?.destroy()
+        otpScope.cancel()
+        otpLine?.removeAllViews()
+        otpLine = null
         // An outside tap or a system close ends up here without going through a button.
         if (isFinishing) dismiss(animate = false, finishNow = false)
         if (answerInstance === this) answerInstance = null

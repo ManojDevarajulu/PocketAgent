@@ -3,6 +3,7 @@ package dev.pocketagent.ui
 import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -21,6 +22,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import dev.pocketagent.R
 import dev.pocketagent.android.PocketAccessibilityService
+import dev.pocketagent.android.PocketNotificationListener
 import dev.pocketagent.android.SetupStores
 import dev.pocketagent.llm.CheckResult
 import dev.pocketagent.llm.HttpCaller
@@ -40,6 +42,7 @@ import dev.pocketagent.setup.SetupFacts
 import dev.pocketagent.setup.SetupModel
 import dev.pocketagent.setup.SetupStep
 import dev.pocketagent.setup.StepStatus
+import dev.pocketagent.setup.isListenerEnabled
 import dev.pocketagent.ui.kit.Kit
 import dev.pocketagent.ui.kit.Kit.color
 import dev.pocketagent.ui.kit.Kit.dp
@@ -132,6 +135,11 @@ class SetupActivity : ThemedActivity() {
         PocketAccessibilityService::class.java.name,
     )
 
+    private fun notificationsOn(): Boolean = isListenerEnabled(
+        Settings.Secure.getString(contentResolver, "enabled_notification_listeners"),
+        ComponentName(this, PocketNotificationListener::class.java).flattenToString(),
+    )
+
     private fun micState(): MicState = when {
         checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> MicState.GRANTED
         settings.microphoneAsked -> MicState.DENIED
@@ -147,6 +155,7 @@ class SetupActivity : ThemedActivity() {
         microphone = micState(),
         bubbleOn = settings.bubbleOn,
         testTaskDone = repository.testTaskDone,
+        notificationsOn = notificationsOn(),
     )
 
     // --- Drawing ---
@@ -163,7 +172,7 @@ class SetupActivity : ThemedActivity() {
         back.addView(Kit.text(c, "Back", 17f, 400, R.color.pa_blue))
         Kit.pressable(back, 1f) { finish() }
         column.addView(back, Kit.lp(FrameLayout.LayoutParams.WRAP_CONTENT))
-        val required = eval.steps.filter { it.step != SetupStep.MICROPHONE }
+        val required = eval.steps.filter { it.step != SetupStep.MICROPHONE && it.step != SetupStep.NOTIFICATIONS }
         val done = required.count { it.status == StepStatus.DONE }
         val head = Kit.vstack(c).apply { setPadding(dp(c, 22), dp(c, 4), dp(c, 22), dp(c, 18)) }
         head.addView(Kit.largeTitle(c, if (eval.isReady) "You're all set" else "Set up"))
@@ -185,7 +194,10 @@ class SetupActivity : ThemedActivity() {
             val expanded = !eval.isReady && state.status == StepStatus.CURRENT ||
                 expandedOverride == state.step ||
                 (state.step == SetupStep.MICROPHONE && state.status != StepStatus.DONE && !settings.microphoneAsked &&
-                    eval.of(SetupStep.ACCESSIBILITY).status == StepStatus.DONE && !eval.isReady)
+                    eval.of(SetupStep.ACCESSIBILITY).status == StepStatus.DONE && !eval.isReady) ||
+                // optional and never CURRENT, so it opens on its own once accessibility is on, and stays open until it is on
+                (state.step == SetupStep.NOTIFICATIONS && state.status != StepStatus.DONE &&
+                    eval.of(SetupStep.ACCESSIBILITY).status == StepStatus.DONE)
             if (i > 0) list.addView(View(c).apply { setBackgroundColor(color(c, R.color.pa_line)) }, Kit.lp(h = 1).apply { marginStart = dp(c, 58) })
 
             val header = Kit.hstack(c, 14).apply { minimumHeight = dp(c, 64); setPadding(dp(c, 16), 0, dp(c, 16), 0) }
@@ -252,6 +264,7 @@ class SetupActivity : ThemedActivity() {
         SetupStep.MODEL_CHECK -> "Model"
         SetupStep.ACCESSIBILITY -> "Accessibility"
         SetupStep.MICROPHONE -> "Microphone (optional)"
+        SetupStep.NOTIFICATIONS -> "Notifications"
         SetupStep.BUBBLE -> "Bubble"
         SetupStep.TEST_TASK -> "First task"
     }
@@ -262,6 +275,7 @@ class SetupActivity : ThemedActivity() {
         SetupStep.MODEL_CHECK -> config?.let { "${it.model} works with tools" }
         SetupStep.ACCESSIBILITY -> "Pocket Agent is switched on"
         SetupStep.MICROPHONE -> "Microphone allowed"
+        SetupStep.NOTIFICATIONS -> "On"
         SetupStep.BUBBLE -> "The bubble is on"
         SetupStep.TEST_TASK -> "The first task finished"
     }
@@ -273,6 +287,7 @@ class SetupActivity : ThemedActivity() {
             SetupStep.MODEL_CHECK -> modelBody(body, config, needsFirst)
             SetupStep.ACCESSIBILITY -> accessibilityBody(body)
             SetupStep.MICROPHONE -> microphoneBody(body)
+            SetupStep.NOTIFICATIONS -> notificationsBody(body)
             SetupStep.BUBBLE -> bubbleBody(body)
             SetupStep.TEST_TASK -> testTaskBody(body, needsFirst)
         }
@@ -592,6 +607,23 @@ class SetupActivity : ThemedActivity() {
         } catch (e: IllegalArgumentException) {
             GuidanceStore.load(mapOf("generic.md" to "If the switch is greyed out, open the app info for Pocket Agent, open the three-dot menu and choose Allow restricted settings."))
         }
+    }
+
+    // --- Notifications ---
+
+    private fun notificationsBody(body: LinearLayout) {
+        para(
+            body,
+            "Let Pocket Agent read your notifications so it can catch you up on messages and reply without opening apps. " +
+                "It only reads them when you give it a task. It never keeps them. Banking and payment apps and bank messages " +
+                "are skipped, and verification codes are never sent to the AI.",
+        )
+        body.addView(
+            Kit.primary(this, "Open notification access") {
+                openSettings(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            },
+            fieldParams(14),
+        )
     }
 
     // --- Microphone ---

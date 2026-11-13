@@ -2,6 +2,7 @@ package dev.pocketagent.ui
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -12,6 +13,7 @@ import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.Toast
 import dev.pocketagent.android.PocketAccessibilityService
+import dev.pocketagent.android.PocketNotificationListener
 import dev.pocketagent.android.SetupStores
 import dev.pocketagent.llm.CheckResult
 import dev.pocketagent.setup.AccessibilityState
@@ -19,6 +21,7 @@ import dev.pocketagent.setup.MicState
 import dev.pocketagent.setup.SetupFacts
 import dev.pocketagent.setup.SetupModel
 import dev.pocketagent.setup.SetupStep
+import dev.pocketagent.setup.isListenerEnabled
 import dev.pocketagent.setup.StepStatus
 import dev.pocketagent.ui.kit.Attention
 import dev.pocketagent.ui.kit.DefaultShortcuts
@@ -126,6 +129,11 @@ class MainActivity : ThemedActivity() {
         PocketAccessibilityService::class.java.name,
     )
 
+    private fun notificationsOn(): Boolean = isListenerEnabled(
+        Settings.Secure.getString(contentResolver, "enabled_notification_listeners"),
+        ComponentName(this, PocketNotificationListener::class.java).flattenToString(),
+    )
+
     private fun micOn() = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun facts(): SetupFacts {
@@ -139,6 +147,7 @@ class MainActivity : ThemedActivity() {
             microphone = if (micOn()) MicState.GRANTED else if (settings.microphoneAsked) MicState.DENIED else MicState.NOT_ASKED,
             bubbleOn = settings.bubbleOn,
             testTaskDone = repository.testTaskDone,
+            notificationsOn = notificationsOn(),
         )
     }
 

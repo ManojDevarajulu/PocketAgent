@@ -16,7 +16,7 @@ class SetupModelTest {
 
     private fun fresh() = SetupFacts(
         noticeAccepted = false, acceptedCustomHost = null, config = null, modelCheck = null,
-        accessibilityOn = false, microphone = MicState.NOT_ASKED, bubbleOn = false, testTaskDone = false,
+        accessibilityOn = false, microphone = MicState.NOT_ASKED, bubbleOn = false, testTaskDone = false, notificationsOn = false,
     )
 
     private fun ready() = fresh().copy(
@@ -184,5 +184,30 @@ class SetupModelTest {
     fun anUnparseableUrlIsNeverAPresetHost() {
         assertFalse(SetupModel.isPresetHost(""))
         assertTrue(SetupModel.needsHostWarning(config("not a url")))
+    }
+
+    @Test
+    fun notificationsStepIsOptional() {
+        val e = SetupModel.evaluate(ready().copy(notificationsOn = false))
+        assertTrue(e.isReady)
+        assertEquals(StepStatus.TODO, e.of(SetupStep.NOTIFICATIONS).status)
+    }
+
+    @Test
+    fun notificationsStepDoneWhenOn() {
+        val e = SetupModel.evaluate(ready().copy(notificationsOn = true))
+        assertEquals(StepStatus.DONE, e.of(SetupStep.NOTIFICATIONS).status)
+        assertTrue(e.isReady)
+    }
+
+    @Test
+    fun notificationsStepNeverCurrent() {
+        // Not on and nothing else done: the notice is current, never notifications.
+        assertEquals(SetupStep.NOTICE, current(fresh()))
+        // Everything required done, notifications off: nothing is current.
+        assertNull(current(ready()))
+        assertEquals(SetupStep.entries.indexOf(SetupStep.MICROPHONE) + 1, SetupStep.entries.indexOf(SetupStep.NOTIFICATIONS))
+        // A later required step is skipped over rather than landing on notifications.
+        assertEquals(SetupStep.TEST_TASK, current(ready().copy(testTaskDone = false)))
     }
 }
