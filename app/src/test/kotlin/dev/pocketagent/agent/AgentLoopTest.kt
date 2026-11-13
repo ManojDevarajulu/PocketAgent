@@ -924,14 +924,37 @@ class AgentLoopTest {
         assertEquals(2, llm.turns.size)
     }
 
-    @Test fun repliesOnAnUnchangedScreenCountTowardsStuck() = runTest {
-        // Replies do not change the screen, so the stuck detector must still see them, as it does for taps.
+    @Test fun repeatedRepliesToTheSameNotificationCountTowardsStuck() = runTest {
+        // Replies do not change the screen. The first reply to a notification is not a screen action, but replying
+        // to the same one again is, so a model stuck re-sending to one person still ends as STUCK.
         fun same(letter: Char) = screenOf(node("${letter}1", role = "button", text = "Next", clickable = true))
         val port = FakeNotifications(items = listOf(rahul))
-        val llm = FakeLlm(listOf(readNotifications()) + List(5) { reply("n1", "hi $it") } + done())
+        val llm = FakeLlm(listOf(readNotifications()) + List(6) { reply("n1", "hi $it") } + done())
+        val outcome = loop(llm, FakeDevice(listOf(same('b'), same('c'), same('d'), same('e'), same('f'))), notifications = port).run("t", same('a'))
+        assertEquals(EndReason.STUCK, outcome.reason)
+        assertEquals(4, port.replies.size)
+    }
+
+    @Test fun repliesToThreeDifferentPeopleDoNotEndAsStuck() = runTest {
+        fun same(letter: Char) = screenOf(node("${letter}1", role = "button", text = "Next", clickable = true))
+        val alice = message("key-a", "Alice", "lunch?", minutesAgo = 2)
+        val bob = message("key-b", "Bob", "call me", minutesAgo = 3)
+        val port = FakeNotifications(items = listOf(rahul, alice, bob))
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "yes"), reply("n2", "sure"), reply("n3", "calling"), done()))
+        val outcome = loop(llm, FakeDevice(listOf(same('b'), same('c'), same('d'), same('e'))), notifications = port).run("t", same('a'))
+        assertEquals(EndReason.DONE, outcome.reason)
+        assertEquals(listOf("key-0" to "yes", "key-a" to "sure", "key-b" to "calling"), port.replies)
+    }
+
+    @Test fun aFailedReplyStillCountsTowardsStuck() = runTest {
+        // Only a reply that was sent is skipped; failures on an unchanged screen still count.
+        fun same(letter: Char) = screenOf(node("${letter}1", role = "button", text = "Next", clickable = true))
+        val alice = message("key-a", "Alice", "lunch?", minutesAgo = 2)
+        val bob = message("key-b", "Bob", "call me", minutesAgo = 3)
+        val port = FakeNotifications(items = listOf(rahul, alice, bob)).apply { replyResult = ActionResult.Failed("could not send the reply") }
+        val llm = FakeLlm(listOf(readNotifications(), reply("n1", "yes"), reply("n2", "sure"), reply("n3", "calling"), done()))
         val outcome = loop(llm, FakeDevice(listOf(same('b'), same('c'), same('d'), same('e'))), notifications = port).run("t", same('a'))
         assertEquals(EndReason.STUCK, outcome.reason)
-        assertEquals(3, port.replies.size)
     }
 
     @Test fun staleNotificationIdIsRejected() = runTest {
@@ -1055,10 +1078,28 @@ class AgentLoopTest {
         assertTrue(ui.confirmRequests.isEmpty())
     }
 
-    @Test fun systemPromptMentionsNotificationRules() {
-        assertTrue(SYSTEM_PROMPT.contains("<notification_data>"))
-        assertTrue(SYSTEM_PROMPT.contains("Tap Latest OTP"))
-        assertTrue(SYSTEM_PROMPT.contains("call read_notifications first"))
-        assertTrue(SYSTEM_PROMPT.contains("Never use it to send anything the user did not ask for"))
+    @Test fun notificationRulesHoldTheNotificationGuidance() {
+        assertTrue(NOTIFICATION_RULES.contains("<notification_data>"))
+        assertTrue(NOTIFICATION_RULES.contains("Tap Latest OTP"))
+        assertTrue(NOTIFICATION_RULES.contains("call read_notifications first"))
+        assertTrue(NOTIFICATION_RULES.contains("Never use it to send anything the user did not ask for"))
+    }
+
+    @Test fun basePromptDoesNotMentionTheNotificationTools() {
+        assertFalse(SYSTEM_PROMPT.contains("read_notifications"))
+        assertFalse(SYSTEM_PROMPT.contains("reply_notification"))
+        assertFalse(SYSTEM_PROMPT.contains("<notification_data>"))
+    }
+
+    @Test fun notificationRulesAreInThePromptOnlyWithAccess() = runTest {
+        val on = FakeLlm(listOf(done()))
+        loop(on, FakeDevice(listOf(start)), notifications = FakeNotifications(access = true)).run("t", start)
+        assertEquals(SYSTEM_PROMPT + NOTIFICATION_RULES, on.systemPrompt)
+
+        for (port in listOf(null, FakeNotifications(access = false))) {
+            val off = FakeLlm(listOf(done()))
+            loop(off, FakeDevice(listOf(start)), notifications = port).run("t", start)
+            assertEquals(SYSTEM_PROMPT, off.systemPrompt, "port=$port")
+        }
     }
 }

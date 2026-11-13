@@ -38,8 +38,6 @@ class SafetyGate(private val blocked: BlockedApps, private val ownPackage: Strin
         is DeviceAction.Scroll -> if (action.node?.packageName == ownPackage) OWN_WINDOW else Verdict.Allow
         is DeviceAction.OpenApp ->
             if (blocked.isBlocked("", action.name)) Verdict.Block("${action.name} is on the block list") else Verdict.Allow
-        // Nothing is sent, called or paid by the shortcut itself. The device refuses one that would land in a
-        // blocked app, and the loop's checkApp ends the task if a blocked app comes to the front anyway.
         // Sending a message is never undone, whatever the model says: always ask, unless the app is blocked.
         is DeviceAction.ReplyToNotification ->
             if (blocked.isBlocked(action.packageName, action.appLabel)) {
@@ -47,7 +45,10 @@ class SafetyGate(private val blocked: BlockedApps, private val ownPackage: Strin
             } else {
                 Verdict.Confirm("replying sends a message")
             }
-        is DeviceAction.OpenShortcut, DeviceAction.Back, DeviceAction.Home -> Verdict.Allow
+        // Nothing is sent, called or paid by the shortcut itself. The device refuses one that would land in a
+        // blocked app, and the loop's checkApp ends the task if a blocked app comes to the front anyway.
+        is DeviceAction.OpenShortcut -> Verdict.Allow
+        DeviceAction.Back, DeviceAction.Home -> Verdict.Allow
     }
 
     /**

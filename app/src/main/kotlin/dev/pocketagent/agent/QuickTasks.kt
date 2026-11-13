@@ -19,8 +19,8 @@ object QuickTasks {
         QuickTask(
             title = "Catch me up",
             subtitle = "New messages, in short",
-            task = "Call read_notifications and give me a short summary of my new messages, grouped by person or group. " +
-                "Do not open any app unless there are no message notifications. Do not reply to anything.",
+            task = "Summarise my new messages: if you have a read_notifications tool, call it first; otherwise open my " +
+                "messaging apps and read the newest unread messages. Do not open any app unless needed. Do not reply to anything.",
         ),
         QuickTask(
             title = "Reply to this",

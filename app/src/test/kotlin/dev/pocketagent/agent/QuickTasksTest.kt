@@ -69,6 +69,9 @@ class QuickTasksTest {
         val t = QuickTasks.all.first { it.title == "Catch me up" }
         assertTrue("read_notifications" in t.task)
         assertTrue("Do not reply" in t.task)
+        // Without notification access the tool is not offered, so the task must not depend on it.
+        assertTrue("if you have a read_notifications tool" in t.task, t.task)
+        assertTrue("otherwise open my messaging apps" in t.task, t.task)
         assertEquals("New messages, in short", t.subtitle)
     }
 
