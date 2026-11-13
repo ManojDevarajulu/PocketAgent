@@ -12,8 +12,8 @@ class ScreenSerializer(private val ownPackage: String, private val maxChars: Int
         collect(screen.root, depth = 0, ancestorLabel = null, out = lines)
 
         val out = StringBuilder()
-        out.append("<screen_data app=\"").append(clean(screen.packageName, MAX_LABEL))
-            .append("\" label=\"").append(clean(screen.appLabel.orEmpty(), MAX_LABEL)).append("\">\n")
+        out.append("<screen_data app=\"").append(cleanUntrusted(screen.packageName, MAX_LABEL))
+            .append("\" label=\"").append(cleanUntrusted(screen.appLabel.orEmpty(), MAX_LABEL)).append("\">\n")
         for ((i, line) in lines.withIndex()) {
             if (out.length + line.length + 1 > maxChars) {
                 out.append("[truncated: ").append(lines.size - i).append(" more nodes]\n")
@@ -43,32 +43,11 @@ class ScreenSerializer(private val ownPackage: String, private val maxChars: Int
     private fun line(node: ScreenNode, label: String?, flags: List<String>, borrowed: String?, depth: Int): String =
         buildString {
             repeat(depth) { append("  ") }
-            append('[').append(node.id).append("] ").append(clean(node.role, MAX_ROLE))
-            if (label != null) append(" \"").append(clean(label, MAX_LABEL)).append('"')
+            append('[').append(node.id).append("] ").append(cleanUntrusted(node.role, MAX_ROLE))
+            if (label != null) append(" \"").append(cleanUntrusted(label, MAX_LABEL)).append('"')
             flags.forEach { append(' ').append(it) }
-            if (borrowed != null) append(" in \"").append(clean(borrowed, MAX_BORROWED)).append('"')
+            if (borrowed != null) append(" in \"").append(cleanUntrusted(borrowed, MAX_BORROWED)).append('"')
         }
-
-    /** One safe line: no wrapper tags, no quotes, no line breaks, at most [max] characters. */
-    private fun clean(raw: String, max: Int): String {
-        val sb = StringBuilder(raw.length)
-        for (c in raw) {
-            sb.append(
-                when {
-                    c == '<' -> '‹'
-                    c == '>' -> '›'
-                    c == '"' -> '\''
-                    c.isISOControl() || c == ' ' || c == ' ' -> ' '
-                    else -> c
-                },
-            )
-        }
-        val text = sb.toString().trim()
-        if (text.length <= max) return text
-        var cut = max - 1
-        if (Character.isHighSurrogate(text[cut - 1])) cut--
-        return text.substring(0, cut) + "…"
-    }
 
     private companion object {
         const val MAX_LABEL = 120
