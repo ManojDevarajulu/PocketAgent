@@ -43,4 +43,18 @@ class MoneyMessagesTest {
         assertFalse(MoneyMessages.isMoney("Emily", "Emily says hi"))
         assertFalse(MoneyMessages.isMoney("Upinder", "Upinder: lunch?"))
     }
+    @Test fun ordinaryChatIsKept() {
+        for (t in listOf(
+            "I spent the whole weekend at Mom's", "उसके खातिर कुछ करो", "Emily says hi", "Upinder: lunch?",
+            "I'll pay you back tomorrow", "Dinner at 8?",
+        )) assertFalse(MoneyMessages.isMoney("Friend", t), t)
+    }
+    @Test fun rsNeedsAnAmount() {
+        assertTrue(MoneyMessages.isMoney(null, "Rs 450 at the cafe"))
+        assertFalse(MoneyMessages.isMoney(null, "Rs. is short for rupees"))
+    }
+    @Test fun hindiAccountForms() {
+        assertTrue(MoneyMessages.isMoney(null, "खाताधारक सूचना"))
+        assertTrue(MoneyMessages.isMoney(null, "सभी खातों की जानकारी"))
+    }
 }
