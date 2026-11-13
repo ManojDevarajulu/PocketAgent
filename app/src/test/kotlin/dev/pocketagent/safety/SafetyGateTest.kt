@@ -348,4 +348,51 @@ class SafetyGateTest {
         val screen = screenOf(node("a1", role = "button", text = "Call", clickable = true))
         assertIs<Verdict.Confirm>(tap(screen, "a1"))
     }
+
+    // ---- notification replies ----
+
+    private fun reply(pkg: String, label: String?, text: String = "ok see you at 5") =
+        DeviceAction.ReplyToNotification("key1", pkg, label, "Asha", text)
+
+    @Test
+    fun replyAlwaysNeedsConfirmationEvenWhenNotMarkedIrreversible() {
+        val verdict = gate.check(reply("com.whatsapp", "WhatsApp"), safeScreen(), irreversible = false)
+        assertEquals(Verdict.Confirm("replying sends a message"), verdict)
+    }
+
+    @Test
+    fun replyStaysConfirmWhenMarkedIrreversible() {
+        assertIs<Verdict.Confirm>(gate.check(reply("com.whatsapp", "WhatsApp"), safeScreen(), irreversible = true))
+    }
+
+    @Test
+    fun replyTextMentioningSendOrPayIsStillJustConfirm() {
+        assertIs<Verdict.Confirm>(gate.check(reply("com.whatsapp", "WhatsApp", "Send me the details, I will Pay later"), safeScreen(), false))
+    }
+
+    @Test
+    fun replyToBlockedPackageIsBlocked() {
+        assertEquals(Verdict.Block("PhonePe is on the block list"), gate.check(reply("com.phonepe.app", "PhonePe"), safeScreen(), false))
+    }
+
+    @Test
+    fun replyToBlockedPackageWithNoLabelNamesThePackage() {
+        assertEquals(Verdict.Block("com.phonepe.app is on the block list"), gate.check(reply("com.phonepe.app", null), safeScreen(), false))
+    }
+
+    @Test
+    fun replyToBlockedLabelAloneIsBlocked() {
+        assertIs<Verdict.Block>(gate.check(reply("com.unknown.app", "PhonePe"), safeScreen(), false))
+    }
+
+    @Test
+    fun replyToOrdinaryAppIsConfirmNotBlock() {
+        assertIs<Verdict.Confirm>(gate.check(reply("com.example.chat", "Chat"), safeScreen(), false))
+    }
+
+    @Test
+    fun ordinaryActionsAreUnchangedByTheReplyRule() {
+        assertEquals(Verdict.Allow, gate.check(DeviceAction.Home, safeScreen(), false))
+        assertEquals(Verdict.Allow, tap(safeScreen(), "a1"))
+    }
 }

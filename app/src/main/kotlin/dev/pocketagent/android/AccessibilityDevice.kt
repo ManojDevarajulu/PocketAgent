@@ -108,6 +108,8 @@ class AccessibilityDevice(
                 DeviceAction.Home -> global(AccessibilityService.GLOBAL_ACTION_HOME, "could not go home")
                 is DeviceAction.OpenApp -> openApp(action.name)
                 is DeviceAction.OpenShortcut -> openShortcut(action.shortcut)
+                // Replies go through NotificationPort, never the screen.
+                is DeviceAction.ReplyToNotification -> ActionResult.Failed("not a screen action")
             }
         }
     }

@@ -14,6 +14,18 @@ sealed interface DeviceAction {
 
     /** Hands a ready-made request to another app through an Android intent. See [Shortcut]. */
     data class OpenShortcut(val shortcut: Shortcut) : DeviceAction
+
+    /**
+     * A reply to a notification. It exists so the gate can judge it; it goes out through the notification
+     * port, never through the device, which refuses it.
+     */
+    data class ReplyToNotification(
+        val key: String,
+        val packageName: String,
+        val appLabel: String?,
+        val sender: String,
+        val text: String,
+    ) : DeviceAction
 }
 
 /**
