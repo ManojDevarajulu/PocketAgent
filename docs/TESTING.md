@@ -124,6 +124,13 @@ The provider and key are entered in the app's setup screen. There is no build-ti
 - [ ] **Palette.** Open every screen and card in light and dark. Expected: text is readable, and the Allow and
   Decline buttons look identical.
 
+- [ ] **Notification access row.** Tap "Open notification access" in setup. Expected: Android's notification
+  access screen opens; after switching Pocket Agent on and returning, the Notifications step shows On.
+- [ ] **Listener label.** Open Settings > Notification access. Expected: the listener is listed with a readable
+  name ("Pocket Agent").
+- [ ] **OTP tile without access.** With access off, tap Latest OTP, then "Turn on notification access in setup
+  to use this." Expected: setup opens in its own task, not on top of the task sheet's stack.
+
 ### Agent behaviour
 
 - [ ] **Screen changed.** Change the target between read and act, for example by scrolling while the model is
@@ -144,6 +151,27 @@ The provider and key are entered in the app's setup screen. There is no build-ti
   event types are listed for the service.
 - [ ] **Blocked apps.** Ask the agent to open Settings or a payment app. Expected: the task stops before
   acting.
+
+### Notifications
+
+- [ ] **Grant access.** Grant access in setup. Expected: the step shows Done.
+- [ ] **Catch me up.** Get a WhatsApp message and run "Catch me up". Expected: a summary in 1 to 2 model calls,
+  no app opened.
+- [ ] **Reply.** Run "Reply to {sender}: on my way". Expected: the confirmation card shows the text; Approve
+  sends it; Cancel sends nothing.
+- [ ] **Latest OTP.** Get an SMS OTP and tap "Latest OTP". Expected: the code shows in about a second. Check
+  the provider never got it: a "Catch me up" run shows the model "••••••".
+- [ ] **Blocked and bank.** Get a notification from a blocked app and a bank debit SMS. Expected: "Catch me up"
+  never mentions them.
+- [ ] **Revoke access.** Revoke access. Expected: the agent opens WhatsApp the old way, and "Latest OTP" shows
+  the setup link.
+- [ ] **Timing.** Compare the timing line on the summary card for "Catch me up" with before.
+- [ ] **Reply limits.** Ask for a reply longer than 200 characters, and one with an emoji joined by a
+  zero-width joiner (for example a family emoji). Expected: each is refused; the agent shortens the text and
+  retries or tells you.
+- [ ] **Card matches send.** Approve a reply. Expected: the text on the card is exactly the text that arrives.
+- [ ] **Name matching.** Get notifications from a contact named "Bankey" and from "HDFC Bank". Expected:
+  "Catch me up" includes Bankey and drops HDFC Bank.
 
 When you report a failure, include the phone model, Android version, app version and provider. Never paste an
 API key.

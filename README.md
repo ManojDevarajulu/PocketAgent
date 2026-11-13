@@ -27,6 +27,21 @@ You bring your own API key (Anthropic, OpenRouter, OpenAI, Gemini, DeepSeek, Gro
 
 ---
 
+## Notifications (optional)
+
+Turn on notification access and the agent can catch you up on messages and reply without opening apps. Off by default; without it everything works the slower way, through the apps.
+
+* **What it reads:** the notifications currently in your shade, only while a task runs or when you tap **Latest OTP**. It has no background handler and keeps nothing.
+* **What it skips:** banking and payment apps, bank and payment messages, its own and ongoing notifications, and anything older than 24 hours.
+* **Codes stay on the phone:** verification codes are masked before the AI sees anything. **Latest OTP** shows the newest code from the last 10 minutes with no AI call.
+* **Nothing is stored:** history shows "Summary hidden (it used your notifications)" for these tasks.
+* **Replies are always confirmed:** you see the exact text first, and only a notification's reply action is ever used. Replies are limited to 200 characters on one line.
+* **Turn it off:** Settings > Notification access.
+
+Limits: bank detection is word-list based and can miss unusual wording; code masking needs a word like OTP or code nearby; codes visible on screen still go to the AI; emoji joined with zero-width joiners and Persian or Urdu text with zero-width non-joiners are refused in replies; and a draft may reply to your own last line in a chat. See the [Security Model](docs/SECURITY_MODEL.md).
+
+---
+
 ## How It Works
 
 ```
@@ -134,6 +149,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
    * Type your model name and tap **"Test the model"** to verify tool calling.
    * Enable the **Accessibility Service** *(if Android 13–16 shows "Restricted setting", tap the 3-dot menu in App Info $\rightarrow$ "Allow restricted settings")*.
    * Grant optional microphone access for voice tasks.
+   * Optionally turn on notification access (Android settings opens; switch Pocket Agent on).
    * Toggle the **Floating Bubble** ON.
 
 ---
