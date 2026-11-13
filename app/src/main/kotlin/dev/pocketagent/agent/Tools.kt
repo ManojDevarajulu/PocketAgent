@@ -22,6 +22,8 @@ sealed interface ToolCall {
     data class Dial(val number: String) : ToolCall
     data class TextMessage(val number: String, val body: String) : ToolCall
     data class WebSearch(val query: String) : ToolCall
+    data object ReadNotifications : ToolCall
+    data class ReplyNotification(val id: String, val text: String) : ToolCall
     data object Screenshot : ToolCall
     data class Wait(val seconds: Int) : ToolCall
     data class AskUser(val question: String) : ToolCall
@@ -59,6 +61,16 @@ object Tools {
         require(PHONE_NUMBER.matches(raw) && raw.count { it.isDigit() } >= 3) { "number must be a phone number made of digits" }
         return raw
     }
+
+    /** The short ids the notification reader hands out: n1 to n999. */
+    private val NOTIFICATION_ID = Regex("""n\d{1,3}""")
+
+    private fun notificationId(raw: String): String {
+        require(NOTIFICATION_ID.matches(raw)) { "id must be like n1, taken from the latest read_notifications" }
+        return raw
+    }
+
+    val NOTIFICATION_TOOLS: Set<String> = setOf("read_notifications", "reply_notification")
 
     private fun numberField() = Field("number", Kind.STRING, "The phone number, digits only, with an optional leading +.", min = 3, max = 30)
     private val DIRECTIONS = Direction.entries.associateBy { it.name.lowercase() }
@@ -137,6 +149,20 @@ object Tools {
             "Search the web for a query in one step. Not for addresses or routes: use directions for those.",
             listOf(Field("query", Kind.STRING, "What to search for.", min = 1, max = 300)),
         ) { a -> ToolCall.WebSearch(a["query"] as String) },
+        Spec(
+            "read_notifications",
+            "Read the recent notifications (messages and alerts) without opening any app. Use it first for new messages.",
+            emptyList(),
+        ) { ToolCall.ReadNotifications },
+        Spec(
+            "reply_notification",
+            "Reply to a message notification by its id from the latest read_notifications. " +
+                "Only for messages the user asked you to answer. The user approves every reply.",
+            listOf(
+                Field("id", Kind.STRING, "The notification id, like n1.", min = 2, max = 4),
+                Field("text", Kind.STRING, "The reply text.", min = 1, max = 1000),
+            ),
+        ) { a -> ToolCall.ReplyNotification(notificationId(a["id"] as String), a["text"] as String) },
         Spec("screenshot", "Get a screenshot of the current screen. Use it only when the screen data lacks what you need.", emptyList()) { ToolCall.Screenshot },
         Spec(
             "wait",

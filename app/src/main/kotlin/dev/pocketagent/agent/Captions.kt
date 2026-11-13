@@ -21,6 +21,8 @@ object Captions {
         is ToolCall.Dial -> "Opening the phone app"
         is ToolCall.TextMessage -> "Writing a text message"
         is ToolCall.WebSearch -> "Searching the web"
+        ToolCall.ReadNotifications -> "Reading your notifications"
+        is ToolCall.ReplyNotification -> "Replying to a message"
         ToolCall.Screenshot -> "Taking a screenshot"
         is ToolCall.Wait -> "Waiting"
         is ToolCall.AskUser -> "Asking you"

@@ -7,6 +7,8 @@ import dev.pocketagent.device.ActionResult
 import dev.pocketagent.device.DeviceAction
 import dev.pocketagent.device.DevicePort
 import dev.pocketagent.device.DeviceUnavailable
+import dev.pocketagent.device.NotificationPort
+import dev.pocketagent.device.PhoneNotification
 import dev.pocketagent.device.Screen
 import dev.pocketagent.llm.LlmClient
 import dev.pocketagent.llm.LlmResult
@@ -97,5 +99,21 @@ class FakeUi : AgentUi {
 
     override fun onWaitingForUser(waiting: Boolean) {
         this.waiting += waiting
+    }
+}
+
+/** Serves a scripted notification list and records every reply. */
+class FakeNotifications(
+    var access: Boolean = true,
+    var items: List<PhoneNotification> = emptyList(),
+) : NotificationPort {
+    val replies = mutableListOf<Pair<String, String>>()
+    var replyResult: ActionResult = ActionResult.Ok
+
+    override fun hasAccess(): Boolean = access
+    override suspend fun recent(): List<PhoneNotification> = items
+    override suspend fun reply(key: String, text: String): ActionResult {
+        replies += key to text
+        return replyResult
     }
 }

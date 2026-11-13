@@ -260,6 +260,7 @@ class AgentLoop(
             is ToolCall.Dial -> ok(DeviceAction.OpenShortcut(Shortcut.Dial(tool.number)), null)
             is ToolCall.TextMessage -> ok(DeviceAction.OpenShortcut(Shortcut.TextMessage(tool.number, tool.body)), null)
             is ToolCall.WebSearch -> ok(DeviceAction.OpenShortcut(Shortcut.WebSearch(tool.query)), null)
+            ToolCall.ReadNotifications, is ToolCall.ReplyNotification -> error("handled by the loop")
             else -> error("not a device action: $tool")
         }
     }

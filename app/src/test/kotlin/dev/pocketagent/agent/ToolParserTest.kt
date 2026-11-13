@@ -152,11 +152,11 @@ class ToolParserTest {
     @Test
     fun definitionNamesMatchSpec() {
         val names = Tools.definitions.map { it.name }
-        assertEquals(14, names.size)
+        assertEquals(16, names.size)
         assertEquals(
             setOf(
                 "tap", "type", "scroll", "back", "home", "open_app", "screenshot", "wait", "ask_user", "done",
-                "directions", "dial", "text_message", "web_search",
+                "directions", "dial", "text_message", "web_search", "read_notifications", "reply_notification",
             ),
             names.toSet(),
         )
@@ -220,5 +220,54 @@ class ToolParserTest {
         assertRejected(parse("text_message", """{"number":"5551234"}"""), "missing field: body")
         assertRejected(parse("directions", """{"destination":""}"""), "destination must be 1 to 300 characters")
         assertRejected(parse("web_search", """{"query":"x","extra":1}"""), "unexpected field: extra")
+    }
+
+    // ---- notifications ----
+
+    @Test
+    fun parsesReadNotifications() {
+        assertEquals(ToolCall.ReadNotifications, parse("read_notifications").getOrThrow())
+    }
+
+    @Test
+    fun readNotificationsRejectsAnyField() {
+        assertRejected(parse("read_notifications", """{"limit":5}"""), "unexpected field: limit")
+        assertRejected(parse("read_notifications", """{"id":"n1"}"""), "unexpected field: id")
+    }
+
+    @Test
+    fun parsesReplyNotification() {
+        assertEquals(ToolCall.ReplyNotification("n2", "on my way"), parse("reply_notification", """{"id":"n2","text":"on my way"}""").getOrThrow())
+        assertEquals(ToolCall.ReplyNotification("n123", "x"), parse("reply_notification", """{"id":"n123","text":"x"}""").getOrThrow())
+        val longest = "a".repeat(1000)
+        assertEquals(longest, (parse("reply_notification", """{"id":"n1","text":"$longest"}""").getOrThrow() as ToolCall.ReplyNotification).text)
+    }
+
+    @Test
+    fun rejectsBadNotificationIds() {
+        for (bad in listOf("x1", "n", "n1234", "N1", " n1", "n1 ", "n-1", "1")) {
+            assertRejected(parse("reply_notification", """{"id":"$bad","text":"hi"}"""), "id must be")
+        }
+    }
+
+    @Test
+    fun rejectsBadReplyText() {
+        assertRejected(parse("reply_notification", """{"id":"n1","text":""}"""), "text must be 1 to 1000 characters")
+        val tooLong = "a".repeat(1001)
+        assertRejected(parse("reply_notification", """{"id":"n1","text":"$tooLong"}"""), "text must be 1 to 1000 characters")
+        assertRejected(parse("reply_notification", """{"id":"n1","text":5}"""), "text must be a string")
+    }
+
+    @Test
+    fun rejectsReplyWithMissingOrExtraFields() {
+        assertRejected(parse("reply_notification", """{"text":"hi"}"""), "missing field: id")
+        assertRejected(parse("reply_notification", """{"id":"n1"}"""), "missing field: text")
+        assertRejected(parse("reply_notification", """{"id":"n1","text":"hi","send":true}"""), "unexpected field: send")
+    }
+
+    @Test
+    fun notificationToolSetNamesExactlyTheTwoTools() {
+        assertEquals(setOf("read_notifications", "reply_notification"), Tools.NOTIFICATION_TOOLS)
+        assertTrue(Tools.NOTIFICATION_TOOLS.all { name -> Tools.definitions.any { it.name == name } })
     }
 }
