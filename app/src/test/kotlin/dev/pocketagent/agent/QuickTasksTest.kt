@@ -7,16 +7,16 @@ import kotlin.test.assertTrue
 
 class QuickTasksTest {
     @Test
-    fun keepsTheThreeSuggestionsInOrder() {
+    fun keepsTheSuggestionsInOrder() {
         assertEquals(
-            listOf("Take me to an address", "Read this screen out", "Reply to this"),
+            listOf("Catch me up", "Reply to this", "Take me to an address", "What's this?", "Latest OTP"),
             QuickTasks.all.map { it.title },
         )
     }
 
     @Test
     fun everyTaskIsMoreSpecificThanItsTitle() {
-        QuickTasks.all.forEach {
+        QuickTasks.all.filter { it.onPhone == null }.forEach {
             assertTrue(it.task.length > it.title.length + 20, "${it.title}: task is too vague")
             assertFalse(it.task.equals(it.title, ignoreCase = true), it.title)
         }
@@ -48,5 +48,35 @@ class QuickTasksTest {
         val task = QuickTasks.all.first { it.title == "Reply to this" }.task.lowercase()
         assertFalse("without asking" in task)
         assertFalse("don't ask" in task)
+    }
+
+    @Test
+    fun onlyLatestOtpRunsOnThePhoneWithNoTaskText() {
+        val onPhone = QuickTasks.all.filter { it.onPhone != null }
+        assertEquals(listOf("Latest OTP"), onPhone.map { it.title })
+        assertEquals(OnPhone.LATEST_OTP, onPhone.single().onPhone)
+        assertEquals("", onPhone.single().task)
+        assertTrue(QuickTasks.all.filter { it.onPhone == null }.all { it.task.isNotBlank() })
+    }
+
+    @Test
+    fun readThisScreenOutIsGone() {
+        assertTrue(QuickTasks.all.none { it.title == "Read this screen out" })
+    }
+
+    @Test
+    fun catchMeUpUsesNotificationsAndNeverReplies() {
+        val t = QuickTasks.all.first { it.title == "Catch me up" }
+        assertTrue("read_notifications" in t.task)
+        assertTrue("Do not reply" in t.task)
+        assertEquals("New messages, in short", t.subtitle)
+    }
+
+    @Test
+    fun whatsThisChecksForScamsAndChangesNothing() {
+        val t = QuickTasks.all.first { it.title == "What's this?" }
+        assertTrue("scam" in t.task)
+        assertTrue("Do not change anything" in t.task)
+        assertEquals("Explains, checks for scams", t.subtitle)
     }
 }

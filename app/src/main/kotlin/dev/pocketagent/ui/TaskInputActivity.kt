@@ -172,10 +172,10 @@ class TaskInputActivity : ThemedActivity() {
             val icons = listOf(R.drawable.ic_pin, R.drawable.ic_doc, R.drawable.ic_chat)
             val hues = listOf(R.color.pa_t_blue, R.color.pa_t_orange, R.color.pa_t_green)
             QuickTasks.all.forEachIndexed { index, quick ->
-                val icon = icons[index]
+                val icon = icons[index % icons.size]
                 val title = quick.title
                 val sub = quick.subtitle
-                val hue = hues[index]
+                val hue = hues[index % hues.size]
                 val row = Kit.hstack(c, 12).apply { minimumHeight = dp(c, 56); setPadding(dp(c, 4), 0, dp(c, 4), 0) }
                 row.addView(Kit.tile(c, icon, color(c, hue), 0xFFFFFFFF.toInt(), 32).apply {
                     (layoutParams as LinearLayout.LayoutParams).marginEnd = 0

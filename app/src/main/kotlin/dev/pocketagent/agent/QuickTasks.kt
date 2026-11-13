@@ -1,7 +1,10 @@
 package dev.pocketagent.agent
 
 /** One suggestion on the task screen: what the user sees ([title], [subtitle]) and the full task it sends ([task]). */
-data class QuickTask(val title: String, val subtitle: String, val task: String)
+data class QuickTask(val title: String, val subtitle: String, val task: String, val onPhone: OnPhone? = null)
+
+/** A quick task that runs on the phone itself, with no AI. */
+enum class OnPhone { LATEST_OTP }
 
 /**
  * The suggestions on the task screen. The title is a short label, but the task is written out in full: a model
@@ -14,21 +17,34 @@ object QuickTasks {
 
     val all: List<QuickTask> = listOf(
         QuickTask(
-            title = "Take me to an address",
-            subtitle = "From a message or a map link",
-            task = "Find the address in the message on this screen and start directions to it with the directions tool. " +
-                "Only if that fails, open Google Maps, clear any old text in its search box, then type the address.",
-        ),
-        QuickTask(
-            title = "Read this screen out",
-            subtitle = "A short summary of what is here",
-            task = "Read what is on this screen and tell me a short summary of it. Do not change anything.",
+            title = "Catch me up",
+            subtitle = "New messages, in short",
+            task = "Call read_notifications and give me a short summary of my new messages, grouped by person or group. " +
+                "Do not open any app unless there are no message notifications. Do not reply to anything.",
         ),
         QuickTask(
             title = "Reply to this",
             subtitle = "Drafts it, asks before sending",
             task = "Write a short, polite reply to the latest message on this screen and type it into the reply box, " +
                 "then press send.",
+        ),
+        QuickTask(
+            title = "Take me to an address",
+            subtitle = "From a message or a map link",
+            task = "Find the address in the message on this screen and start directions to it with the directions tool. " +
+                "Only if that fails, open Google Maps, clear any old text in its search box, then type the address.",
+        ),
+        QuickTask(
+            title = "What's this?",
+            subtitle = "Explains, checks for scams",
+            task = "Explain what is on this screen in plain words. If it is a message or an offer, say whether it looks " +
+                "like a scam and why. If it is in another language, translate it. Do not change anything.",
+        ),
+        QuickTask(
+            title = "Latest OTP",
+            subtitle = "Shows the newest code",
+            task = "",
+            onPhone = OnPhone.LATEST_OTP,
         ),
     )
 }
