@@ -19,7 +19,8 @@ class NotificationFilterTest {
         lines: List<String> = listOf(text),
         ongoing: Boolean = false,
         groupSummary: Boolean = false,
-    ) = PhoneNotification(key, pkg, label, title, null, lines, now - ageMin * 60_000L, false, ongoing, groupSummary)
+        conversation: String? = null,
+    ) = PhoneNotification(key, pkg, label, title, conversation, lines, now - ageMin * 60_000L, false, ongoing, groupSummary)
 
     private fun keys(vararg items: PhoneNotification) = filter.forModel(items.toList(), now).map { it.key }
 
@@ -86,5 +87,42 @@ class NotificationFilterTest {
         assertEquals(listOf("line5", "line6", "line7", "line8", "x".repeat(300)), out.lines)
         val short = filter.forModel(listOf(n("com.example.chat", "A", "", lines = listOf("y".repeat(300)))), now).single()
         assertEquals(listOf("y".repeat(300)), short.lines)
+    }
+
+    @Test fun bankStyleConversationNameDropped() {
+        assertEquals(listOf("keep"), keys(
+            n("com.whatsapp", "Rahul", "hi", conversation = "HDFC Bank alerts", key = "bank"),
+            n("com.whatsapp", "Rahul", "hi", conversation = "VM-HDFCBK", key = "header"),
+            n("com.whatsapp", "Rahul", "hi", conversation = "Family", key = "keep"),
+        ))
+    }
+
+    @Test fun codeInConversationNameMasked() {
+        val out = filter.forModel(listOf(n("com.whatsapp", "Rahul", "hi", conversation = "Code 482913")), now).single()
+        assertEquals("Code ••••••", out.conversation)
+    }
+
+    @Test fun ordinaryConversationNameKeptUnchangedAndLongOneCut() {
+        val out = filter.forModel(listOf(
+            n("com.whatsapp", "Rahul", "hi", conversation = "Family", key = "a"),
+            n("com.whatsapp", "Rahul", "hi", conversation = "g".repeat(400), key = "b", ageMin = 2),
+        ), now)
+        assertEquals("Family", out[0].conversation)
+        assertEquals("g".repeat(300), out[1].conversation)
+    }
+
+    @Test fun moneyLineBeyondFiveLineCapStillDropsNotification() {
+        val lines = listOf("a", "Rs 500 debited from A/c", "c", "d", "e", "f", "g", "h")
+        assertEquals(listOf("keep"), keys(
+            n("com.whatsapp", "Rahul", "", lines = lines, key = "drop"),
+            n("com.whatsapp", "Rahul", "", lines = lines.map { "ok" }, key = "keep"),
+        ))
+    }
+
+    @Test fun moneyOnlyTitleWithPlainLinesDropped() {
+        assertEquals(listOf("keep"), keys(
+            n("com.whatsapp", "AX-PAYTMB", "hello there", key = "drop"),
+            n("com.whatsapp", "Rahul", "hello there", key = "keep"),
+        ))
     }
 }

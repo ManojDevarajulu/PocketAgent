@@ -19,13 +19,19 @@ class NotificationFilter(private val blocked: BlockedApps, private val ownPackag
             .map { n ->
                 n.copy(
                     title = n.title?.let { CodeFinder.mask(it).take(MAX_LINE) },
+                    conversation = n.conversation?.let { CodeFinder.mask(it).take(MAX_LINE) },
                     lines = n.lines.takeLast(MAX_LINES).map { CodeFinder.mask(it).take(MAX_LINE) },
                 )
             }
             .toList()
 
-    private fun isMoney(n: PhoneNotification): Boolean =
-        MoneyMessages.isMoney(n.title, "") || n.lines.any { MoneyMessages.isMoney(n.title, it) }
+    /** Title and conversation are checked both as a sender header and as text, alone and with every line. */
+    private fun isMoney(n: PhoneNotification): Boolean {
+        val names = listOfNotNull(n.title, n.conversation)
+        if (names.any { MoneyMessages.isMoney(it, it) }) return true
+        if (n.lines.any { MoneyMessages.isMoney(null, it) }) return true
+        return names.any { name -> n.lines.any { MoneyMessages.isMoney(name, it) } }
+    }
 
     private companion object {
         const val MAX_AGE_MS = 24 * 60 * 60_000L
