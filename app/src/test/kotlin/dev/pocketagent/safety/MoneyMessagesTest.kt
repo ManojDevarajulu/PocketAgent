@@ -71,4 +71,28 @@ class MoneyMessagesTest {
         assertFalse(MoneyMessages.isMoneyName("Family"))
         assertFalse(MoneyMessages.isMoneyName(null))
     }
+
+    @Test fun rupeeSignBeforeAnAmountIsMoney() {
+        for (t in listOf("Sent ₹500", "Paid ₹500 to Ravi", "₹500 sent to you", "spent₹450", "₹ 1,200 received", "रु. 500", "रु 500 प्राप्त")) {
+            assertTrue(MoneyMessages.isMoney("Friend", t), t)
+            assertTrue(MoneyMessages.isMoneyName(t), t)
+        }
+    }
+    @Test fun rupeeRuleKeepsOrdinaryChat() {
+        for (t in listOf("Dinner at 8?", "Emily says hi", "I'll pay you back tomorrow", "₹ is the rupee sign", "गुरु 5 बजे आएंगे")) {
+            assertFalse(MoneyMessages.isMoney("Friend", t), t)
+        }
+    }
+
+    @Test fun bareBankHeaderTitleIsMoney() {
+        assertTrue(MoneyMessages.isMoneyName("HDFCBK"))
+        assertTrue(MoneyMessages.isMoneyName("icicib"))
+        assertTrue(MoneyMessages.isMoney("HDFCBK", "Hello"))
+    }
+    @Test fun bareHeaderRuleNeedsTheWholeName() {
+        assertFalse(MoneyMessages.isMoneyName("Rahul"))
+        assertFalse(MoneyMessages.isMoneyName("HDFCBKxyz Rahul"))
+        assertFalse(MoneyMessages.isMoney("Rahul", "Hello"))
+        assertFalse(MoneyMessages.isMoney("HDFCBKxyz Rahul", "Hello"))
+    }
 }
