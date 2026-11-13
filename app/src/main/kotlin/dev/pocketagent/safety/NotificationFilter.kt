@@ -25,10 +25,10 @@ class NotificationFilter(private val blocked: BlockedApps, private val ownPackag
             }
             .toList()
 
-    /** Title and conversation are checked both as a sender header and as text, alone and with every line. */
+    /** Title and conversation get the stricter name check; lines get the message check, with the title as sender. */
     private fun isMoney(n: PhoneNotification): Boolean {
         val names = listOfNotNull(n.title, n.conversation)
-        if (names.any { MoneyMessages.isMoney(it, it) }) return true
+        if (names.any { MoneyMessages.isMoneyName(it) }) return true
         if (n.lines.any { MoneyMessages.isMoney(null, it) }) return true
         return names.any { name -> n.lines.any { MoneyMessages.isMoney(name, it) } }
     }

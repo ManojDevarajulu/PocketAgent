@@ -22,13 +22,21 @@ object MoneyMessages {
         ),
     )
 
-    private val words = wordStartPattern(
-        listOf(
+    private val wordTerms: List<String> = listOf(
+
             "debit", "credit", "a/c", "acct", "account no", "avl bal", "available balance", "balance", "card ending",
             "txn", "transaction", "neft", "imps", "rtgs", "withdrawn", "withdrawal", "inr", "bank", "vpa",
             "cheque", "ifsc", "loan",
             "खाता", "खाते", "खातों", "खाताधारक", "जमा", "निकासी", "रुपये", "रुपए", "बैंक", "बैलेंस", "डेबिट", "क्रेडिट", "शेष",
-        ),
+            )
+
+    private val words = wordStartPattern(wordTerms)
+
+    /** Names are matched by whole word only, so a contact called "Bankey" or "Loanna" is not mistaken for a bank. */
+    private val nameWords: Pattern = Pattern.compile(
+        """(?<![\p{L}\p{N}\p{M}])(?:""" + (wordTerms + BlockedApps.DEFAULT_PATTERNS).joinToString("|") { Pattern.quote(it) } +
+            """)(?![\p{L}\p{N}\p{M}])""",
+        Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE,
     )
 
     /** Whole-word terms ("emi" must not match "Emily"), "Rs" before an amount, and "spent" before a money cue. */
@@ -36,6 +44,15 @@ object MoneyMessages {
         """(?<![\p{L}\p{N}])(?:emi|upi|rs\.?\s*\p{N}|spent\s{1,3}(?:rs\.?|inr|₹|\p{N}|on card))(?![\p{L}])""",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE,
     )
+
+    /** For a title or chat name: a bank-style header, or a money term as a whole word. */
+    fun isMoneyName(name: String?): Boolean {
+        if (name == null) return false
+        val form = matchForm(name).trim()
+        val m = header.matcher(form)
+        if (m.matches() && headerNames.find(m.group(1)!!)) return true
+        return nameWords.matcher(form).find() || wholeWords.matcher(form).find()
+    }
 
     fun isMoney(sender: String?, text: String): Boolean {
         if (sender != null) {

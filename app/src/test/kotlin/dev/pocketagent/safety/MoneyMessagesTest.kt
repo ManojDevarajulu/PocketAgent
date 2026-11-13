@@ -57,4 +57,18 @@ class MoneyMessagesTest {
         assertTrue(MoneyMessages.isMoney(null, "खाताधारक सूचना"))
         assertTrue(MoneyMessages.isMoney(null, "सभी खातों की जानकारी"))
     }
+
+    @Test fun moneyNameWholeWordsAndHeaders() {
+        assertTrue(MoneyMessages.isMoneyName("HDFC Bank alerts"))
+        assertTrue(MoneyMessages.isMoneyName("VM-HDFCBK"))
+        assertTrue(MoneyMessages.isMoneyName("Credit card"))
+    }
+    @Test fun moneyNameKeepsPeopleWhoseNamesOnlyStartLikeMoneyWords() {
+        assertFalse(MoneyMessages.isMoneyName("Bankey"))
+        assertFalse(MoneyMessages.isMoneyName("Bankim"))
+        assertFalse(MoneyMessages.isMoneyName("Loanna"))
+        assertFalse(MoneyMessages.isMoneyName("Balancer"))
+        assertFalse(MoneyMessages.isMoneyName("Family"))
+        assertFalse(MoneyMessages.isMoneyName(null))
+    }
 }

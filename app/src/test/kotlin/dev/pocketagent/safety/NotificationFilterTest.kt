@@ -125,4 +125,20 @@ class NotificationFilterTest {
             n("com.whatsapp", "Rahul", "hello there", key = "keep"),
         ))
     }
+
+    @Test fun bankWordInTitleWithPlainLinesDropped() {
+        assertEquals(listOf("keep"), keys(
+            n("com.whatsapp", "HDFC Bank", "hello there", key = "drop"),
+            n("com.whatsapp", "Rahul", "hello there", key = "keep"),
+        ))
+    }
+
+    @Test fun namesThatOnlyStartLikeMoneyWordsAreKept() {
+        assertEquals(listOf("a", "b", "c", "d"), keys(
+            n("com.whatsapp", "Bankey", "hello", key = "a", ageMin = 1),
+            n("com.whatsapp", "Loanna", "hello", key = "b", ageMin = 2),
+            n("com.whatsapp", "Rahul", "hello", conversation = "Bankim", key = "c", ageMin = 3),
+            n("com.whatsapp", "Balancer", "hello", key = "d", ageMin = 4),
+        ))
+    }
 }
