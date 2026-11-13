@@ -195,8 +195,8 @@ class SetupActivity : ThemedActivity() {
                 expandedOverride == state.step ||
                 (state.step == SetupStep.MICROPHONE && state.status != StepStatus.DONE && !settings.microphoneAsked &&
                     eval.of(SetupStep.ACCESSIBILITY).status == StepStatus.DONE && !eval.isReady) ||
-                // optional and never CURRENT, so it opens on its own once accessibility is on, and stays open until it is on
-                (state.step == SetupStep.NOTIFICATIONS && state.status != StepStatus.DONE &&
+                // optional and never CURRENT, so it opens on its own once accessibility is on, and collapses once setup is ready
+                (state.step == SetupStep.NOTIFICATIONS && state.status != StepStatus.DONE && !eval.isReady &&
                     eval.of(SetupStep.ACCESSIBILITY).status == StepStatus.DONE)
             if (i > 0) list.addView(View(c).apply { setBackgroundColor(color(c, R.color.pa_line)) }, Kit.lp(h = 1).apply { marginStart = dp(c, 58) })
 

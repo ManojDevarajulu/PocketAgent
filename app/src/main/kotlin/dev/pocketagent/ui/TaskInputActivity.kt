@@ -336,7 +336,7 @@ class TaskInputActivity : ThemedActivity() {
                     line.addView(Kit.text(c, "No recent code in your notifications.", 15f, 400, R.color.pa_muted), Kit.weight())
                 OtpResult.NoAccess -> line.addView(
                     Kit.text(c, "Turn on notification access in setup to use this.", 15f, 500, R.color.pa_blue).apply {
-                        Kit.pressable(this, 1f) { startActivity(Intent(c, SetupActivity::class.java)) }
+                        Kit.pressable(this, 1f) { startActivity(Intent(c, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                     },
                     Kit.weight(),
                 )
