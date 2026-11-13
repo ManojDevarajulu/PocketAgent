@@ -103,7 +103,7 @@ app/src/main/
     safety/                SafetyGate, BlockedApps, RiskyLabels
     playbook/              Playbook, PlaybookStore
     setup/                 SetupModel, StoredConfigRepository
-    android/               PocketAccessibilityService, AccessibilityDevice, ScreenReader
+    android/               PocketAccessibilityService, PocketNotificationListener, AccessibilityDevice, AndroidNotifications, ScreenReader
     ui/                    BubbleOverlay, CaptionView, ConfirmCard, SummaryCard, SetupActivity
 ```
 

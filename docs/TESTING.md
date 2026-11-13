@@ -123,7 +123,6 @@ The provider and key are entered in the app's setup screen. There is no build-ti
   asks again.
 - [ ] **Palette.** Open every screen and card in light and dark. Expected: text is readable, and the Allow and
   Decline buttons look identical.
-
 - [ ] **Notification access row.** Tap "Open notification access" in setup. Expected: Android's notification
   access screen opens; after switching Pocket Agent on and returning, the Notifications step shows On.
 - [ ] **Listener label.** Open Settings > Notification access. Expected: the listener is listed with a readable
@@ -166,9 +165,10 @@ The provider and key are entered in the app's setup screen. There is no build-ti
 - [ ] **Revoke access.** Revoke access. Expected: the agent opens WhatsApp the old way, and "Latest OTP" shows
   the setup link.
 - [ ] **Timing.** Compare the timing line on the summary card for "Catch me up" with before.
-- [ ] **Reply limits.** Ask for a reply longer than 200 characters, and one with an emoji joined by a
-  zero-width joiner (for example a family emoji). Expected: each is refused; the agent shortens the text and
-  retries or tells you.
+- [ ] **Long reply.** Ask for a reply longer than 200 characters. Expected: it is refused; the agent shortens
+  the text and retries or tells you.
+- [ ] **Hidden characters.** Ask for a reply containing an emoji joined by a zero-width joiner (for example a
+  family emoji). Expected: it is refused; the agent rewrites without it or tells you.
 - [ ] **Card matches send.** Approve a reply. Expected: the text on the card is exactly the text that arrives.
 - [ ] **Name matching.** Get notifications from a contact named "Bankey" and from "HDFC Bank". Expected:
   "Catch me up" includes Bankey and drops HDFC Bank.

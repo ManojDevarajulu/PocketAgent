@@ -14,21 +14,24 @@ Bubble / task screen / setup
              │
              ├──► SafetyGate       allow, block or ask the user
              ├──► PlaybookStore    bundled Markdown tips per app
-             └──► DevicePort ◄── AccessibilityDevice
-                                        │
-                              PocketAccessibilityService
+             ├──► DevicePort ◄── AccessibilityDevice
+             │                           │
+             │                 PocketAccessibilityService
+             └──► NotificationPort ◄── AndroidNotifications
+                                           │
+                                 PocketNotificationListener
 ```
 
 ## Packages
 
 | Package | Role |
 | --- | --- |
-| `agent/` | `AgentLoop`, `AgentRunner`, `StuckDetector`, tool definitions, captions |
+| `agent/` | `AgentLoop`, `AgentRunner`, `StuckDetector`, tool definitions, captions, `OtpQuickAction` ("Latest OTP", no AI) |
 | `llm/` | `LlmClient` and its two implementations, provider presets and validation. The only package that touches the network |
-| `safety/` | `SafetyGate`, `BlockedApps`, `RiskyLabels`. Plain rules, no Android types |
+| `safety/` | `SafetyGate`, `BlockedApps`, `RiskyLabels`, `NotificationFilter`, `MoneyMessages`, `CodeFinder`. Plain rules, no Android types |
 | `playbook/` | Loads and validates the per-app Markdown playbooks in `assets/playbooks/` |
-| `device/` | `DevicePort`, screen model, `ScreenSerializer`, settle logic, re-validation |
-| `android/` | The accessibility service, `AccessibilityDevice`, Keystore storage |
+| `device/` | `DevicePort`, screen model, `ScreenSerializer`, settle logic, re-validation, `NotificationPort`, `NotificationSerializer` |
+| `android/` | The accessibility service, `AccessibilityDevice`, the notification listener (`PocketNotificationListener`, `AndroidNotifications`), Keystore storage |
 | `setup/` | Setup state and settings storage |
 | `ui/` | Bubble, caption, confirmation card, task screen, setup screen (platform Views, no Compose) |
 
@@ -109,5 +112,6 @@ describe navigation only and cannot change `SafetyGate`. See [CONTRIBUTING.md](.
 - Minimum Android 11 (API 30).
 - Four runtime dependencies: kotlinx-coroutines-android, kotlinx-serialization-json, okhttp, androidx-core-ktx.
   A test fails if another appears.
-- No telemetry, analytics, crash reporter, background service, receiver or exported component other than
-  the launcher activity.
+- No telemetry, analytics, crash reporter, receiver, provider or exported component other than the launcher
+  activity. The only services are the accessibility service and the notification listener, both system-bound and
+  not exported; the listener handles no notification events and stores nothing.
