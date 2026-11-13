@@ -3,6 +3,7 @@ package dev.pocketagent.android
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.app.KeyguardManager
+import android.app.SearchManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,6 +11,7 @@ import android.content.pm.ResolveInfo
 import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.Display
@@ -32,12 +34,15 @@ import dev.pocketagent.device.Point
 import dev.pocketagent.device.Revalidator
 import dev.pocketagent.device.Screen
 import dev.pocketagent.device.ScreenNode
+import dev.pocketagent.device.Shortcut
 import dev.pocketagent.device.Settler
 import dev.pocketagent.device.SwipePath
+import dev.pocketagent.device.TypedText
 import dev.pocketagent.safety.BlockedApps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.asExecutor
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -61,7 +66,8 @@ class AccessibilityDevice(
     private val ownPackage: String = service.packageName
     private val reader = ScreenReader(service)
     private val revalidator = Revalidator(ownPackage, tolerancePx = BOUNDS_TOLERANCE_PX)
-    private val appMatcher = AppMatcher(BlockedApps())
+    private val blockedApps = BlockedApps()
+    private val appMatcher = AppMatcher(blockedApps)
     private val keyguard: KeyguardManager? = service.getSystemService(KeyguardManager::class.java)
     private val observationCounter = AtomicInteger(0)
 
@@ -96,11 +102,12 @@ class AccessibilityDevice(
             when (action) {
                 is DeviceAction.Tap -> tap(action.node)
                 is DeviceAction.TapAt -> tapAt(action.x, action.y)
-                is DeviceAction.TypeText -> typeText(action.node, action.text)
+                is DeviceAction.TypeText -> typeText(action.node, action.text, action.submit)
                 is DeviceAction.Scroll -> scroll(action.direction, action.node)
                 DeviceAction.Back -> global(AccessibilityService.GLOBAL_ACTION_BACK, "could not go back")
                 DeviceAction.Home -> global(AccessibilityService.GLOBAL_ACTION_HOME, "could not go home")
                 is DeviceAction.OpenApp -> openApp(action.name)
+                is DeviceAction.OpenShortcut -> openShortcut(action.shortcut)
             }
         }
     }
@@ -208,7 +215,7 @@ class AccessibilityDevice(
         return tapGesture(Point(x, y))
     }
 
-    private suspend fun typeText(node: ScreenNode, text: String): ActionResult {
+    private suspend fun typeText(node: ScreenNode, text: String, submit: Boolean): ActionResult {
         val live = validatedNode(node) ?: return SCREEN_CHANGED
         // A second check behind the gate: password fields are never typed into.
         if (node.isPassword || live.isPassword) return ActionResult.Failed("password fields are never typed into")
@@ -217,10 +224,28 @@ class AccessibilityDevice(
         val args = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
-        return if (live.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+        if (!live.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return ActionResult.Failed("could not type here")
+        // "Set text" can report success while the app ignores it, so read the field again and check.
+        delay(TYPE_SETTLE_MS)
+        live.refresh()
+        val actual = if (live.isShowingHintText) null else live.text
+        return if (TypedText.matches(text, actual)) {
+            if (submit) pressEnter(live) else ActionResult.Ok
+        } else {
+            ActionResult.Failed(
+                "the field did not take the text. If it already holds other text, clear it with its clear button, " +
+                    "or try another input field",
+            )
+        }
+    }
+
+    /** The keyboard's Enter or Search key, sent to the field itself, so no gesture lands anywhere else. */
+    private fun pressEnter(field: AccessibilityNodeInfo): ActionResult {
+        val enter = AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id
+        return if (field.actionList.any { it.id == enter } && field.performAction(enter)) {
             ActionResult.Ok
         } else {
-            ActionResult.Failed("could not type here")
+            ActionResult.Failed("the text is in, but this field has no Enter key; tap the search button instead")
         }
     }
 
@@ -283,6 +308,51 @@ class AccessibilityDevice(
                     ActionResult.Failed("could not open ${resolution.app.label}")
                 }
             }
+        }
+    }
+
+    /**
+     * Each shortcut is tried as a list of intents, most specific first: directions prefer Google Maps' own
+     * navigation link and fall back to any maps app. The app that would receive the intent is looked up first,
+     * and a blocked app (or Pocket Agent itself) is refused before anything opens.
+     */
+    private fun openShortcut(shortcut: Shortcut): ActionResult {
+        val (candidates, what) = when (shortcut) {
+            is Shortcut.Directions -> listOf(
+                Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=" + Uri.encode(shortcut.destination))),
+                Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(shortcut.destination))),
+            ) to "show directions"
+            is Shortcut.Dial -> listOf(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", shortcut.number, null))) to "dial a number"
+            is Shortcut.TextMessage -> listOf(
+                Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", shortcut.number, null)).putExtra("sms_body", shortcut.body),
+            ) to "write a text message"
+            is Shortcut.WebSearch -> listOf(
+                Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, shortcut.query),
+            ) to "search the web"
+        }
+        val pm = service.packageManager
+        for (intent in candidates) {
+            val target = resolvedActivity(intent) ?: continue
+            val label = target.loadLabel(pm).toString()
+            val pkg = target.activityInfo?.packageName.orEmpty()
+            if (pkg == ownPackage || blockedApps.isBlocked(pkg, label)) return ActionResult.Failed("$label is on the block list")
+            return try {
+                service.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                ActionResult.Ok
+            } catch (e: RuntimeException) {
+                ActionResult.Failed("could not $what")
+            }
+        }
+        return ActionResult.Failed("no app on this phone can $what")
+    }
+
+    private fun resolvedActivity(intent: Intent): ResolveInfo? {
+        val pm = service.packageManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.resolveActivity(intent, PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
         }
     }
 
@@ -436,6 +506,9 @@ class AccessibilityDevice(
     private companion object {
         const val BOUNDS_TOLERANCE_PX = 4
         const val TAP_MS = 50L
+
+        /** Time an app gets to apply typed text before the field is read back. */
+        const val TYPE_SETTLE_MS = 150L
         const val SWIPE_MS = 300L
         const val MIN_EDGE_DP = 24
         const val MAX_ANCESTORS = 60

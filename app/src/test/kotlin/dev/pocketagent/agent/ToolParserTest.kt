@@ -83,6 +83,8 @@ class ToolParserTest {
         assertRejected(parse("type", """{"node_id":"a1","text":""}"""), "text must be 1 to 1000 characters")
         assertRejected(parse("type", """{"node_id":"a1","text":"${"x".repeat(1001)}"}"""), "text must be 1 to 1000 characters")
         assertRejected(parse("type", """{"text":"hello"}"""), "missing field: node_id")
+        assertEquals(ToolCall.TypeText("a1", "milk", submit = true), parse("type", """{"node_id":"a1","text":"milk","submit":true}""").getOrThrow())
+        assertRejected(parse("type", """{"node_id":"a1","text":"milk","submit":"yes"}"""), "submit must be true or false")
     }
 
     @Test
@@ -150,8 +152,14 @@ class ToolParserTest {
     @Test
     fun definitionNamesMatchSpec() {
         val names = Tools.definitions.map { it.name }
-        assertEquals(10, names.size)
-        assertEquals(setOf("tap", "type", "scroll", "back", "home", "open_app", "screenshot", "wait", "ask_user", "done"), names.toSet())
+        assertEquals(14, names.size)
+        assertEquals(
+            setOf(
+                "tap", "type", "scroll", "back", "home", "open_app", "screenshot", "wait", "ask_user", "done",
+                "directions", "dial", "text_message", "web_search",
+            ),
+            names.toSet(),
+        )
     }
 
     @Test
@@ -192,5 +200,25 @@ class ToolParserTest {
         assertEquals(JsonArray(emptyList()), tap.inputSchema.getValue("required"), "tap fields are all optional individually")
         val done = Tools.definitions.single { it.name == "done" }
         assertEquals(setOf("summary", "success"), done.inputSchema.getValue("required").jsonArray.map { it.jsonPrimitive.content }.toSet())
+    }
+
+    // ---- one-step shortcuts ----
+
+    @Test
+    fun parsesTheShortcuts() {
+        assertEquals(ToolCall.Directions("221B Baker St"), parse("directions", """{"destination":"221B Baker St"}""").getOrThrow())
+        assertEquals(ToolCall.Dial("+44 20 7946 0958"), parse("dial", """{"number":"+44 20 7946 0958"}""").getOrThrow())
+        assertEquals(ToolCall.TextMessage("5551234", "on my way"), parse("text_message", """{"number":"5551234","body":"on my way"}""").getOrThrow())
+        assertEquals(ToolCall.WebSearch("weather today"), parse("web_search", """{"query":"weather today"}""").getOrThrow())
+    }
+
+    @Test
+    fun shortcutsRejectBadInput() {
+        assertRejected(parse("dial", """{"number":"call mom"}"""), "number must be a phone number")
+        assertRejected(parse("dial", """{"number":"+-()"}"""), "number must be a phone number")
+        assertRejected(parse("dial", """{"number":"tel:555*1234"}"""), "number must be a phone number")
+        assertRejected(parse("text_message", """{"number":"5551234"}"""), "missing field: body")
+        assertRejected(parse("directions", """{"destination":""}"""), "destination must be 1 to 300 characters")
+        assertRejected(parse("web_search", """{"query":"x","extra":1}"""), "unexpected field: extra")
     }
 }

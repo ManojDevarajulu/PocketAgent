@@ -17,6 +17,11 @@ class RiskyLabelsTest {
     }
 
     @Test
+    fun callLabelsAreRisky() = listOf("Call", "Voice call", "Video call", "Dial", "Call back").forEach {
+        assertTrue(RiskyLabels.isRisky(it), it)
+    }
+
+    @Test
     fun ignoresSafeLabels() = listOf(
         "Search", "Spotify", "Display", "Repay", "Compost", "Add to cart", "Playlist", null, "",
     ).forEach { assertFalse(RiskyLabels.isRisky(it), "$it") }
@@ -25,4 +30,16 @@ class RiskyLabelsTest {
     fun matchesHindiTerms() = listOf(
         "अभी भुगतान करें", "भेजें", "खरीदें", "हटाएं", "ऑर्डर करें", "पुष्टि करें",
     ).forEach { assertTrue(RiskyLabels.isRisky(it), it) }
+
+    @Test
+    fun seesThroughInvisibleAndWidthTricks() = listOf(
+        "Pa​y now", "Pa‍y", "​Pay", "De­lete", "Se﻿nd", "Ｐａｙ now",
+        "Ｄｅｌｅｔｅ", "P⁠ay", "Pay‮",
+    ).forEach { assertTrue(RiskyLabels.isRisky(it), it.replace("​", "<ZWSP>")) }
+
+    @Test
+    fun invisibleCharactersDoNotCreateFalseMatches() {
+        assertFalse(RiskyLabels.isRisky("Re​pay"))
+        assertFalse(RiskyLabels.isRisky("Dis​play"))
+    }
 }

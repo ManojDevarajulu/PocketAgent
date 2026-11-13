@@ -12,11 +12,15 @@ object Captions {
 
     fun forAction(call: ToolCall, target: ScreenNode?): String = when (call) {
         is ToolCall.Tap -> "Tapping " + (labelOf(target) ?: "an item")
-        is ToolCall.TypeText -> "Typing into " + (labelOf(target) ?: "a field")
+        is ToolCall.TypeText -> (if (call.submit) "Searching in " else "Typing into ") + (labelOf(target) ?: "a field")
         is ToolCall.Scroll -> "Scrolling ${call.direction.name.lowercase()}"
         ToolCall.Back -> "Going back"
         ToolCall.Home -> "Going home"
         is ToolCall.OpenApp -> "Opening " + oneLine(call.name).ifEmpty { "an app" }
+        is ToolCall.Directions -> "Starting directions"
+        is ToolCall.Dial -> "Opening the phone app"
+        is ToolCall.TextMessage -> "Writing a text message"
+        is ToolCall.WebSearch -> "Searching the web"
         ToolCall.Screenshot -> "Taking a screenshot"
         is ToolCall.Wait -> "Waiting"
         is ToolCall.AskUser -> "Asking you"

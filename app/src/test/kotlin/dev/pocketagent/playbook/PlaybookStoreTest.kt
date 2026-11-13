@@ -162,4 +162,13 @@ class PlaybookStoreTest {
             .associate { it.name to it.readText() }
         PlaybookStore.load(files, BlockedApps())
     }
+
+    @Test
+    fun mapsPlaybookTeachesTheClearButtonAndDirections() {
+        val text = File("src/main/assets/playbooks/com.google.android.apps.maps.md").readText()
+        val playbook = PlaybookStore.parse("com.google.android.apps.maps.md", text, BlockedApps()).getOrThrow()
+        assertEquals("com.google.android.apps.maps", playbook.packageName)
+        assertTrue("clear" in playbook.body.lowercase())
+        assertTrue("Directions" in playbook.body)
+    }
 }

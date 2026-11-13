@@ -35,6 +35,7 @@ class CaptionsTest {
     @Test
     fun typingNamesTheField() {
         assertEquals("Typing into Message", Captions.forAction(ToolCall.TypeText("a1", "hi"), node("a1", text = "Message")))
+        assertEquals("Searching in Search", Captions.forAction(ToolCall.TypeText("a1", "milk", submit = true), node("a1", text = "Search")))
     }
 
     @Test
@@ -76,5 +77,13 @@ class CaptionsTest {
         assertEquals("Opening " + "n".repeat(30) + "…", Captions.forAction(ToolCall.OpenApp("n".repeat(80)), null))
         assertEquals("Opening a b", Captions.forAction(ToolCall.OpenApp("a\nb"), null))
         assertEquals("Opening an app", Captions.forAction(ToolCall.OpenApp("   "), null))
+    }
+
+    @Test
+    fun shortcutCaptionsAreFixedWordsWithoutTheModelsText() {
+        assertEquals("Starting directions", Captions.forAction(ToolCall.Directions("secret place"), null))
+        assertEquals("Opening the phone app", Captions.forAction(ToolCall.Dial("5551234"), null))
+        assertEquals("Writing a text message", Captions.forAction(ToolCall.TextMessage("5551234", "secret"), null))
+        assertEquals("Searching the web", Captions.forAction(ToolCall.WebSearch("secret"), null))
     }
 }

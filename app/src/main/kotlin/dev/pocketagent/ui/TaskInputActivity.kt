@@ -7,6 +7,7 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -21,6 +22,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import dev.pocketagent.R
+import dev.pocketagent.agent.QuickTasks
 import dev.pocketagent.ui.kit.Kit
 import dev.pocketagent.ui.kit.Kit.color
 import dev.pocketagent.ui.kit.Kit.dp
@@ -63,8 +65,9 @@ class TaskInputActivity : ThemedActivity() {
         window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
 
         // Real blur of the app behind, where the device allows it; otherwise a plain, slightly stronger scrim.
-        val blur = windowManager.isCrossWindowBlurEnabled
-        if (blur) window.setBackgroundBlurRadius(dp(this, 28))
+        // Cross-window blur arrived in Android 12; calling it on Android 11 crashes, so 11 gets the scrim only.
+        val blur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && windowManager.isCrossWindowBlurEnabled
+        if (blur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) window.setBackgroundBlurRadius(dp(this, 28))
         scrimPeak = if (blur) 0.6f else 1f
 
         val root = FrameLayout(this)
@@ -166,15 +169,13 @@ class TaskInputActivity : ThemedActivity() {
         var suggestions: View? = null
         if (q == null) {
             val list = Kit.vstack(c).apply { setPadding(0, dp(c, 10), 0, 0) }
-            listOf(
-                listOf(R.drawable.ic_pin, "Take me to an address", "From a message or a map link", R.color.pa_t_blue),
-                listOf(R.drawable.ic_doc, "Read this screen out", "A short summary of what is here", R.color.pa_t_orange),
-                listOf(R.drawable.ic_chat, "Reply to this", "Drafts it, asks before sending", R.color.pa_t_green),
-            ).forEach { item ->
-                val icon = item[0] as Int
-                val title = item[1] as String
-                val sub = item[2] as String
-                val hue = item[3] as Int
+            val icons = listOf(R.drawable.ic_pin, R.drawable.ic_doc, R.drawable.ic_chat)
+            val hues = listOf(R.color.pa_t_blue, R.color.pa_t_orange, R.color.pa_t_green)
+            QuickTasks.all.forEachIndexed { index, quick ->
+                val icon = icons[index]
+                val title = quick.title
+                val sub = quick.subtitle
+                val hue = hues[index]
                 val row = Kit.hstack(c, 12).apply { minimumHeight = dp(c, 56); setPadding(dp(c, 4), 0, dp(c, 4), 0) }
                 row.addView(Kit.tile(c, icon, color(c, hue), 0xFFFFFFFF.toInt(), 32).apply {
                     (layoutParams as LinearLayout.LayoutParams).marginEnd = 0
@@ -186,7 +187,7 @@ class TaskInputActivity : ThemedActivity() {
                 row.addView(Kit.icon(c, R.drawable.ic_chevron, 14, R.color.pa_muted).apply { alpha = .6f })
                 Kit.pressable(row, 1f) {
                     row.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                    input.setText(title)
+                    input.setText(quick.task)
                     input.setSelection(input.text.length)
                 }
                 list.addView(row, Kit.lp())

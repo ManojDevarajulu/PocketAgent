@@ -16,10 +16,10 @@ class BlockedApps(
 
     fun isBlocked(packageName: String, label: String?): Boolean {
         if (packageName in packages) return true
-        val name = label?.trim().orEmpty()
+        val name = matchForm(label.orEmpty()).trim()
         if (name.isNotEmpty()) {
             if (name.lowercase(Locale.ROOT) in names) return true
-            if (labelPattern?.matcher(name)?.find() == true) return true
+            if (labelPattern?.find(name) == true) return true
         }
         return packageName.split('.').any { part -> part.isNotEmpty() && patterns.any { part.startsWith(it, ignoreCase = true) } }
     }

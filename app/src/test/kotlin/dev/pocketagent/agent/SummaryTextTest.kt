@@ -68,4 +68,16 @@ class SummaryTextTest {
     fun bodyOmitsEmptySummary() {
         assertEquals("Tokens: 10 in, 5 out", SummaryText.body(outcome(summary = "")))
     }
+
+    @Test
+    fun bodyShowsTimeWhenTheModelWasCalled() {
+        val body = SummaryText.body(outcome().copy(stats = TaskStats(steps = 7, modelMs = 29_400, totalMs = 34_200)))
+        assertEquals("Agent's summary: ok\nTime: 34 s, 7 steps, 29 s of it waiting for the model\nTokens: 10 in, 5 out", body)
+    }
+
+    @Test
+    fun shortTimesKeepOneDecimal() {
+        assertEquals("Time: 4.3 s, 1 step, 3.0 s of it waiting for the model", SummaryText.time(TaskStats(1, 2_960, 4_260)))
+        assertEquals(null, SummaryText.time(TaskStats()))
+    }
 }

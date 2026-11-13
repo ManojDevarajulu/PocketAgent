@@ -120,7 +120,8 @@ class AgentRunnerTest {
         val r = rig(FakeLlm(listOf(done)))
         r.runner.start("t", payScreen)
         runCurrent()
-        assertEquals(AgentState.Finished(TaskOutcome(EndReason.DONE, true, "all done")), r.runner.state.value)
+        val finished = assertIs<AgentState.Finished>(r.runner.state.value)
+        assertEquals(TaskOutcome(EndReason.DONE, true, "all done"), finished.outcome.copy(stats = TaskStats()))
     }
 
     @Test fun waitingStateDuringConfirmation() = runTest {

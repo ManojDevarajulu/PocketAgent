@@ -13,11 +13,15 @@ import kotlinx.serialization.json.putJsonObject
 /** One validated action chosen by the model. */
 sealed interface ToolCall {
     data class Tap(val nodeId: String?, val x: Int?, val y: Int?, val irreversible: Boolean) : ToolCall
-    data class TypeText(val nodeId: String, val text: String) : ToolCall
+    data class TypeText(val nodeId: String, val text: String, val submit: Boolean = false) : ToolCall
     data class Scroll(val direction: Direction, val nodeId: String?) : ToolCall
     data object Back : ToolCall
     data object Home : ToolCall
     data class OpenApp(val name: String) : ToolCall
+    data class Directions(val destination: String) : ToolCall
+    data class Dial(val number: String) : ToolCall
+    data class TextMessage(val number: String, val body: String) : ToolCall
+    data class WebSearch(val query: String) : ToolCall
     data object Screenshot : ToolCall
     data class Wait(val seconds: Int) : ToolCall
     data class AskUser(val question: String) : ToolCall
@@ -47,6 +51,16 @@ object Tools {
     private class Spec(val name: String, val description: String, val fields: List<Field>, val build: (Map<String, Any>) -> ToolCall)
 
     private const val MAX_COORDINATE = 100_000
+
+    /** Digits with the usual separators, and at least three digits. Anything else is not a phone number. */
+    private val PHONE_NUMBER = Regex("""\+?[0-9 ()*#.\-]{3,30}""")
+
+    private fun phoneNumber(raw: String): String {
+        require(PHONE_NUMBER.matches(raw) && raw.count { it.isDigit() } >= 3) { "number must be a phone number made of digits" }
+        return raw
+    }
+
+    private fun numberField() = Field("number", Kind.STRING, "The phone number, digits only, with an optional leading +.", min = 3, max = 30)
     private val DIRECTIONS = Direction.entries.associateBy { it.name.lowercase() }
 
     private fun nodeId(description: String, required: Boolean) =
@@ -79,8 +93,15 @@ object Tools {
             listOf(
                 nodeId("The node_id of the editable field.", required = true),
                 Field("text", Kind.STRING, "The text to enter.", min = 1, max = 1000),
+                Field(
+                    "submit",
+                    Kind.BOOLEAN,
+                    "Set to true to press the keyboard's Enter or Search key after typing, so a search runs in the same " +
+                        "step. Use it for search boxes and address bars, not for message boxes: tap their Send button instead.",
+                    required = false,
+                ),
             ),
-        ) { a -> ToolCall.TypeText(a["node_id"] as String, a["text"] as String) },
+        ) { a -> ToolCall.TypeText(a["node_id"] as String, a["text"] as String, a["submit"] as Boolean? ?: false) },
         Spec(
             "scroll",
             "Scroll the screen, or a scrollable element, in a direction.",
@@ -96,6 +117,26 @@ object Tools {
             "Open an installed app by its name, for example WhatsApp.",
             listOf(Field("name", Kind.STRING, "The name of the app.", min = 1, max = 100)),
         ) { a -> ToolCall.OpenApp(a["name"] as String) },
+        Spec(
+            "directions",
+            "Start turn-by-turn directions to an address or place in the maps app, in one step. Use it for any route or address.",
+            listOf(Field("destination", Kind.STRING, "The full address or place name.", min = 1, max = 300)),
+        ) { a -> ToolCall.Directions(a["destination"] as String) },
+        Spec(
+            "dial",
+            "Open the phone app with a number typed in. It does not call: the call button is a separate tap.",
+            listOf(numberField()),
+        ) { a -> ToolCall.Dial(phoneNumber(a["number"] as String)) },
+        Spec(
+            "text_message",
+            "Open a new SMS to a phone number with the message filled in. It does not send: the send button is a separate tap.",
+            listOf(numberField(), Field("body", Kind.STRING, "The message text.", min = 1, max = 1000)),
+        ) { a -> ToolCall.TextMessage(phoneNumber(a["number"] as String), a["body"] as String) },
+        Spec(
+            "web_search",
+            "Search the web for a query in one step. Not for addresses or routes: use directions for those.",
+            listOf(Field("query", Kind.STRING, "What to search for.", min = 1, max = 300)),
+        ) { a -> ToolCall.WebSearch(a["query"] as String) },
         Spec("screenshot", "Get a screenshot of the current screen. Use it only when the screen data lacks what you need.", emptyList()) { ToolCall.Screenshot },
         Spec(
             "wait",

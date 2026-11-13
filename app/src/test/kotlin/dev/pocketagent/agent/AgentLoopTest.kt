@@ -71,7 +71,11 @@ class AgentLoopTest {
         playbooks: PlaybookStore = noPlaybooks,
         maxSteps: Int = 25,
         confirmTimeoutMs: Long = 120_000,
-    ) = AgentLoop(llm, device, SafetyGate(BlockedApps(), own), playbooks, ScreenSerializer(own), ui, maxSteps, confirmTimeoutMs)
+        nowMs: () -> Long = { 0L },
+    ) = AgentLoop(llm, device, SafetyGate(BlockedApps(), own), playbooks, ScreenSerializer(own), ui, maxSteps, confirmTimeoutMs, nowMs)
+
+    /** Timing depends on the clock, so outcomes are compared without it unless a test is about timing. */
+    private fun TaskOutcome.withoutStats() = copy(stats = TaskStats())
 
     /** A screen whose text differs per [tag], so no two are equal. */
     private fun distinctScreen(tag: String, pkg: String = "com.app") =
@@ -86,7 +90,7 @@ class AgentLoopTest {
     @Test fun completesWhenModelCallsDone() = runTest {
         val llm = FakeLlm(listOf(done("bought milk")))
         val outcome = loop(llm, FakeDevice(listOf(start))).run("buy milk", start)
-        assertEquals(TaskOutcome(EndReason.DONE, true, "bought milk"), outcome)
+        assertEquals(TaskOutcome(EndReason.DONE, true, "bought milk"), outcome.withoutStats())
     }
 
     @Test fun blockedForegroundAppRefusedBeforeAnyModelCall() = runTest {
@@ -306,7 +310,7 @@ class AgentLoopTest {
 
     @Test fun refusalEndsTaskWithExplanation() = runTest {
         val outcome = loop(FakeLlm(listOf(LlmResult.Refused("I cannot help with that"))), FakeDevice(listOf(start))).run("t", start)
-        assertEquals(TaskOutcome(EndReason.REFUSED, false, "I cannot help with that"), outcome)
+        assertEquals(TaskOutcome(EndReason.REFUSED, false, "I cannot help with that"), outcome.withoutStats())
     }
 
     @Test fun authFailureEndsWithAuthError() = runTest {
@@ -388,6 +392,8 @@ class AgentLoopTest {
         assertTrue(SYSTEM_PROMPT.contains("<screen_data>"))
         assertTrue(SYSTEM_PROMPT.contains("irreversible"))
         assertTrue(SYSTEM_PROMPT.contains("always call open_app"))
+        assertTrue(SYSTEM_PROMPT.contains("Maps app"), "directions must go to the Maps app")
+        assertTrue(SYSTEM_PROMPT.contains("browser"), "and not to a browser search")
     }
 
     @Test fun systemPromptDescribesAppTipsAsTrusted() {
@@ -510,7 +516,7 @@ class AgentLoopTest {
         val llm = FakeLlm(listOf(tap("a1"), scroll(), done()))
         val device = FakeDevice(listOf(start), failReadsFrom = 1)
         val outcome = loop(llm, device).run("t", start)
-        assertEquals(TaskOutcome(EndReason.DEVICE_UNAVAILABLE, false, "The phone locked"), outcome)
+        assertEquals(TaskOutcome(EndReason.DEVICE_UNAVAILABLE, false, "The phone locked"), outcome.withoutStats())
     }
 
     @Test fun deviceUnavailableOnActionEndsTheTask() = runTest {
@@ -518,7 +524,7 @@ class AgentLoopTest {
         val llm = FakeLlm(listOf(tap("a1"), done()))
         val device = FakeDevice(listOf(start), resultFor = { throw DeviceUnavailable(message) })
         val outcome = loop(llm, device).run("t", start)
-        assertEquals(TaskOutcome(EndReason.DEVICE_UNAVAILABLE, false, message), outcome)
+        assertEquals(TaskOutcome(EndReason.DEVICE_UNAVAILABLE, false, message), outcome.withoutStats())
     }
 
     @Test fun cancellationIsNotTurnedIntoAnOutcome() = runTest {
@@ -534,5 +540,58 @@ class AgentLoopTest {
         assertEquals("(no answer)", llm.turns[1].toolResult!!.text)
         assertEquals(1_000L, testScheduler.currentTime)
         assertEquals(listOf(true, false), ui.waiting)
+    }
+
+    // ---- timing and type-and-submit ----
+
+    @Test fun statsCountModelCallsAndTheirTime() = runTest {
+        // Every clock read moves 100 ms on: start, then before and after each model call, then the end.
+        var t = 0L
+        val llm = FakeLlm(listOf(tap("a1"), done()))
+        val outcome = loop(llm, FakeDevice(listOf(start, distinctScreen("x"))), nowMs = { t += 100; t }).run("t", start)
+        assertEquals(TaskStats(steps = 2, modelMs = 200, totalMs = 500), outcome.stats)
+    }
+
+    @Test fun typeWithSubmitReachesTheDevice() = runTest {
+        val search = screenOf(node("a1", role = "field", text = "Search", editable = true))
+        val device = FakeDevice(listOf(search, distinctScreen("results")))
+        val llm = FakeLlm(listOf(call("type", "node_id" to "a1", "text" to "milk", "submit" to true), done()))
+        val ui = FakeUi()
+        loop(llm, device, ui).run("t", search)
+        val typed = assertIs<DeviceAction.TypeText>(device.actions.single())
+        assertTrue(typed.submit)
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
+    @Test fun submitNextToASendButtonAsksFirst() = runTest {
+        val ui = FakeUi().apply { onConfirm = { false } }
+        val device = FakeDevice(listOf(fieldAndSend))
+        val llm = FakeLlm(listOf(call("type", "node_id" to "a1", "text" to "hi", "submit" to true), done()))
+        loop(llm, device, ui).run("t", fieldAndSend)
+        assertEquals(1, ui.confirmRequests.size)
+        assertTrue(device.actions.isEmpty())
+    }
+
+    // ---- one-step shortcuts ----
+
+    @Test fun shortcutsReachTheDeviceAsOneAction() = runTest {
+        val device = FakeDevice(listOf(start, distinctScreen("maps")))
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(call("directions", "destination" to "221B Baker St"), done()))
+        loop(llm, device, ui).run("t", start)
+        assertEquals(
+            listOf<DeviceAction>(DeviceAction.OpenShortcut(dev.pocketagent.device.Shortcut.Directions("221B Baker St"))),
+            device.actions,
+        )
+        assertEquals(listOf("Starting directions"), ui.captions)
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
+    @Test fun aPrefilledTextShowsOnTheSendConfirmation() = runTest {
+        val sms = screenOf(node("a1", role = "button", text = "Send", clickable = true))
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(call("text_message", "number" to "5551234", "body" to "on my way"), tap("a1"), done()))
+        loop(llm, FakeDevice(listOf(sms)), ui).run("t", start)
+        assertEquals("on my way", ui.confirmRequests.single().detail)
     }
 }

@@ -45,4 +45,11 @@ class BlockedAppsTest {
         val none = BlockedApps(packages = emptySet(), patterns = emptyList(), names = emptySet())
         assertFalse(none.isBlocked("com.example", "Hello"))
     }
+
+    @Test
+    fun blocksLabelsDisguisedWithInvisibleOrFullwidthCharacters() {
+        assertTrue(blocked.isBlocked("com.example.x", "HDFC Ba​nk"))
+        assertTrue(blocked.isBlocked("com.example.y", "Ｐａｙtm"))
+        assertTrue(blocked.isBlocked("", "Phone­Pe"))
+    }
 }

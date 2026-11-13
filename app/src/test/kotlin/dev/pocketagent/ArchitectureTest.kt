@@ -196,17 +196,32 @@ class ArchitectureTest {
     }
 
     @Test
-    fun manifestDeclaresLauncherQueriesOnly() {
+    fun manifestDeclaresLauncherAndShortcutQueriesOnly() {
         val root = manifest()
         val text = File("src/main/AndroidManifest.xml").readText()
         assertTrue(!text.contains("QUERY_ALL_PACKAGES"), "QUERY_ALL_PACKAGES is not used")
         val queries = root.children("queries").single()
-        val intents = queries.children("intent")
-        assertEquals(1, intents.size, "one launcher intent")
-        assertTrue(queries.children("package").isEmpty() && queries.children("provider").isEmpty(), "launcher intent only")
-        val intent = intents.single()
-        assertEquals(listOf("android.intent.action.MAIN"), intent.children("action").map { it.getAttribute("android:name") })
-        assertEquals(listOf("android.intent.category.LAUNCHER"), intent.children("category").map { it.getAttribute("android:name") })
+        assertTrue(queries.children("package").isEmpty() && queries.children("provider").isEmpty(), "intent queries only")
+        // Launcher apps for open_app, and the handlers of the one-step shortcuts so a blocked one is refused before
+        // it opens. Each entry is (action, category or data scheme). Nothing wider may be added without updating this.
+        val declared = queries.children("intent").map { intent ->
+            val action = intent.children("action").single().getAttribute("android:name")
+            val category = intent.children("category").map { it.getAttribute("android:name") }
+            val scheme = intent.children("data").map { it.getAttribute("android:scheme") }
+            action to (category + scheme).joinToString(",")
+        }
+        assertEquals(
+            setOf(
+                "android.intent.action.MAIN" to "android.intent.category.LAUNCHER",
+                "android.intent.action.VIEW" to "google.navigation",
+                "android.intent.action.VIEW" to "geo",
+                "android.intent.action.DIAL" to "tel",
+                "android.intent.action.SENDTO" to "smsto",
+                "android.intent.action.WEB_SEARCH" to "",
+            ),
+            declared.toSet(),
+        )
+        assertEquals(declared.size, declared.toSet().size, "no duplicate queries")
     }
 
     @Test

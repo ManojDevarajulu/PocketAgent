@@ -272,4 +272,80 @@ class SafetyGateTest {
             assertIs<Verdict.Block>(gate.checkApp(screenOf(packageName = it, appLabel = null)), it)
         }
     }
+
+    // ---- disguised labels ----
+
+    @Test
+    fun disguisedPayButtonNeedsConfirmation() {
+        val screen = screenOf(node("a1", role = "button", text = "Pa​y now", clickable = true))
+        assertIs<Verdict.Confirm>(tap(screen, "a1"))
+    }
+
+    @Test
+    fun disguisedOkNextToDisguisedAmountNeedsConfirmation() {
+        val screen = screenOf(
+            node("a1", role = "button", text = "O​K", clickable = true),
+            node("a2", role = "text", text = "To​tal ₹499"),
+        )
+        assertIs<Verdict.Confirm>(tap(screen, "a1"))
+    }
+
+    @Test
+    fun disguisedMoneyWordAloneStillCountsAsMoney() {
+        val screen = screenOf(
+            node("a1", role = "button", text = "Continue", clickable = true),
+            node("a2", role = "text", text = "Ａｍｏｕｎｔ due"),
+        )
+        assertIs<Verdict.Confirm>(tap(screen, "a1"))
+    }
+
+    // ---- type and submit ----
+
+    private fun submit(screen: Screen, id: String) = gate.check(DeviceAction.TypeText(screen.byId(id), "x", submit = true), screen, false)
+
+    @Test
+    fun submitOnAPlainSearchScreenIsAllowed() {
+        val screen = screenOf(node("a1", role = "input", text = "Search", editable = true), node("a2", role = "text", text = "Recent"))
+        assertEquals(Verdict.Allow, submit(screen, "a1"))
+    }
+
+    @Test
+    fun submitWhileASendButtonIsVisibleNeedsConfirmation() {
+        val screen = screenOf(
+            node("a1", role = "input", text = "Message", editable = true),
+            node("a2", role = "button", text = "Send", clickable = true),
+        )
+        assertIs<Verdict.Confirm>(submit(screen, "a1"))
+    }
+
+    @Test
+    fun submitOnAScreenWithAnAmountNeedsConfirmation() {
+        val screen = screenOf(node("a1", role = "input", text = "Note", editable = true), node("a2", role = "text", text = "Total ₹499"))
+        assertIs<Verdict.Confirm>(submit(screen, "a1"))
+    }
+
+    @Test
+    fun submitIntoAPasswordFieldIsStillBlocked() {
+        val screen = screenOf(node("a1", role = "input", editable = true, isPassword = true))
+        assertIs<Verdict.Block>(submit(screen, "a1"))
+    }
+
+    // ---- one-step shortcuts ----
+
+    @Test
+    fun shortcutsOnlyFillThingsInSoTheyAreAllowed() {
+        val screen = safeScreen()
+        listOf(
+            dev.pocketagent.device.Shortcut.Directions("home"),
+            dev.pocketagent.device.Shortcut.Dial("5551234"),
+            dev.pocketagent.device.Shortcut.TextMessage("5551234", "hi"),
+            dev.pocketagent.device.Shortcut.WebSearch("news"),
+        ).forEach { assertEquals(Verdict.Allow, gate.check(DeviceAction.OpenShortcut(it), screen, false), "$it") }
+    }
+
+    @Test
+    fun theCallButtonAfterDialNeedsConfirmation() {
+        val screen = screenOf(node("a1", role = "button", text = "Call", clickable = true))
+        assertIs<Verdict.Confirm>(tap(screen, "a1"))
+    }
 }

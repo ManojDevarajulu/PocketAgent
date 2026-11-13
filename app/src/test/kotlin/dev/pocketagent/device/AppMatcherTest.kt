@@ -76,4 +76,44 @@ class AppMatcherTest {
     fun blankNameRefuses() {
         assertIs<AppResolution.Refused>(matcher.resolve("   ", listOf(clock, maps)))
     }
+
+    @Test
+    fun longerNameThatContainsTheLabelStillLaunches() {
+        // The phone's app is labelled "Maps"; a model that asks for "Google Maps" must still reach it.
+        val phoneMaps = LauncherApp("Maps", "com.google.android.apps.maps")
+        assertEquals(AppResolution.Launch(phoneMaps), matcher.resolve("Google Maps", listOf(phoneMaps, clock)))
+    }
+
+    @Test
+    fun longerNameWithOtherMapsAppInstalledStillPicksTheRightOne() {
+        val phoneMaps = LauncherApp("Maps", "com.google.android.apps.maps")
+        val organic = LauncherApp("Organic Maps", "app.organicmaps")
+        assertEquals(AppResolution.Launch(phoneMaps), matcher.resolve("Google Maps", listOf(organic, phoneMaps)))
+    }
+
+    @Test
+    fun labelOnlyMatchesAsWholeWordsInsideTheRequestedName() {
+        val clockApp = LauncherApp("Clock", "com.example.clock")
+        assertIs<AppResolution.Refused>(matcher.resolve("o'clockwork", listOf(clockApp)))
+        assertEquals(AppResolution.Launch(clockApp), matcher.resolve("the Clock app", listOf(clockApp)))
+    }
+
+    @Test
+    fun veryShortLabelsAreNeverMatchedInsideALongerName() {
+        val go = LauncherApp("Go", "com.example.go")
+        assertIs<AppResolution.Refused>(matcher.resolve("Google Maps", listOf(go)))
+    }
+
+    @Test
+    fun twoLabelsInsideTheNameAreAmbiguous() {
+        val a = LauncherApp("Maps", "com.a.maps")
+        val b = LauncherApp("Google", "com.b.google")
+        assertIs<AppResolution.Refused>(matcher.resolve("Google Maps", listOf(a, b)))
+    }
+
+    @Test
+    fun aBlockedAppFoundByTheLongerNameIsStillRefused() {
+        val bank = LauncherApp("Bank", "com.example.bank")
+        assertEquals(AppResolution.Refused("Bank is on the block list"), matcher.resolve("my Bank app", listOf(bank)))
+    }
 }

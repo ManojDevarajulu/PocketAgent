@@ -32,12 +32,28 @@ class SafetyGate(private val blocked: BlockedApps, private val ownPackage: Strin
         is DeviceAction.TypeText -> when {
             action.node.packageName == ownPackage -> OWN_WINDOW
             action.node.isPassword -> Verdict.Block("password fields are never typed into")
+            action.submit -> checkSubmit(action.node, screen)
             else -> Verdict.Allow
         }
         is DeviceAction.Scroll -> if (action.node?.packageName == ownPackage) OWN_WINDOW else Verdict.Allow
         is DeviceAction.OpenApp ->
             if (blocked.isBlocked("", action.name)) Verdict.Block("${action.name} is on the block list") else Verdict.Allow
-        DeviceAction.Back, DeviceAction.Home -> Verdict.Allow
+        // Nothing is sent, called or paid by the shortcut itself. The device refuses one that would land in a
+        // blocked app, and the loop's checkApp ends the task if a blocked app comes to the front anyway.
+        is DeviceAction.OpenShortcut, DeviceAction.Back, DeviceAction.Home -> Verdict.Allow
+    }
+
+    /**
+     * Enter can send a message as well as run a search, and nothing on the screen says which one it will do. So
+     * a submit needs the user's approval whenever the field sits near a risky label, a risky button such as Send
+     * is visible anywhere, or the screen shows an amount. A plain search screen has none of these.
+     */
+    private fun checkSubmit(field: ScreenNode, screen: Screen): Verdict {
+        riskyLabelNear(field, screen)?.let { return Verdict.Confirm("pressing Enter in \"$it\" may send something") }
+        screen.all().mapNotNull { it.label() }.firstOrNull { RiskyLabels.isRisky(it) }
+            ?.let { return Verdict.Confirm("pressing Enter may trigger \"$it\" on this screen") }
+        if (screen.showsMoney()) return Verdict.Confirm("pressing Enter on a screen that shows an amount")
+        return Verdict.Allow
     }
 
     private fun checkTapAt(x: Int, y: Int, screen: Screen, irreversible: Boolean): Verdict {
@@ -105,10 +121,10 @@ class SafetyGate(private val blocked: BlockedApps, private val ownPackage: Strin
         node.children.asSequence().flatMap { sequenceOf(it) + descendants(it) }
 
     private fun isGenericAffirmative(node: ScreenNode): Boolean =
-        node.label()?.lowercase(Locale.ROOT) in AFFIRMATIVES
+        node.label()?.let { matchForm(it).lowercase(Locale.ROOT) } in AFFIRMATIVES
 
     private fun Screen.showsMoney(): Boolean = all().mapNotNull { it.label() }.any { label ->
-        label.any { it in CURRENCY_SYMBOLS } || MONEY_WORDS.matcher(label).find()
+        matchForm(label).any { it in CURRENCY_SYMBOLS } || MONEY_WORDS.find(label)
     }
 
     private companion object {

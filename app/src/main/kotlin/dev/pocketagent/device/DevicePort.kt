@@ -5,11 +5,33 @@ enum class Direction { UP, DOWN, LEFT, RIGHT }
 sealed interface DeviceAction {
     data class Tap(val node: ScreenNode) : DeviceAction
     data class TapAt(val x: Int, val y: Int) : DeviceAction
-    data class TypeText(val node: ScreenNode, val text: String) : DeviceAction
+    /** [submit] presses the keyboard's Enter or Search key after the text is in. */
+    data class TypeText(val node: ScreenNode, val text: String, val submit: Boolean = false) : DeviceAction
     data class Scroll(val direction: Direction, val node: ScreenNode?) : DeviceAction
     data object Back : DeviceAction
     data object Home : DeviceAction
     data class OpenApp(val name: String) : DeviceAction
+
+    /** Hands a ready-made request to another app through an Android intent. See [Shortcut]. */
+    data class OpenShortcut(val shortcut: Shortcut) : DeviceAction
+}
+
+/**
+ * One-step requests to other apps. None of them sends, calls or pays: a call or a text only opens with the
+ * number and words filled in, and the Call or Send tap that follows is still checked by the gate.
+ */
+sealed interface Shortcut {
+    /** Starts turn-by-turn directions in a maps app. */
+    data class Directions(val destination: String) : Shortcut
+
+    /** Opens the phone app with [number] typed in. It does not call. */
+    data class Dial(val number: String) : Shortcut
+
+    /** Opens a new text message to [number] with [body] filled in. It does not send. */
+    data class TextMessage(val number: String, val body: String) : Shortcut
+
+    /** Runs a web search in the phone's default search app. */
+    data class WebSearch(val query: String) : Shortcut
 }
 
 sealed interface ActionResult {

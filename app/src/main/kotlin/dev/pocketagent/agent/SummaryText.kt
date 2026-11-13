@@ -24,6 +24,20 @@ object SummaryText {
         val usage = outcome.usage
         val cached = if (usage.cachedInputTokens > 0) ", ${usage.cachedInputTokens} cached" else ""
         val tokens = "Tokens: ${usage.inputTokens} in, ${usage.outputTokens} out$cached"
-        return if (summary.isEmpty()) tokens else "Agent's summary: $summary\n$tokens"
+        val footer = time(outcome.stats)?.let { "$it\n$tokens" } ?: tokens
+        return if (summary.isEmpty()) footer else "Agent's summary: $summary\n$footer"
+    }
+
+    /** "Time: 34 s, 7 steps, 29 s of it waiting for the model", or null when no model call was made. */
+    internal fun time(stats: TaskStats): String? {
+        if (stats.steps <= 0) return null
+        val steps = if (stats.steps == 1) "1 step" else "${stats.steps} steps"
+        return "Time: ${seconds(stats.totalMs)}, $steps, ${seconds(stats.modelMs)} of it waiting for the model"
+    }
+
+    /** Whole seconds from 10 s up, one decimal below that. Built by hand so the locale never changes the separator. */
+    private fun seconds(ms: Long): String {
+        val tenths = (ms.coerceAtLeast(0) + 50) / 100
+        return if (tenths >= 100) "${(tenths + 5) / 10} s" else "${tenths / 10}.${tenths % 10} s"
     }
 }
