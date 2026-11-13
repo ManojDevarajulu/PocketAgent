@@ -264,7 +264,7 @@ class SetupActivity : ThemedActivity() {
         SetupStep.MODEL_CHECK -> "Model"
         SetupStep.ACCESSIBILITY -> "Accessibility"
         SetupStep.MICROPHONE -> "Microphone (optional)"
-        SetupStep.NOTIFICATIONS -> "Notifications"
+        SetupStep.NOTIFICATIONS -> "Notifications (optional)"
         SetupStep.BUBBLE -> "Bubble"
         SetupStep.TEST_TASK -> "First task"
     }
