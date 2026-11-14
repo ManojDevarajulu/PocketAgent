@@ -48,9 +48,12 @@ Talk back (on by default) only affects tasks started from the mic.
   silence twice declines. The Approve button works at the same time and wins if tapped first.
 - **Content only on request.** The spoken confirmation names the action and target but not the message text.
   The text is read aloud only if the user says "read it" (at most twice per confirmation).
+- **Questions are always spoken.** When the agent asks the user something (`ask_user`), the question is spoken
+  and shown on the caption. A question may quote text from the screen.
 - **The summary is read only when asked.** The end line is just "Done." unless the task asked to hear the result.
 - **Nothing is stored.** Transcripts and spoken text are not saved or logged. Speech recognition is done by the
-  phone's own recognizer, not by the app or the AI provider.
+  phone's own recognizer, not by the app or the AI provider. Offline recognition is only preferred: the phone's
+  recognizer may send the audio to its vendor's online service.
 - **Safety gate unchanged.** Voice changes how a confirmation is answered, never whether one is needed.
 
 ## Safety gate rules

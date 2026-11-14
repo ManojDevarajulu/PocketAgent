@@ -186,7 +186,7 @@ The provider and key are entered in the app's setup screen. There is no build-ti
 
 ### Voice loop
 
-Needs Talk back switched on in setup. All items are still to be run on a device.
+Needs Talk back switched on (Settings screen, Bubble section). All items are still to be run on a device.
 
 - [ ] **Bluetooth headphones.** Run the WhatsApp reply task from the mic. Expected: it finishes without touching
   the screen after the mic.
@@ -201,7 +201,8 @@ Needs Talk back switched on in setup. All items are still to be run on a device.
   approves.
 - [ ] **Typed task.** Type a task. Expected: it stays silent.
 - [ ] **Talk back off.** Turn Talk back off and run a mic task. Expected: it stays silent.
-- [ ] **Phone call.** Take a call mid-sentence. Expected: speech stops and the task carries on.
+- [ ] **Phone call.** Take a call mid-sentence. Expected: speech stops and the task carries on; a confirmation
+  during a call waits for the card (does not auto-decline).
 
 Known device-pass items:
 
@@ -210,8 +211,6 @@ Known device-pass items:
   and the setup copy must say so.
 - [ ] **TTS warm-up.** Text-to-speech may be unavailable in the first second after the bubble tap, so a task
   sent immediately runs silent. Check how often this happens.
-- [ ] **Bubble tap while speaking.** The bubble tap does not stop the previous task's last spoken line. Check
-  whether this is noticeable.
 
 Open questions from the design, not settled without a device:
 
