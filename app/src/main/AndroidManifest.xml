@@ -33,6 +33,12 @@
         <intent>
             <action android:name="android.intent.action.WEB_SEARCH" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_TIMER" />
+        </intent>
         <!-- Lets Talk back bind the phone's text-to-speech engine. -->
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
