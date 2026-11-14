@@ -54,8 +54,8 @@ You bring your own API key (Anthropic, OpenRouter, OpenAI, Gemini, DeepSeek, Gro
 
 * 🎯 **Contextual Trigger over Chat**: You never leave your current app to open a chat window. Tap the bubble directly over whatever is on screen, speak or type your instruction, and the agent acts immediately.
 * ⚡ **Zero-PC, Zero-Backend Privacy**: No tethered laptops, no cloud backend, and no telemetry. (The optional [Computer Link](docs/COMPUTER_LINK.md) is the one exception, and it is off until you switch it on.) The app runs locally on your phone and calls your chosen AI provider directly. Screen content is sent only to your chosen provider.
-* 🛡️ **Deterministic Safety Gate**: Hardware-backed Kotlin rules protect your privacy before any action runs:
-  * Sensitive apps (banking, payments, crypto, password managers, system settings) are **strictly blocked**.
+* 🛡️ **Deterministic Safety Gate**: Plain Kotlin rules (not the AI) protect your privacy before any action runs:
+  * Sensitive apps (banking, payments, crypto, password managers, system settings) are **blocked**.
   * Irreversible actions (*"Pay"*, *"Send"*, *"Delete"*, *"Order"*) pause execution and require explicit user confirmation.
   * Screen text is wrapped in untrusted data boundaries to prevent adversarial prompt injection.
   * API keys are encrypted on-device with **Android Keystore AES-256 GCM** and protected with `FLAG_SECURE`.
@@ -139,7 +139,7 @@ Pocket Agent communicates directly with provider endpoints using a hardened OkHt
 | **Gemini** | OpenAI-compatible endpoint | High-speed multimodal inference |
 | **DeepSeek** | OpenAI-compatible | DeepSeek-V3 and DeepSeek-R1 |
 | **Groq** | OpenAI-compatible | Ultra-low latency inference |
-| **Ollama** | Local OpenAI-compatible | 100% offline; plain `http` supported for local LAN |
+| **Ollama** | Local OpenAI-compatible | Runs on your own computer or network, so nothing goes to a cloud service; plain `http` is allowed for local LAN |
 | **Custom** | OpenAI-compatible | Any custom or self-hosted endpoint |
 
 > **Model Compatibility**: Pocket Agent does not restrict you to a hardcoded model list. Type any model identifier that supports **tool calling** and tap **"Test the model"** during setup to verify with a lightweight probe.
