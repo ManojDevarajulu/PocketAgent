@@ -1,26 +1,32 @@
 <div align="center">
-  <img src="docs/assets/logo.png" alt="Pocket Agent Logo" width="180" height="180" />
-  <h1>Pocket Agent</h1>
-  <p><strong>Zero-PC, on-device autonomous mobile AI agent for Android.</strong></p>
-  <p><em>Tap the bubble on anything. Say what to do. Your phone does it.</em></p>
 
-  <p>
-    <a href="https://github.com/ManojDevarajulu/PocketAgent/releases/latest"><img src="https://img.shields.io/github/v/release/ManojDevarajulu/PocketAgent?color=FF8544&label=Release&logo=android" alt="Release" /></a>
-    <a href="https://github.com/ManojDevarajulu/PocketAgent/actions"><img src="https://img.shields.io/github/actions/workflow/status/ManojDevarajulu/PocketAgent/test.yml?branch=main&label=CI&logo=github" alt="CI Status" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%203.0-16233F.svg?logo=gnu" alt="AGPL-3.0 License" /></a>
-    <a href="ACCEPTABLE_USE.md"><img src="https://img.shields.io/badge/AUP-Enforced-success.svg" alt="AUP Enforced" /></a>
-    <a href="https://github.com/ManojDevarajulu/PocketAgent/stargazers"><img src="https://img.shields.io/github/stars/ManojDevarajulu/PocketAgent?style=flat&color=FFD700" alt="GitHub Stars" /></a>
-  </p>
+<img src="docs/assets/logo.png" alt="Pocket Agent" width="108" />
 
-  <p>
-    <a href="#quick-install-apk">Download APK</a> •
-    <a href="#key-differentiators">Key Features</a> •
-    <a href="#comparison">Comparison</a> •
-    <a href="#how-it-works">How It Works</a> •
-    <a href="#supported-providers-byok">Providers</a> •
-    <a href="#building-from-source">Build from Source</a> •
-    <a href="#documentation">Documentation</a>
-  </p>
+# Pocket Agent
+
+**An on-device AI agent for Android that operates apps and your phone autonomously.**
+
+It works directly through a floating bubble on your screen—zero PC, zero ADB, zero backend.
+
+<a href="https://github.com/ManojDevarajulu/PocketAgent/releases/latest"><img src="https://img.shields.io/badge/Download%20APK-Android%2011%2B-2ea043?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" /></a>
+
+<a href="https://github.com/ManojDevarajulu/PocketAgent/stargazers"><img src="https://img.shields.io/github/stars/ManojDevarajulu/PocketAgent?style=flat&logo=github&label=Star&color=1f6feb" alt="stars" /></a>
+<a href="https://github.com/ManojDevarajulu/PocketAgent/releases/latest"><img src="https://img.shields.io/github/v/release/ManojDevarajulu/PocketAgent?label=version&color=FF8544" alt="version" /></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-lightgrey" alt="license" /></a>
+<a href="ACCEPTABLE_USE.md"><img src="https://img.shields.io/badge/AUP-enforced-success" alt="AUP" /></a>
+
+<br/>
+<br/>
+
+<p>
+  <a href="#key-differentiators">Key Features</a> •
+  <a href="#comparison">Comparison</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#supported-providers-byok">Providers</a> •
+  <a href="#building-from-source">Build from Source</a> •
+  <a href="#documentation">Documentation</a>
+</p>
+
 </div>
 
 <p align="center">
