@@ -1,6 +1,16 @@
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Pocket Agent Logo" width="96" height="96" />
+</p>
+
 # Pocket Agent
 
 **Tap the bubble on anything. Say what to do. Your phone does it.**
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%203.0-blue.svg" alt="AGPL-3.0 License" /></a>
+  <a href="https://github.com/ManojDevarajulu/PocketAgent/releases"><img src="https://img.shields.io/github/v/release/ManojDevarajulu/PocketAgent?color=orange&label=Release" alt="Latest Release" /></a>
+  <a href="ACCEPTABLE_USE.md"><img src="https://img.shields.io/badge/AUP-Enforced-success.svg" alt="Acceptable Use Policy" /></a>
+</p>
 
 <p align="center">
   <img src="docs/assets/demo.gif" alt="Pocket Agent in action on an Android phone" width="320" />
@@ -169,11 +179,14 @@ Contributions are welcome, including app playbooks (short Markdown navigation gu
 
 * [Architecture](docs/ARCHITECTURE.md): agent loop, accessibility tree serializer and overlays
 * [Security Model](docs/SECURITY_MODEL.md): threat model, blocked apps and key storage
+* [Acceptable Use Policy](ACCEPTABLE_USE.md): ethical guidelines, safety requirements and prohibited uses
 * [Testing](docs/TESTING.md): unit tests and the physical-device checklist
 
 ---
 
 ## Licence
 
-Licensed under the [MIT Licence](LICENSE).
-Copyright (c) 2026 Pocket Agent contributors.
+Licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).  
+All use, development, and distribution are subject to the [Acceptable Use Policy](ACCEPTABLE_USE.md).
+
+Copyright (c) 2026 Manoj Devarajulu and Pocket Agent contributors.
