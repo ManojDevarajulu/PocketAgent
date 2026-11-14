@@ -117,11 +117,11 @@ object Kit {
     }
 
     /** Fades blocks up into place one after another. Used once, when a screen first appears. */
-    fun reveal(views: List<View>, stepMs: Long = 45) {
+    fun reveal(views: List<View>, stepMs: Long = 45, riseDp: Int = 14, durationMs: Long = 420) {
         views.forEachIndexed { i, v ->
             v.alpha = 0f
-            v.translationY = v.resources.displayMetrics.density * 14
-            v.animate().alpha(1f).translationY(0f).setStartDelay(60 + i * stepMs).setDuration(420)
+            v.translationY = v.resources.displayMetrics.density * riseDp
+            v.animate().alpha(1f).translationY(0f).setStartDelay(60 + i * stepMs).setDuration(durationMs)
                 .setInterpolator(ease).start()
         }
     }

@@ -14,6 +14,10 @@ import android.widget.ScrollView
 class Shell(private val context: Context, private val content: FrameLayout, private val build: (String, Nav) -> View) {
     enum class Transition { NONE, FADE, PUSH }
 
+    private companion object {
+        const val SETTLE_TOTAL_MS = 420L
+    }
+
     private val tabs = listOf("home", "activity", "settings")
     private val stack = ArrayList<Pair<String, View>>()
     val nav = Nav(tab = { show(tabs[it], Transition.FADE, replace = true) }, push = { show(it, Transition.PUSH) }, back = { pop() })
@@ -37,6 +41,19 @@ class Shell(private val context: Context, private val content: FrameLayout, priv
         stack[stack.lastIndex] = top.first to view
         content.addView(view, FrameLayout.LayoutParams(-1, -1))
         if (scrolledTo > 0) restoreScroll(view, scrolledTo)
+    }
+
+    /**
+     * The page's blocks fade up a few dp, one after another, like a screen settling into place. It runs before the
+     * first frame so nothing flashes, and only when a screen is shown (never on [refresh], which would replay it on
+     * every switch). Every block takes part, so nothing pops in while its neighbours fade; the gap between blocks
+     * shrinks on a long page so the whole thing still takes about half a second.
+     */
+    private fun settle(view: View) {
+        val body = scrollerIn(view)?.getChildAt(0) as? ViewGroup ?: return
+        val blocks = (0 until body.childCount).map { body.getChildAt(it) }
+        if (blocks.isEmpty()) return
+        Kit.reveal(blocks, stepMs = (SETTLE_TOTAL_MS / blocks.size).coerceIn(8L, 28L), riseDp = 8, durationMs = 380)
     }
 
     /** Puts the new page back where the old one was, before its first frame so nothing visibly jumps. */
@@ -64,6 +81,8 @@ class Shell(private val context: Context, private val content: FrameLayout, priv
         if (replace && stack.isNotEmpty()) stack.removeAt(stack.lastIndex)
         stack.add(name to view)
         content.addView(view, FrameLayout.LayoutParams(-1, -1))
+        // Home runs its own, livelier reveal. Every other screen rises in quietly, so the whole app moves alike.
+        if (name != "home") settle(view)
         val w = content.width.toFloat().coerceAtLeast(1f)
         when (kind) {
             Transition.NONE -> old?.let { content.removeView(it) }

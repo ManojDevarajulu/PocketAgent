@@ -436,8 +436,15 @@ object Screens {
         p.addView(gap(c, 12))
         val list = Kit.vstack(c)
         var filter = 0
+        var firstRender = true
         fun render() {
             list.removeAllViews()
+            // Changing the filter or the search softly cross-fades the list instead of snapping it.
+            if (!firstRender) {
+                list.alpha = 0.35f
+                list.animate().alpha(1f).setDuration(200).setInterpolator(Kit.ease).start()
+            }
+            firstRender = false
             val q = query.text.toString().trim()
             val shown = all.filter {
                 (filter == 0 || (filter == 1 && it.ok) || (filter == 2 && !it.ok)) && (q.isEmpty() || it.title.contains(q, ignoreCase = true))
