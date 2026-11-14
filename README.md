@@ -2,6 +2,10 @@
 
 **Tap the bubble on anything. Say what to do. Your phone does it.**
 
+<p align="center">
+  <video src="docs/assets/demo-directions-edit.mp4" controls autoplay loop muted playsinline width="100%"></video>
+</p>
+
 ---
 
 ## What is Pocket Agent?
