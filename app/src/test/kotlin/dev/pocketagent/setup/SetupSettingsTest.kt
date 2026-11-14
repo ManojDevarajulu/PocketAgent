@@ -32,6 +32,19 @@ class SetupSettingsTest {
     }
 
     @Test
+    fun talkBackDefaultsToOn() {
+        assertTrue(settings.talkBack)
+    }
+
+    @Test
+    fun talkBackRoundTrips() {
+        settings.talkBack = false
+        assertFalse(SetupSettings(store).talkBack)
+        settings.talkBack = true
+        assertTrue(SetupSettings(store).talkBack)
+    }
+
+    @Test
     fun settingTheHostToNullRemovesIt() {
         settings.acceptedCustomHost = "api.example.com"
         settings.acceptedCustomHost = null

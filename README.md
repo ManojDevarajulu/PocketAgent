@@ -2,6 +2,10 @@
 
 **Tap the bubble on anything. Say what to do. Your phone does it.**
 
+<p align="center">
+  <video src="docs/assets/demo-directions-edit.mp4" controls autoplay loop muted playsinline width="100%"></video>
+</p>
+
 ---
 
 ## What is Pocket Agent?
@@ -23,6 +27,7 @@ You bring your own API key (Anthropic, OpenRouter, OpenAI, Gemini, DeepSeek, Gro
   * Risky actions (*"Pay"*, *"Send"*, *"Delete"*, *"Order"*) pause execution and require explicit user confirmation.
   * Screen text is wrapped in non-executable data boundaries to prevent adversarial prompt injection.
   * API keys are encrypted locally using **Android Keystore AES-256 GCM** with `FLAG_SECURE` window protection.
+* 🔊 **Voice loop (optional)**: With *Talk back* on, a task started from the mic is spoken and heard: the agent reads captions aloud and asks for confirmations by voice, and only a clear "yes" (or the Approve button) approves.
 * 📖 **Community Playbooks**: App navigation heuristics are written as simple 15-line Markdown files bundled inside the APK. Anyone can contribute a playbook for their favorite app via a GitHub Pull Request.
 
 ---

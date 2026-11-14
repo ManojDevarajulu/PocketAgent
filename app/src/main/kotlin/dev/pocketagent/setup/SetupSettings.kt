@@ -17,6 +17,11 @@ class SetupSettings(private val store: KeyValueStore) {
         get() = store.getBoolean(BUBBLE, false)
         set(value) = store.putBoolean(BUBBLE, value)
 
+    /** Speak and listen when a task is started with the mic. On unless the user turns it off. */
+    var talkBack: Boolean
+        get() = store.getBoolean(TALK_BACK, true)
+        set(value) = store.putBoolean(TALK_BACK, value)
+
     /** "system", "light" or "dark". */
     var theme: String
         get() = store.getString(THEME)?.takeIf { it in setOf("system", "light", "dark") } ?: "system"
@@ -32,6 +37,7 @@ class SetupSettings(private val store: KeyValueStore) {
         const val CUSTOM_HOST = "settings.customHost"
         const val MIC_ASKED = "settings.micAsked"
         const val BUBBLE = "settings.bubble"
+        const val TALK_BACK = "settings.talkBack"
         const val THEME = "settings.theme"
         const val SHORTCUTS = "settings.shortcuts"
     }

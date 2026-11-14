@@ -51,6 +51,8 @@ data class SettingsState(
     val micOn: Boolean,
     val bubbleOn: Boolean,
     val onBubble: (Boolean) -> Unit = {},
+    val talkBackOn: Boolean = true,
+    val onTalkBack: (Boolean) -> Unit = {},
     val onProvider: () -> Unit = {},
     val onAccessibility: () -> Unit = {},
     val onMic: () -> Unit = {},
@@ -601,7 +603,9 @@ object Screens {
         p.addView(Kit.section(c, "Bubble"))
         p.addView(Kit.group(c, listOf(
             Kit.row(c, "Show the bubble", trailing = Kit.toggle(c, state.bubbleOn, state.onBubble)),
+            Kit.row(c, "Talk back", trailing = Kit.toggle(c, state.talkBackOn, state.onTalkBack)),
         ), 16), Kit.lp())
+        p.addView(Kit.footnote(c, "Pocket Agent speaks and listens when you start a task with the mic."))
         p.addView(gap(c, 26))
 
         p.addView(Kit.section(c, "Appearance"))

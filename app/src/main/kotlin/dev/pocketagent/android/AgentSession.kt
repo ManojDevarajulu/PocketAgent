@@ -16,6 +16,7 @@ import dev.pocketagent.agent.BubbleCommand
 import dev.pocketagent.agent.BubbleLogic
 import dev.pocketagent.agent.ConfirmRequest
 import dev.pocketagent.agent.SummaryText
+import dev.pocketagent.agent.VoiceUi
 import dev.pocketagent.device.DeviceAction
 import dev.pocketagent.device.DeviceUnavailable
 import dev.pocketagent.device.Screen
@@ -117,16 +118,47 @@ class AgentSession(
      * The loop only reaches the overlays through this wrapper. Caption and waiting changes are applied on the main
      * thread and only while a task is live, so a caption posted just before a cancel or [close] cannot reappear.
      */
-    private val guardedUi = object : AgentUi {
-        override suspend fun confirm(request: ConfirmRequest): Boolean = overlayUi.confirm(request)
-        override suspend fun ask(question: String): String? = overlayUi.ask(question)
-        override fun onCaption(caption: String) {
-            main.post { if (taskIsLive()) overlayUi.onCaption(caption) }
-        }
-        override fun onWaitingForUser(waiting: Boolean) {
-            main.post { if (taskIsLive()) overlayUi.onWaitingForUser(waiting) }
+    private val guardedUi = guarded { activeUi }
+
+    /** What a [VoiceUi] wraps: the overlays, with the same guard, since it also shows captions from the loop's thread. */
+    private val guardedOverlayUi = guarded { overlayUi }
+
+    /**
+     * Delegates to [target]; caption and waiting changes run on the main thread (at once when already there, so a
+     * change forwarded from the main thread keeps its order with ones posted from the loop) and only while a task is live.
+     */
+    private fun guarded(target: () -> AgentUi): AgentUi = object : AgentUi {
+        override suspend fun confirm(request: ConfirmRequest): Boolean = target().confirm(request)
+        override suspend fun ask(question: String): String? = target().ask(question)
+        override fun onCaption(caption: String) = onMainWhileLive { target().onCaption(caption) }
+        override fun onWaitingForUser(waiting: Boolean) = onMainWhileLive { target().onWaitingForUser(waiting) }
+    }
+
+    private fun onMainWhileLive(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            if (taskIsLive()) block()
+        } else {
+            main.post { if (taskIsLive()) block() }
         }
     }
+
+    /**
+     * The UI of the current task: a [VoiceUi] wrapping [overlayUi] for a spoken task with Talk back on, else [overlayUi].
+     * Written on the main thread before the runner starts; the loop reads it from its own thread.
+     */
+    @Volatile
+    private var activeUi: AgentUi = overlayUi
+
+    /** The voice UI of the current or just-finished task, kept after the end so its last line can still be stopped. */
+    private var voiceUi: VoiceUi? = null
+
+    /** Created once per service life, the first time Talk back may be needed, so the engine is ready before a task starts. */
+    private var speaker: TtsSpeaker? = null
+    private var listener: RecognizerListener? = null
+
+    /** True when this task wanted voice but speech was not available; the summary card then says so, once per service run. */
+    private var speechMissing = false
+    private var speechNoteShown = false
 
     /** Set just before the runner starts a task; the loop factory reads it once. */
     private var pendingClient: LlmClient? = null
@@ -167,11 +199,15 @@ class AgentSession(
     fun startBubbleTap() {
         if (closed || tapJob?.isActive == true) return
         summaryCard.close()
+        // The previous task's last spoken line stops with its card.
+        if (!taskIsLive()) stopVoice()
         if (currentClient() == null) {
             openSetup()
             return
         }
         logic.taskScreenOpen = true
+        // The speech engine starts up in the background while the user speaks the task.
+        if (settings.talkBack) createVoiceEngines()
         tapJob = scope.launch {
             val screen = try {
                 setOverlaysHidden(true)
@@ -194,7 +230,7 @@ class AgentSession(
         }
     }
 
-    override fun startTask(text: String) {
+    override fun startTask(text: String, spoken: Boolean) {
         logic.taskScreenOpen = false
         val screen = savedScreen
         savedScreen = null
@@ -204,18 +240,58 @@ class AgentSession(
             dropHandlesIfNoTask()
             return
         }
-        begin(task, screen, client, fromSetup = false)
+        begin(task, screen, client, fromSetup = false, spoken = spoken)
     }
 
-    private fun begin(task: String, screen: Screen, client: LlmClient, fromSetup: Boolean) {
+    private fun begin(task: String, screen: Screen, client: LlmClient, fromSetup: Boolean, spoken: Boolean = false) {
+        // Every start runs on the main thread and the runner refuses a second task, so a live task keeps its UI.
+        if (taskIsLive()) return
         pendingClient = client
         setupTaskRunning = fromSetup
+        // A new task silences whatever the previous one was still saying.
+        stopVoice()
+        speechMissing = false
+        val voice = if (spoken && settings.talkBack) voiceFor(task) else null
+        voiceUi = voice
+        activeUi = voice ?: overlayUi
         if (runner.start(task, screen)) {
             taskText = task
             taskStartedAt = System.currentTimeMillis()
+            voice?.start()
         } else {
             setupTaskRunning = false
+            stopVoice()
         }
+    }
+
+    private fun createVoiceEngines() {
+        if (closed) return
+        // An engine error leaves a speaker unusable for good; a fresh one lets the next task speak again.
+        if (speaker?.failed == true) {
+            speaker?.shutdown()
+            speaker = null
+        }
+        if (speaker == null) speaker = TtsSpeaker(service)
+        if (listener == null) listener = RecognizerListener(service)
+    }
+
+    /** A voice UI for [task], or null (and the note on the summary card) when the speech engine is not ready. */
+    private fun voiceFor(task: String): VoiceUi? {
+        createVoiceEngines()
+        val tts = speaker
+        val ears = listener
+        if (tts == null || ears == null || !tts.available) {
+            speechMissing = true
+            return null
+        }
+        return VoiceUi(guardedOverlayUi, tts, ears, task)
+    }
+
+    /** Stops speech and listening of the voice UI, if any, and goes back to the plain overlays. */
+    private fun stopVoice() {
+        voiceUi?.stop()
+        voiceUi = null
+        activeUi = overlayUi
     }
 
     /** The test task of the setup screen: go Home, read the settled screen, run the task there. */
@@ -259,6 +335,11 @@ class AgentSession(
         main.removeCallbacks(lockPoll)
         runner.cancel()
         scope.cancel()
+        stopVoice()
+        speaker?.shutdown()
+        listener?.shutdown()
+        speaker = null
+        listener = null
         overlayUi.closeAll()
         TaskInputActivity.closeAnswerScreen()
         bubble.close()
@@ -291,11 +372,17 @@ class AgentSession(
                 if (setupTaskRunning && state.outcome.success) repository.testTaskDone = true
                 record(state.outcome.success, SummaryText.forHistory(state.outcome), state.outcome.usage.inputTokens + state.outcome.usage.outputTokens)
                 setupTaskRunning = false
+                // Not stopped afterwards, so the result is heard in full; the next task, a cancel or close() stops it.
+                if (!taskIsLive()) {
+                    voiceUi?.end(state.outcome)
+                    activeUi = overlayUi
+                }
                 endTask(SummaryText.title(state), SummaryText.body(state.outcome))
             }
             AgentState.Stopped -> {
                 setupTaskRunning = false
                 record(false, "Stopped by you", 0)
+                if (!taskIsLive()) stopVoice()
                 endTask(SummaryText.stoppedTitle(), "")
             }
             else -> Unit
@@ -315,7 +402,16 @@ class AgentSession(
         overlayUi.closeAll()
         TaskInputActivity.closeAnswerScreen()
         device.dropHandles()
-        summaryCard.show(title, body)
+        summaryCard.show(title, withSpeechNote(body))
+    }
+
+    /** Adds the unavailable-speech note to [body] the first time a voice task had to run silently. */
+    private fun withSpeechNote(body: String): String {
+        if (!speechMissing) return body
+        speechMissing = false
+        if (speechNoteShown) return body
+        speechNoteShown = true
+        return if (body.isEmpty()) SPEECH_UNAVAILABLE_NOTE else "$body\n\n$SPEECH_UNAVAILABLE_NOTE"
     }
 
     private fun taskIsLive(): Boolean {
@@ -330,7 +426,10 @@ class AgentSession(
         if (closed) return
         when (command) {
             BubbleCommand.OPEN_TASK_SCREEN -> startBubbleTap()
-            BubbleCommand.CANCEL -> runner.cancel()
+            BubbleCommand.CANCEL -> {
+                runner.cancel()
+                stopVoice()
+            }
             BubbleCommand.NONE -> Unit
         }
     }
@@ -425,5 +524,6 @@ class AgentSession(
         const val MAX_SCREEN_CHARS = 12_000
         const val LOCK_POLL_MS = 500L
         const val PLAYBOOK_DIR = "playbooks"
+        const val SPEECH_UNAVAILABLE_NOTE = "Speech isn't available on this phone, so Pocket Agent stayed silent."
     }
 }

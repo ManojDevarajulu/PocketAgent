@@ -45,7 +45,8 @@ import kotlinx.coroutines.launch
 
 /** What the task screen needs from the session. The session sets [current] while the service is on. */
 interface TaskScreenHost {
-    fun startTask(text: String)
+    /** [spoken] is true when the text came from the mic, so the session may run the task by voice. */
+    fun startTask(text: String, spoken: Boolean = false)
     fun dropSavedScreen()
     fun completeAnswer(answer: String?)
     fun startSetupTask(text: String)
@@ -70,6 +71,8 @@ class TaskInputActivity : ThemedActivity() {
     private var handled = false
     private var closing = false
     private var voice: VoiceInput? = null
+    /** True once the mic filled the box; cleared when the box is emptied. */
+    private var spoken = false
     private lateinit var sheet: LinearLayout
     private lateinit var scrim: View
     private lateinit var composer: LinearLayout
@@ -252,7 +255,12 @@ class TaskInputActivity : ThemedActivity() {
             val vi = VoiceInput(
                 context = c,
                 onPartial = { input.setText(it.take(MAX_TEXT)); input.setSelection(input.text.length) },
-                onFinal = { input.setText(it.take(MAX_TEXT)); input.setSelection(input.text.length) },
+                onFinal = {
+                    // Set first: an empty result clears the box, and clearing it resets the flag.
+                    spoken = true
+                    input.setText(it.take(MAX_TEXT))
+                    input.setSelection(input.text.length)
+                },
                 onError = { Toast.makeText(c, it, Toast.LENGTH_SHORT).show() },
                 onListening = { on ->
                     (mic.background as GradientDrawable).setColor(if (on) color(c, R.color.pa_accent) else 0x00000000)
@@ -283,6 +291,7 @@ class TaskInputActivity : ThemedActivity() {
             override fun afterTextChanged(s: android.text.Editable?) {
                 val has = !s.isNullOrBlank()
                 val n = s?.length ?: 0
+                if (n == 0) spoken = false
                 counter.visibility = if (n > MAX_TEXT - 300) View.VISIBLE else View.GONE
                 counter.text = "$n / $MAX_TEXT"
                 suggestions?.visibility = if (n == 0) View.VISIBLE else View.GONE
@@ -397,7 +406,7 @@ class TaskInputActivity : ThemedActivity() {
         }
         composer.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
         handled = true
-        if (question != null) TaskScreenHost.current?.completeAnswer(text) else TaskScreenHost.current?.startTask(text)
+        if (question != null) TaskScreenHost.current?.completeAnswer(text) else TaskScreenHost.current?.startTask(text, spoken)
         closeSheet()
     }
 
