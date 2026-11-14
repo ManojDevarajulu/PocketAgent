@@ -36,7 +36,8 @@ It works directly through a floating bubble on your screen—zero PC, zero ADB, 
 
 > [!TIP]
 > **Ready to try it on your phone?**  
-> Download the pre-built standalone APK directly from **[GitHub Releases (v0.2.0)](https://github.com/ManojDevarajulu/PocketAgent/releases/latest)** — zero development tools or PC required.
+> Get the latest version (v0.2.0) from **[GitHub Releases](https://github.com/ManojDevarajulu/PocketAgent/releases/latest)** — no development tools or PC required.  
+> If Android says **"App blocked to protect your device"**, install it with **Obtainium** instead. See [Quick Install](#quick-install-apk).
 
 ---
 
@@ -148,10 +149,23 @@ Pocket Agent communicates directly with provider endpoints using a hardened OkHt
 
 ## Quick Install (APK)
 
-1. Open **[Releases](https://github.com/ManojDevarajulu/PocketAgent/releases/latest)** on your phone.
-2. Download `pocket-agent-v0.2.0.apk`.
-3. Tap the downloaded file to install *(enable "Install unknown apps" if prompted)*.
-4. Launch **Pocket Agent** and follow the guided setup checklist.
+### Recommended: install with Obtainium
+
+Android's Play Protect may block a Pocket Agent APK that you download in a browser or receive in a chat app. You may see **"App blocked to protect your device. This app can request access to sensitive data..."**. This is not a problem with the file. Google applies it, in some countries, to any app installed from outside the Play Store that asks for the **accessibility** or **notification access** permissions, because scammers abuse them. Pocket Agent needs accessibility to read and tap the screen, so it is caught too.
+
+**[Obtainium](https://github.com/ImranR98/Obtainium)** is a free, open-source app that installs and updates apps straight from their GitHub releases. Installing Pocket Agent through it worked in our test on an Android 16 phone, where downloading the APK in the browser was blocked.
+
+1. Install **Obtainium** from its [releases page](https://github.com/ImranR98/Obtainium/releases/latest).
+2. Open Obtainium, tap **Add app**, and paste `https://github.com/ManojDevarajulu/PocketAgent`.
+3. Tap **Install**. Obtainium will also tell you when a new version is out.
+4. Open **Pocket Agent** and follow the guided setup checklist below.
+
+### Other ways
+
+* **Direct APK:** download `pocket-agent-v0.2.0.apk` from **[Releases](https://github.com/ManojDevarajulu/PocketAgent/releases/latest)** and tap it. If Play Protect shows **More details**, you can choose **Install anyway**. If it blocks the install with no such option, use Obtainium or `adb` instead. We don't recommend turning Play Protect off.
+* **From a computer:** `adb install -r pocket-agent-v0.2.0.apk` with USB debugging enabled. Installs made this way aren't treated as downloads from the internet.
+
+> Google's rules change by country and over time, so your experience may differ. If you hit a different message, please [open an issue](https://github.com/ManojDevarajulu/PocketAgent/issues) with the exact wording and your Android version.
 
 ---
 
