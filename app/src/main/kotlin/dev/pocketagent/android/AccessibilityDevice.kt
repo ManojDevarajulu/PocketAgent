@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
 import android.net.Uri
+import android.provider.AlarmClock
 import android.os.Build
 import android.os.Bundle
 import android.view.Display
@@ -331,6 +332,17 @@ class AccessibilityDevice(
             is Shortcut.WebSearch -> listOf(
                 Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, shortcut.query),
             ) to "search the web"
+            is Shortcut.SetAlarm -> listOf(
+                Intent(AlarmClock.ACTION_SET_ALARM)
+                    .putExtra(AlarmClock.EXTRA_HOUR, shortcut.hour)
+                    .putExtra(AlarmClock.EXTRA_MINUTES, shortcut.minute)
+                    .putExtra(AlarmClock.EXTRA_SKIP_UI, true),
+            ) to "set an alarm"
+            is Shortcut.SetTimer -> listOf(
+                Intent(AlarmClock.ACTION_SET_TIMER)
+                    .putExtra(AlarmClock.EXTRA_LENGTH, shortcut.seconds)
+                    .putExtra(AlarmClock.EXTRA_SKIP_UI, true),
+            ) to "start a timer"
         }
         val pm = service.packageManager
         for (intent in candidates) {

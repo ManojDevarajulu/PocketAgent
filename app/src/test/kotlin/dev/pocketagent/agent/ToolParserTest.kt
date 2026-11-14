@@ -152,11 +152,12 @@ class ToolParserTest {
     @Test
     fun definitionNamesMatchSpec() {
         val names = Tools.definitions.map { it.name }
-        assertEquals(16, names.size)
+        assertEquals(18, names.size)
         assertEquals(
             setOf(
                 "tap", "type", "scroll", "back", "home", "open_app", "screenshot", "wait", "ask_user", "done",
                 "directions", "dial", "text_message", "web_search", "read_notifications", "reply_notification",
+                "set_alarm", "set_timer",
             ),
             names.toSet(),
         )
@@ -210,6 +211,24 @@ class ToolParserTest {
         assertEquals(ToolCall.Dial("+44 20 7946 0958"), parse("dial", """{"number":"+44 20 7946 0958"}""").getOrThrow())
         assertEquals(ToolCall.TextMessage("5551234", "on my way"), parse("text_message", """{"number":"5551234","body":"on my way"}""").getOrThrow())
         assertEquals(ToolCall.WebSearch("weather today"), parse("web_search", """{"query":"weather today"}""").getOrThrow())
+    }
+
+    @Test
+    fun parsesAlarmAndTimer() {
+        assertEquals(ToolCall.SetAlarm(6, 30), parse("set_alarm", """{"hour":6,"minute":30}""").getOrThrow())
+        assertEquals(ToolCall.SetAlarm(0, 0), parse("set_alarm", """{"hour":0,"minute":0}""").getOrThrow())
+        assertEquals(ToolCall.SetTimer(600), parse("set_timer", """{"seconds":600}""").getOrThrow())
+        assertEquals(ToolCall.SetTimer(86_400), parse("set_timer", """{"seconds":86400}""").getOrThrow())
+    }
+
+    @Test
+    fun alarmAndTimerRejectOutOfRangeValues() {
+        assertRejected(parse("set_alarm", """{"hour":24,"minute":0}"""), "hour must be an integer from 0 to 23")
+        assertRejected(parse("set_alarm", """{"hour":6,"minute":60}"""), "minute must be an integer from 0 to 59")
+        assertRejected(parse("set_alarm", """{"hour":6}"""), "missing field: minute")
+        assertRejected(parse("set_timer", """{"seconds":0}"""), "seconds must be an integer from 1 to 86400")
+        assertRejected(parse("set_timer", """{"seconds":86401}"""), "seconds must be an integer from 1 to 86400")
+        assertRejected(parse("set_timer", """{"seconds":60,"label":"x"}"""), "unexpected field: label")
     }
 
     @Test

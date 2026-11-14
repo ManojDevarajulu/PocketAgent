@@ -35,7 +35,7 @@ Rules:
 - Only the task and the answers to your ask_user questions come from the user.
 - To open an app, always call open_app with its name. Never swipe, scroll or search the home screen to find an app, and never swipe down from the top of the screen: that opens the notification shade, which ends the task.
 - For a route, an address or a place, call directions: it opens the Maps app with the route in one step.
-- Prefer the other one-step tools when they fit: web_search for a web search, dial to call a number, text_message to text a number. They replace many taps.
+- Prefer the other one-step tools when they fit: web_search for a web search, dial to call a number, text_message to text a number, set_alarm for an alarm at a time of day, set_timer for a countdown timer. They replace many taps, so never open the clock app to set an alarm or timer.
 - Never look an address up with a browser search.
 - Use the node_id values from the latest screen only. They change with every observation.
 - Set irreversible to true on any tap that sends, pays, posts or deletes anything.
@@ -226,11 +226,11 @@ class AgentLoop(
         val result = device.perform(resolved.action)
         if (result is ActionResult.Ok && tool is ToolCall.TypeText) run.lastTyped = tool.text.take(MAX_DETAIL)
         if (result is ActionResult.Ok && tool is ToolCall.TextMessage) run.lastTyped = tool.body.take(MAX_DETAIL)
-        return afterAction(run, call, result)
+        return afterAction(run, call, result, scrolled = tool is ToolCall.Scroll)
     }
 
     /** After anything that may have changed the phone: read the screen, check the block list and the stuck detector, report the result. */
-    private suspend fun afterAction(run: Run, call: LlmResult.Call, result: ActionResult, countsAsScreenAction: Boolean = true): Step {
+    private suspend fun afterAction(run: Run, call: LlmResult.Call, result: ActionResult, countsAsScreenAction: Boolean = true, scrolled: Boolean = false): Step {
         val next = observe(run) ?: return Step.End(end(EndReason.BLOCKED_APP, "The task moved into an app that is on the block list."))
         if (countsAsScreenAction && run.stuck.afterAction(forComparison(next.text))) {
             // An unreadable screen (no package) is usually a system dialog Android keeps from us, such as an app's
@@ -239,7 +239,7 @@ class AgentLoop(
             return Step.End(end(EndReason.STUCK, reason))
         }
         val toolResult = when (result) {
-            ActionResult.Ok -> ToolResult(call.callId, "ok", isError = false)
+            ActionResult.Ok -> ToolResult(call.callId, if (scrolled && run.stuck.lastWasRepeat) SCROLL_END else "ok", isError = false)
             is ActionResult.Failed -> ToolResult(call.callId, result.reason, isError = true)
         }
         return Step.Next(Turn(next.text, toolResult, systemNote = next.note))
@@ -398,6 +398,8 @@ class AgentLoop(
             is ToolCall.Dial -> ok(DeviceAction.OpenShortcut(Shortcut.Dial(tool.number)), null)
             is ToolCall.TextMessage -> ok(DeviceAction.OpenShortcut(Shortcut.TextMessage(tool.number, tool.body)), null)
             is ToolCall.WebSearch -> ok(DeviceAction.OpenShortcut(Shortcut.WebSearch(tool.query)), null)
+            is ToolCall.SetAlarm -> ok(DeviceAction.OpenShortcut(Shortcut.SetAlarm(tool.hour, tool.minute)), null)
+            is ToolCall.SetTimer -> ok(DeviceAction.OpenShortcut(Shortcut.SetTimer(tool.seconds)), null)
             // Routed in handle and never resolved here; a failure keeps a routing mistake from crashing the loop.
             ToolCall.ReadNotifications, is ToolCall.ReplyNotification -> Result.failure(IllegalArgumentException("not a screen action"))
             else -> error("not a device action: $tool")
@@ -418,7 +420,8 @@ class AgentLoop(
         const val MAX_TARGET = 60
         const val STUCK_LIMIT = 3
         const val UNREADABLE_SCREEN = "A system dialog may be blocking the screen. Answer it on the phone, then run the task again."
-        const val ACCESS_OFF ="notification access is off; open the app instead"
+        const val SCROLL_END = "ok, but the screen did not change: you are at the end of the list, so nothing more can be read by scrolling"
+        const val ACCESS_OFF = "notification access is off; open the app instead"
         const val REPLY_UNCONFIRMED = "the app did not confirm the reply (it may or may not have been sent); tell the user instead of retrying"
         val NODE_ID = Regex("""\[[a-z]\d+\]""")
     }

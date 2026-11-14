@@ -26,6 +26,8 @@ object Captions {
         is ToolCall.Dial -> "Opening the phone app"
         is ToolCall.TextMessage -> "Writing a text message"
         is ToolCall.WebSearch -> "Searching the web"
+        is ToolCall.SetAlarm -> "Setting an alarm for %02d:%02d".format(call.hour, call.minute)
+        is ToolCall.SetTimer -> "Starting a timer"
         ToolCall.ReadNotifications -> readingNotifications
         is ToolCall.ReplyNotification -> "Replying to a message"
         ToolCall.Screenshot -> "Taking a screenshot"

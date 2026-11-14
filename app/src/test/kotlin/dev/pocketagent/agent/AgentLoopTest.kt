@@ -158,6 +158,24 @@ class AgentLoopTest {
         assertEquals("The screen did not change after 3 actions.", outcome.summary)
     }
 
+    @Test fun aScrollThatChangesNothingTellsTheModelItIsTheEnd() = runTest {
+        // A short chat or list: scrolling leaves the screen as it was. The model must be told, or it keeps scrolling until STUCK.
+        fun same(letter: Char) = screenOf(node("${letter}1", role = "button", text = "Next", clickable = true))
+        val llm = FakeLlm(listOf(scroll(), done()))
+        val outcome = loop(llm, FakeDevice(listOf(same('b'), same('c')))).run("read", same('a'))
+        assertEquals(EndReason.DONE, outcome.reason)
+        val result = llm.turns[1].toolResult!!
+        assertFalse(result.isError)
+        assertTrue(result.text.contains("did not change"), result.text)
+        assertTrue(result.text.contains("end"), result.text)
+    }
+
+    @Test fun aScrollThatMovesTheScreenStillJustSaysOk() = runTest {
+        val llm = FakeLlm(listOf(scroll(), done()))
+        loop(llm, FakeDevice(manyScreens(3))).run("scroll", start)
+        assertEquals("ok", llm.turns[1].toolResult!!.text)
+    }
+
     @Test fun aChangingScreenIsNotStuck() = runTest {
         val llm = FakeLlm(List(4) { scroll() } + done())
         val outcome = loop(llm, FakeDevice(manyScreens(6))).run("scroll", start)
@@ -434,6 +452,12 @@ class AgentLoopTest {
         assertTrue(SYSTEM_PROMPT.contains("browser"), "and not to a browser search")
     }
 
+    @Test fun systemPromptTellsTheModelAboutTheAlarmAndTimerTools() {
+        // The model only uses a one-step tool the prompt names; without this it taps through the clock app instead.
+        assertTrue(SYSTEM_PROMPT.contains("set_alarm"))
+        assertTrue(SYSTEM_PROMPT.contains("set_timer"))
+    }
+
     @Test fun systemPromptDescribesAppTipsAsTrusted() {
         assertTrue(SYSTEM_PROMPT.contains("<app_tips>"))
         assertTrue(SYSTEM_PROMPT.contains("<screen_data>"))
@@ -631,6 +655,22 @@ class AgentLoopTest {
             device.actions,
         )
         assertEquals(listOf("Starting directions"), ui.captions)
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
+    @Test fun alarmAndTimerReachTheDeviceAsOneActionEachWithoutAsking() = runTest {
+        val device = FakeDevice(listOf(start, distinctScreen("clock"), distinctScreen("clock2")))
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(call("set_alarm", "hour" to 6, "minute" to 30), call("set_timer", "seconds" to 600), done()))
+        loop(llm, device, ui).run("t", start)
+        assertEquals(
+            listOf<DeviceAction>(
+                DeviceAction.OpenShortcut(dev.pocketagent.device.Shortcut.SetAlarm(6, 30)),
+                DeviceAction.OpenShortcut(dev.pocketagent.device.Shortcut.SetTimer(600)),
+            ),
+            device.actions,
+        )
+        assertEquals(listOf("Setting an alarm for 06:30", "Starting a timer"), ui.captions)
         assertTrue(ui.confirmRequests.isEmpty())
     }
 

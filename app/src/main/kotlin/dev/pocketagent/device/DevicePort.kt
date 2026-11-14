@@ -44,6 +44,12 @@ sealed interface Shortcut {
 
     /** Runs a web search in the phone's default search app. */
     data class WebSearch(val query: String) : Shortcut
+
+    /** Sets an alarm for [hour]:[minute] (24-hour clock) without opening the clock app. */
+    data class SetAlarm(val hour: Int, val minute: Int) : Shortcut
+
+    /** Starts a countdown timer of [seconds] without opening the clock app. */
+    data class SetTimer(val seconds: Int) : Shortcut
 }
 
 sealed interface ActionResult {

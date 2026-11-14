@@ -22,6 +22,8 @@ sealed interface ToolCall {
     data class Dial(val number: String) : ToolCall
     data class TextMessage(val number: String, val body: String) : ToolCall
     data class WebSearch(val query: String) : ToolCall
+    data class SetAlarm(val hour: Int, val minute: Int) : ToolCall
+    data class SetTimer(val seconds: Int) : ToolCall
     data object ReadNotifications : ToolCall
     data class ReplyNotification(val id: String, val text: String) : ToolCall
     data object Screenshot : ToolCall
@@ -149,6 +151,19 @@ object Tools {
             "Search the web for a query in one step. Not for addresses or routes: use directions for those.",
             listOf(Field("query", Kind.STRING, "What to search for.", min = 1, max = 300)),
         ) { a -> ToolCall.WebSearch(a["query"] as String) },
+        Spec(
+            "set_alarm",
+            "Set an alarm for a time of day in one step, without opening the clock app. Use the 24-hour clock.",
+            listOf(
+                Field("hour", Kind.INTEGER, "The hour, 0 to 23.", min = 0, max = 23),
+                Field("minute", Kind.INTEGER, "The minute, 0 to 59.", min = 0, max = 59),
+            ),
+        ) { a -> ToolCall.SetAlarm(a["hour"] as Int, a["minute"] as Int) },
+        Spec(
+            "set_timer",
+            "Start a countdown timer for a number of seconds in one step, without opening the clock app.",
+            listOf(Field("seconds", Kind.INTEGER, "How long the timer runs, in seconds.", min = 1, max = 86_400)),
+        ) { a -> ToolCall.SetTimer(a["seconds"] as Int) },
         Spec(
             "read_notifications",
             "Read the recent notifications (messages and alerts) without opening any app. Use it first for new messages.",

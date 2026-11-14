@@ -5,12 +5,17 @@ class StuckDetector(private val limit: Int = 3) {
     private var baseline: String? = null
     private var repeats = 0
 
+    /** True when the latest [afterAction] saw the same screen as the one before it. */
+    var lastWasRepeat = false
+        private set
+
     /**
      * Call after every action with the serialized screen. The first call sets the baseline. Returns true once
      * the screen has stayed identical to the baseline for [limit] actions in a row. Any change starts a new count.
      */
     fun afterAction(serializedScreen: String): Boolean {
-        if (serializedScreen == baseline) {
+        lastWasRepeat = serializedScreen == baseline
+        if (lastWasRepeat) {
             repeats++
         } else {
             baseline = serializedScreen
@@ -22,5 +27,6 @@ class StuckDetector(private val limit: Int = 3) {
     fun reset() {
         baseline = null
         repeats = 0
+        lastWasRepeat = false
     }
 }

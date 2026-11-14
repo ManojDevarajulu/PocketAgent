@@ -57,7 +57,7 @@ class ArchitectureTest {
     @Test
     fun manifestMatchesAllowlist() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
-        val allowedPermissions = setOf("android.permission.INTERNET", "android.permission.RECORD_AUDIO")
+        val allowedPermissions = setOf("android.permission.INTERNET", "android.permission.RECORD_AUDIO", "com.android.alarm.permission.SET_ALARM")
         val permissions = Regex("""<uses-permission[^>]*android:name="([^"]+)"""").findAll(manifest).map { it.groupValues[1] }.toSet()
         assertEquals(emptySet(), permissions - allowedPermissions, "unexpected permissions")
         assertTrue(manifest.contains("""android:allowBackup="false""""), "backups must be disabled")
@@ -230,6 +230,8 @@ class ArchitectureTest {
                 "android.intent.action.DIAL" to "tel",
                 "android.intent.action.SENDTO" to "smsto",
                 "android.intent.action.WEB_SEARCH" to "",
+                "android.intent.action.SET_ALARM" to "",
+                "android.intent.action.SET_TIMER" to "",
                 "android.intent.action.TTS_SERVICE" to "",
             ),
             declared.toSet(),
