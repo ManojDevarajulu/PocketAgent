@@ -92,7 +92,12 @@ class TaskInputActivity : ThemedActivity() {
         // Real blur of the app behind, where the device allows it; otherwise a plain, slightly stronger scrim.
         // Cross-window blur arrived in Android 12; calling it on Android 11 crashes, so 11 gets the scrim only.
         val blur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && windowManager.isCrossWindowBlurEnabled
-        if (blur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) window.setBackgroundBlurRadius(dp(this, 28))
+        if (blur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Android 17 no longer creates the decor view inside setBackgroundBlurRadius, so it threw a NullPointerException
+            // here and took the whole app, and the accessibility service with it, down. Touching decorView creates it.
+            window.decorView
+            window.setBackgroundBlurRadius(dp(this, 28))
+        }
         scrimPeak = if (blur) 0.6f else 1f
 
         val root = FrameLayout(this)

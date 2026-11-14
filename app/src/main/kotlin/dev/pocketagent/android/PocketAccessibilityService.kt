@@ -40,19 +40,27 @@ class PocketAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
+    private var taskEvents = false
+    private var recordingEvents = false
+
     /** The four task-time event types while [on], none otherwise (spec §3). Main thread. */
     internal fun subscribeToTaskEvents(on: Boolean) {
-        val info = serviceInfo ?: return
-        val types = if (on) TASK_EVENT_TYPES else 0
-        if (info.eventTypes == types) return
-        info.eventTypes = types
-        serviceInfo = info
+        taskEvents = on
+        applyEventTypes()
     }
 
     /** Only while a routine is recorded: clicks and screen changes, nothing else, and none once recording stops. */
     internal fun subscribeToRecordingEvents(on: Boolean) {
+        recordingEvents = on
+        applyEventTypes()
+    }
+
+    /** Both users of events share one subscription, so one switching off never cancels the other. */
+    private fun applyEventTypes() {
         val info = serviceInfo ?: return
-        val types = if (on) AccessibilityEvent.TYPE_VIEW_CLICKED or AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED else 0
+        var types = 0
+        if (taskEvents) types = types or TASK_EVENT_TYPES
+        if (recordingEvents) types = types or RECORDING_EVENT_TYPES
         if (info.eventTypes == types) return
         info.eventTypes = types
         serviceInfo = info
@@ -73,6 +81,8 @@ class PocketAccessibilityService : AccessibilityService() {
         /** The connected service, for the Quick Settings tile. Main thread only. */
         @Volatile
         internal var running: PocketAccessibilityService? = null
+
+        private const val RECORDING_EVENT_TYPES = AccessibilityEvent.TYPE_VIEW_CLICKED or AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
 
         private const val TASK_EVENT_TYPES = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or

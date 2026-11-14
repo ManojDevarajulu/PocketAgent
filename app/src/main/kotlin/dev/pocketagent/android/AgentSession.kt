@@ -486,7 +486,8 @@ class AgentSession(
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
                 val source = event.source
                 val label = source?.text?.toString() ?: source?.contentDescription?.toString() ?: event.contentDescription?.toString()
-                active.tap(pkg, label, editable = source == null || source.isEditable || source.isPassword)
+                // No readable source means no label either, so the step is kept as an unlabelled button.
+                active.tap(pkg, label, editable = source != null && (source.isEditable || source.isPassword))
             }
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val name = event.className?.toString()?.substringAfterLast('.').orEmpty()
