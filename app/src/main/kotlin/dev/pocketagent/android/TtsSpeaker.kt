@@ -64,6 +64,9 @@ class TtsSpeaker(context: Context) : Speaker {
 
     override val available: Boolean get() = usable
 
+    /** True once the engine failed, timed out or was shut down; such a speaker never speaks again. */
+    val failed: Boolean get() = ready.isCompleted && !usable
+
     init {
         main.post(::start)
     }

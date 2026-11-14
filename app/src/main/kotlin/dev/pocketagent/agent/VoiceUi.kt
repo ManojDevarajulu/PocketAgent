@@ -53,13 +53,16 @@ class VoiceUi(
         }
     }
 
-    /** Asks until a clear yes or no; never returns without one when the listener is unavailable (the card decides then). */
+    /**
+     * Asks until a clear yes or no. When the speaker or listener stops working mid-exchange (the prompt may not have
+     * been heard, the recognizer would return nothing at once), it never returns: the card or the loop's timeout decides.
+     */
     private suspend fun spokenAnswer(request: ConfirmRequest): Boolean {
         speaker.say(SpokenText.confirm(request))
-        if (!listener.available) awaitCancellation()
         var reads = 0
         var reAsked = false
         while (true) {
+            if (!listener.available || !speaker.available) awaitCancellation()
             var answer = YesNo.parse(listener.listen())
             if (answer == Answer.READ && reads >= MAX_READS) answer = Answer.UNCLEAR
             when (answer) {
@@ -80,7 +83,9 @@ class VoiceUi(
 
     override suspend fun ask(question: String): String? {
         if (!speaker.available || !listener.available) return wrapped.ask(question)
-        // The typed answer screen would move the phone away from the app the agent works in, so the caption shows the question.
+        // The typed answer screen would move the phone away from the app the agent works in, so the caption shows the
+        // question. The loop hid the caption while it waits, so it is shown again first.
+        wrapped.onWaitingForUser(false)
         wrapped.onCaption(question)
         return exchange {
             speaker.say(SpokenText.question(question))

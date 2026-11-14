@@ -118,14 +118,27 @@ class AgentSession(
      * The loop only reaches the overlays through this wrapper. Caption and waiting changes are applied on the main
      * thread and only while a task is live, so a caption posted just before a cancel or [close] cannot reappear.
      */
-    private val guardedUi = object : AgentUi {
-        override suspend fun confirm(request: ConfirmRequest): Boolean = activeUi.confirm(request)
-        override suspend fun ask(question: String): String? = activeUi.ask(question)
-        override fun onCaption(caption: String) {
-            main.post { if (taskIsLive()) activeUi.onCaption(caption) }
-        }
-        override fun onWaitingForUser(waiting: Boolean) {
-            main.post { if (taskIsLive()) activeUi.onWaitingForUser(waiting) }
+    private val guardedUi = guarded { activeUi }
+
+    /** What a [VoiceUi] wraps: the overlays, with the same guard, since it also shows captions from the loop's thread. */
+    private val guardedOverlayUi = guarded { overlayUi }
+
+    /**
+     * Delegates to [target]; caption and waiting changes run on the main thread (at once when already there, so a
+     * change forwarded from the main thread keeps its order with ones posted from the loop) and only while a task is live.
+     */
+    private fun guarded(target: () -> AgentUi): AgentUi = object : AgentUi {
+        override suspend fun confirm(request: ConfirmRequest): Boolean = target().confirm(request)
+        override suspend fun ask(question: String): String? = target().ask(question)
+        override fun onCaption(caption: String) = onMainWhileLive { target().onCaption(caption) }
+        override fun onWaitingForUser(waiting: Boolean) = onMainWhileLive { target().onWaitingForUser(waiting) }
+    }
+
+    private fun onMainWhileLive(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            if (taskIsLive()) block()
+        } else {
+            main.post { if (taskIsLive()) block() }
         }
     }
 
@@ -186,6 +199,8 @@ class AgentSession(
     fun startBubbleTap() {
         if (closed || tapJob?.isActive == true) return
         summaryCard.close()
+        // The previous task's last spoken line stops with its card.
+        if (!taskIsLive()) stopVoice()
         if (currentClient() == null) {
             openSetup()
             return
@@ -251,6 +266,11 @@ class AgentSession(
 
     private fun createVoiceEngines() {
         if (closed) return
+        // An engine error leaves a speaker unusable for good; a fresh one lets the next task speak again.
+        if (speaker?.failed == true) {
+            speaker?.shutdown()
+            speaker = null
+        }
         if (speaker == null) speaker = TtsSpeaker(service)
         if (listener == null) listener = RecognizerListener(service)
     }
@@ -264,7 +284,7 @@ class AgentSession(
             speechMissing = true
             return null
         }
-        return VoiceUi(overlayUi, tts, ears, task)
+        return VoiceUi(guardedOverlayUi, tts, ears, task)
     }
 
     /** Stops speech and listening of the voice UI, if any, and goes back to the plain overlays. */

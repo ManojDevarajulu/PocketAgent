@@ -21,4 +21,24 @@ class ReadRequestTest {
         assertTrue(asksToRead("READ my messages"))
         assertTrue(asksToRead("Tell Me what came"))
     }
+
+    @Test fun triggersMatchWholeWordsOnly() {
+        assertFalse(asksToRead("reply to Mom dinner is ready"))
+        assertFalse(asksToRead("tell Rahul I'm already there"))
+        assertFalse(asksToRead("check the thread"))
+        assertFalse(asksToRead("send the spreadsheet to Priya"))
+        assertFalse(asksToRead("open Bataan photos"))
+    }
+
+    @Test fun wholeWordTriggersStillMatch() {
+        assertTrue(asksToRead("read my last message"))
+        assertTrue(asksToRead("padho"))
+        assertTrue(asksToRead("what's on my screen"))
+        assertTrue(asksToRead("What’s on my screen"))
+        assertTrue(asksToRead("tell me what Rahul said"))
+        assertTrue(asksToRead("Rahul ka message padho."))
+        assertTrue(asksToRead("summarize, then stop"))
+        assertTrue(asksToRead("मेरा आखिरी मैसेज पढ़ो"))
+        assertTrue(asksToRead("क्या आया बताओ?"))
+    }
 }

@@ -42,4 +42,16 @@ class SpokenTextTest {
         }
         assertEquals("a b c", SpokenText.caption("a\nb\u0007c"))
     }
+
+    @Test fun longVariablePartKeepsTheSuffix() {
+        val longDetail = SpokenText.detail(ConfirmRequest("a", "b", "c", "d".repeat(200)))
+        assertTrue(longDetail.endsWith(". Say yes or no."), longDetail)
+        assertTrue(longDetail.startsWith("It says: ddd"))
+        assertTrue(longDetail.length <= SpokenText.MAX, longDetail.length.toString())
+
+        val longConfirm = SpokenText.confirm(ConfirmRequest("Sending " + "w".repeat(300), "Rahul", "WhatsApp"))
+        assertTrue(longConfirm.endsWith("? Say yes or no."), longConfirm)
+        assertTrue(longConfirm.startsWith("Sending www"))
+        assertTrue(longConfirm.length <= SpokenText.MAX, longConfirm.length.toString())
+    }
 }

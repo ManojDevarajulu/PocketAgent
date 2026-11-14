@@ -88,6 +88,8 @@ class FakeUi : AgentUi {
     val questions = mutableListOf<String>()
     val captions = mutableListOf<String>()
     val waiting = mutableListOf<Boolean>()
+    /** Captions and waiting changes in the order they arrived, as "caption:<text>" and "waiting:<bool>". */
+    val events = mutableListOf<String>()
 
     override suspend fun confirm(request: ConfirmRequest): Boolean {
         confirmRequests += request
@@ -101,10 +103,12 @@ class FakeUi : AgentUi {
 
     override fun onCaption(caption: String) {
         captions += caption
+        events += "caption:$caption"
     }
 
     override fun onWaitingForUser(waiting: Boolean) {
         this.waiting += waiting
+        events += "waiting:$waiting"
     }
 }
 
@@ -113,7 +117,7 @@ class FakeUi : AgentUi {
  * calls [release]. [sayLatest] is recorded as is (the drop-while-saying rule belongs to the real speaker), so tests
  * see exactly what the caller asked for.
  */
-class FakeSpeaker(override val available: Boolean = true) : Speaker {
+class FakeSpeaker(override var available: Boolean = true) : Speaker {
     val spoken = mutableListOf<String>()
     val latest = mutableListOf<String>()
     var hold = false
@@ -165,7 +169,7 @@ class FakeSpeaker(override val available: Boolean = true) : Speaker {
 class FakeListener(
     private val answers: List<String?>,
     private val speaker: FakeSpeaker? = null,
-    override val available: Boolean = true,
+    override var available: Boolean = true,
     private val hangWhenDone: Boolean = false,
     val listenMs: Long = 500,
 ) : Listener {

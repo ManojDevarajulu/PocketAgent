@@ -18,18 +18,21 @@ object SpokenText {
         if (request.target.isNotBlank() && !request.action.contains(request.target)) parts.append(", ").append(request.target)
         val needsApp = request.app.isNotBlank() && !request.action.contains(request.app)
         val joined = if (needsApp) (if (parts.contains(',')) "$parts, in ${request.app}" else "$parts in ${request.app}") else parts.toString()
-        return clean("$joined? Say yes or no.")
+        return withSuffix(joined, "? Say yes or no.")
     }
 
     fun detail(request: ConfirmRequest): String {
         val d = request.detail?.takeIf { it.isNotBlank() } ?: return clean("$noDetail Say yes or no.")
-        return clean("It says: $d. Say yes or no.")
+        return withSuffix("It says: $d", ". Say yes or no.")
     }
 
     fun ending(outcome: TaskOutcome, includeSummary: Boolean): String {
         if (!outcome.success) return "Couldn't finish. Check the screen."
         return if (includeSummary && outcome.summary.isNotBlank()) clean("Done. ${outcome.summary}") else "Done."
     }
+
+    /** Only [text] is cleaned and cut, so the fixed [suffix] is always heard and the whole sentence stays within [MAX]. */
+    private fun withSuffix(text: String, suffix: String): String = clean(text, MAX - suffix.length) + suffix
 
     /** Control characters become spaces and the text is cut at [MAX] without splitting a surrogate pair. */
     private fun clean(text: String, max: Int = MAX): String {

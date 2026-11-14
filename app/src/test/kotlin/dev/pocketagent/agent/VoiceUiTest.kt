@@ -283,6 +283,18 @@ class VoiceUiTest {
         assertEquals(1, rig.listener.listens)
     }
 
+    @Test fun askShowsTheQuestionCaptionEvenThoughTheLoopIsWaiting() = runTest {
+        // AgentLoop hides the caption (waiting true) right before it asks.
+        val question = "Which Rahul?"
+        val rig = Rig(listOf("Rahul K"))
+        rig.voice.onWaitingForUser(true)
+        assertEquals("Rahul K", rig.voice.ask(question))
+        val shown = rig.ui.events.indexOf("caption:$question")
+        assertTrue(shown >= 0, rig.ui.events.toString())
+        val lastWaiting = rig.ui.events.subList(0, shown).last { it.startsWith("waiting:") }
+        assertEquals("waiting:false", lastWaiting, "the caption is visible when the question appears")
+    }
+
     @Test fun askReturnsNullAfterTwoEmptyTries() = runTest {
         val rig = Rig(listOf(null, "   "))
         assertNull(rig.voice.ask("Which Rahul?"))
@@ -309,6 +321,37 @@ class VoiceUiTest {
         assertEquals("typed answer", rig.voice.ask("Which Rahul?"))
         assertEquals(listOf("Which Rahul?"), rig.ui.questions)
         assertEquals(0, rig.listener.listens)
+    }
+
+    @Test fun speakerLostMidExchangeLeavesTheCardToDecide() = runTest {
+        // The engine dies while the prompt is spoken: the user may not have heard it, so no listening.
+        val rig = Rig(listOf("yes")).apply { speaker.hold = true }
+        val result = confirmWith(rig)
+        runCurrent()
+        assertTrue(rig.speaker.isSaying)
+        rig.speaker.available = false
+        rig.speaker.release()
+        advanceTimeBy(60_000)
+        assertFalse(result.isCompleted, "only the card can answer")
+        assertEquals(0, rig.listener.listens)
+        rig.card.tap.complete(true)
+        assertTrue(result.await())
+    }
+
+    @Test fun listenerLostMidExchangeLeavesTheCardToDecide() = runTest {
+        // The recognizer goes away after the first unclear answer, while the re-ask is spoken.
+        val rig = Rig(listOf("maybe", "yes"))
+        val result = confirmWith(rig)
+        advanceTimeBy(FakeSpeaker.SAY_MS + rig.listener.listenMs + 1)
+        assertEquals(1, rig.listener.listens)
+        rig.listener.available = false
+        advanceTimeBy(60_000)
+        assertFalse(result.isCompleted, "an unavailable recognizer never declines on its own")
+        assertEquals(1, rig.listener.listens)
+        assertEquals(listOf(prompt, SpokenText.reAsk), rig.speaker.spoken)
+        rig.card.tap.complete(false)
+        assertFalse(result.await())
+        assertFalse(rig.card.closed, "a tapped card is not closed by code")
     }
 
     @Test fun unavailableSpeakerStaysOnTheCard() = runTest {
