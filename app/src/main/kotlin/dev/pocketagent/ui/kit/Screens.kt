@@ -57,6 +57,7 @@ data class SettingsState(
     /** "192.168.1.5:8765" while the link is on and the phone has a local address, else null. */
     val linkAddress: String? = null,
     val onCopyLink: () -> Unit = {},
+    val onCopyAddress: () -> Unit = {},
     val onResetLink: () -> Unit = {},
     val shortScreensOn: Boolean = false,
     val onShortScreens: (Boolean) -> Unit = {},
@@ -617,7 +618,14 @@ object Screens {
         p.addView(Kit.section(c, "Computer link"))
         val linkRows = arrayListOf<View>(Kit.row(c, "Let my computer send tasks", trailing = Kit.toggle(c, state.linkOn, state.onLink)))
         if (state.linkOn) {
-            linkRows.add(Kit.row(c, "Address", trailing = Kit.value(c, state.linkAddress ?: "No Wi-Fi", withChevron = false)))
+            linkRows.add(
+                Kit.row(
+                    c, "Address",
+                    trailing = Kit.value(c, state.linkAddress ?: "No Wi-Fi", withChevron = false),
+                    // Tapping copies the full address, so it can be pasted into a browser, a config file or a terminal.
+                    onClick = if (state.linkAddress != null) state.onCopyAddress else null,
+                ),
+            )
             linkRows.add(Kit.row(c, "Copy connect command", trailing = Kit.chevron(c), onClick = state.onCopyLink))
             linkRows.add(Kit.row(c, "Reset pairing code", trailing = Kit.chevron(c), onClick = state.onResetLink))
         }

@@ -243,6 +243,18 @@ class MainActivity : ThemedActivity() {
         )
     }
 
+    /** The full address of the computer link, for pasting. It holds no secret: the pairing code is separate. */
+    private fun copyLinkAddress() {
+        val address = LocalAddress.find()
+        if (address == null) {
+            Toast.makeText(this, "Connect this phone to Wi-Fi first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val url = "http://$address:${McpHttpServer.DEFAULT_PORT}/mcp"
+        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Pocket Agent address", url))
+        Toast.makeText(this, "Address copied: $url", Toast.LENGTH_SHORT).show()
+    }
+
     /** The one-line command that connects Claude Code to this phone. It holds the pairing token, so it is marked sensitive. */
     private fun copyLinkCommand() {
         val address = LocalAddress.find()
@@ -284,6 +296,7 @@ class MainActivity : ThemedActivity() {
             },
             linkAddress = if (settings.computerLink) LocalAddress.find()?.let { "$it:${McpHttpServer.DEFAULT_PORT}" } else null,
             onCopyLink = { copyLinkCommand() },
+            onCopyAddress = { copyLinkAddress() },
             onResetLink = {
                 SheetDialogs.confirm(this, "Reset pairing code?", "Computers already connected will stop working until you copy the new connect command.", "Reset") {
                     settings.linkToken = PairingToken.generate()

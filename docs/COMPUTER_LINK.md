@@ -6,7 +6,7 @@ default and works over your local Wi-Fi only: there is no cloud relay and no acc
 ## Turn it on
 
 1. On the phone: **Settings > Computer link > Let my computer send tasks**. The phone shows its address, for example
-   `192.168.1.20:8765`.
+   `192.168.1.20:8765`. Tap the address to copy the full URL (`http://192.168.1.20:8765/mcp`).
 2. Tap **Copy connect command** and paste it into a terminal on your computer. For Claude Code it looks like:
 
    ```bash
