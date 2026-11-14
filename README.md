@@ -20,7 +20,6 @@ It works directly through a floating bubble on your screen—zero PC, zero ADB, 
 
 <p>
   <a href="#key-differentiators">Key Features</a> •
-  <a href="#comparison">Comparison</a> •
   <a href="#how-it-works">How It Works</a> •
   <a href="#supported-providers-byok">Providers</a> •
   <a href="#building-from-source">Build from Source</a> •
@@ -48,20 +47,6 @@ Most mobile AI agents require a computer running Python, `adb`, and a USB cable 
 **Pocket Agent lives directly on your phone.** It is a standalone, open-source Android app that operates your phone autonomously through a floating overlay bubble—with **no computer, no `adb`, no root, and no cloud backend**.
 
 You bring your own API key (Anthropic, OpenRouter, OpenAI, Gemini, DeepSeek, Groq, or a local Ollama server) and select the model you want to use. Pocket Agent observes the active screen, plans the required actions, and performs gestures natively through an Android `AccessibilityService`.
-
----
-
-## Comparison: Why Pocket Agent?
-
-| Capability | **Pocket Agent** | Research Frameworks *(AppAgent, Mobile-Agent)* | Heavy Shell Agents *(Mika)* |
-|---|:---:|:---:|:---:|
-| **Standalone Android App** | ✅ **Yes (Pure APK)** | ❌ (Python script on PC) | ✅ Yes |
-| **Zero-PC / No ADB Required** | ✅ **100% On-Device** | ❌ (Requires USB + ADB) | ❌ (Requires Wireless Debugging) |
-| **Instant Floating Bubble** | ✅ **Contextual overlay** | ❌ (Terminal commands) | ❌ (Separate app window) |
-| **Hands-Free Voice Loop** | ✅ **Built-in Speech + TTS** | ❌ None | ❌ None |
-| **Hardware-Backed Safety** | ✅ **Keystore AES-256 GCM** | ❌ None | ⚠️ Basic |
-| **Sensitive App Blocklist** | ✅ **Banking/Auth Blocked** | ❌ None | ⚠️ Partial |
-| **Local Offline LLMs** | ✅ **Ollama / Local HTTP** | ⚠️ Complex setup | ⚠️ High RAM usage |
 
 ---
 
