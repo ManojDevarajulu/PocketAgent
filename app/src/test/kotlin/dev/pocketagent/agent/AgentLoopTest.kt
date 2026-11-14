@@ -630,6 +630,22 @@ class AgentLoopTest {
         assertTrue(ui.confirmRequests.isEmpty())
     }
 
+    @Test fun alarmAndTimerReachTheDeviceAsOneActionEachWithoutAsking() = runTest {
+        val device = FakeDevice(listOf(start, distinctScreen("clock"), distinctScreen("clock2")))
+        val ui = FakeUi()
+        val llm = FakeLlm(listOf(call("set_alarm", "hour" to 6, "minute" to 30), call("set_timer", "seconds" to 600), done()))
+        loop(llm, device, ui).run("t", start)
+        assertEquals(
+            listOf<DeviceAction>(
+                DeviceAction.OpenShortcut(dev.pocketagent.device.Shortcut.SetAlarm(6, 30)),
+                DeviceAction.OpenShortcut(dev.pocketagent.device.Shortcut.SetTimer(600)),
+            ),
+            device.actions,
+        )
+        assertEquals(listOf("Setting an alarm for 06:30", "Starting a timer"), ui.captions)
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
     @Test fun aPrefilledTextShowsOnTheSendConfirmation() = runTest {
         val sms = screenOf(node("a1", role = "button", text = "Send", clickable = true))
         val ui = FakeUi()

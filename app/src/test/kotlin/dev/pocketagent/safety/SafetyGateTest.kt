@@ -340,6 +340,8 @@ class SafetyGateTest {
             dev.pocketagent.device.Shortcut.Dial("5551234"),
             dev.pocketagent.device.Shortcut.TextMessage("5551234", "hi"),
             dev.pocketagent.device.Shortcut.WebSearch("news"),
+            dev.pocketagent.device.Shortcut.SetAlarm(6, 30),
+            dev.pocketagent.device.Shortcut.SetTimer(600),
         ).forEach { assertEquals(Verdict.Allow, gate.check(DeviceAction.OpenShortcut(it), screen, false), "$it") }
     }
 

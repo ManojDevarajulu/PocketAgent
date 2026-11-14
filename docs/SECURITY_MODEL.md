@@ -151,7 +151,9 @@ for that task.
 | Filtered notifications (when access is on and a task reads them) | The configured provider, as tool results | Not by the app; the provider's policy applies |
 | Anything else | Nowhere | n/a |
 
-**Permissions:** `INTERNET` and optional `RECORD_AUDIO` only. No contacts, SMS, storage, location, overlay
+**Permissions:** `INTERNET`, optional `RECORD_AUDIO`, and `SET_ALARM` only. `SET_ALARM` is a normal install-time
+permission (no prompt) that lets the `set_alarm` and `set_timer` tools start an alarm or timer in the clock app;
+it cannot read, change or delete existing alarms. No contacts, SMS, storage, location, overlay
 or `QUERY_ALL_PACKAGES`. The accessibility service subscribes to no events while idle. Notification access is
 not a manifest permission: it is a switch the user turns on in Android settings for the listener service, and
 it can be turned off there at any time.

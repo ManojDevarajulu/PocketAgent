@@ -395,6 +395,8 @@ class AgentLoop(
             is ToolCall.Dial -> ok(DeviceAction.OpenShortcut(Shortcut.Dial(tool.number)), null)
             is ToolCall.TextMessage -> ok(DeviceAction.OpenShortcut(Shortcut.TextMessage(tool.number, tool.body)), null)
             is ToolCall.WebSearch -> ok(DeviceAction.OpenShortcut(Shortcut.WebSearch(tool.query)), null)
+            is ToolCall.SetAlarm -> ok(DeviceAction.OpenShortcut(Shortcut.SetAlarm(tool.hour, tool.minute)), null)
+            is ToolCall.SetTimer -> ok(DeviceAction.OpenShortcut(Shortcut.SetTimer(tool.seconds)), null)
             // Routed in handle and never resolved here; a failure keeps a routing mistake from crashing the loop.
             ToolCall.ReadNotifications, is ToolCall.ReplyNotification -> Result.failure(IllegalArgumentException("not a screen action"))
             else -> error("not a device action: $tool")

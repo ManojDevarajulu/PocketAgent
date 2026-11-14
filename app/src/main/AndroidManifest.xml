@@ -4,6 +4,8 @@
     <!-- The only two permissions: talk to the AI provider you choose, and listen when you tap the mic. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Only so the set_alarm and set_timer tools can start an alarm or timer. Nothing else is touched. -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
     <!-- Makes launcher apps, and only those, visible to open_app. -->
     <queries>

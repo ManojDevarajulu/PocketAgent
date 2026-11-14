@@ -85,5 +85,7 @@ class CaptionsTest {
         assertEquals("Opening the phone app", Captions.forAction(ToolCall.Dial("5551234"), null))
         assertEquals("Writing a text message", Captions.forAction(ToolCall.TextMessage("5551234", "secret"), null))
         assertEquals("Searching the web", Captions.forAction(ToolCall.WebSearch("secret"), null))
+        assertEquals("Setting an alarm for 06:30", Captions.forAction(ToolCall.SetAlarm(6, 30), null))
+        assertEquals("Starting a timer", Captions.forAction(ToolCall.SetTimer(600), null))
     }
 }
