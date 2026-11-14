@@ -516,12 +516,13 @@ class AccessibilityDevice(
             canvas.drawRect(x - 1f, y - text.textSize, x + w + 1f, y + 3f * density, backing)
             canvas.drawText(s, x, y, text)
         }
-        for (x in GridLines.marks(realWidth)) {
+        val step = GridLines.stepFor(maxOf(realWidth, realHeight))
+        for (x in GridLines.marks(realWidth, step)) {
             val px = x * sx
             canvas.drawLine(px, 0f, px, picture.height.toFloat(), line)
             label(x.toString(), px + 2f, text.textSize + 2f)
         }
-        for (y in GridLines.marks(realHeight)) {
+        for (y in GridLines.marks(realHeight, step)) {
             val py = y * sy
             canvas.drawLine(0f, py, picture.width.toFloat(), py, line)
             label(y.toString(), 2f, py - 2f)

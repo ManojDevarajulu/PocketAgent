@@ -5,18 +5,23 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class GridLinesTest {
-    @Test fun aPhoneWidthGetsAboutEightRoundLines() {
-        assertEquals(listOf(200, 400, 600, 800, 1000), GridLines.marks(1080))
+    @Test fun aTallPhoneGetsOneRoundStepForBothAxes() {
+        val step = GridLines.stepFor(2400)
+        assertEquals(200, step)
+        assertEquals(listOf(200, 400, 600, 800, 1000), GridLines.marks(1080, step))
+        assertEquals(11, GridLines.marks(2400, step).size)
     }
 
-    @Test fun aPhoneHeightGetsRoundNumbersToo() {
-        val marks = GridLines.marks(2400)
-        assertTrue(marks.size in 4..12, "$marks")
-        assertTrue(marks.all { it % 100 == 0 }, "$marks")
-        assertTrue(marks.all { it in 1 until 2400 })
+    @Test fun theStepGrowsWithTheScreenAndStaysRound() {
+        listOf(800, 1280, 2400, 3200, 6000).forEach {
+            val step = GridLines.stepFor(it)
+            assertTrue(step % 50 == 0, "$it -> $step")
+            assertTrue(it / step <= 12 || step == 1000, "$it -> $step")
+        }
     }
 
-    @Test fun nothingForAnEmptySide() {
-        assertEquals(emptyList(), GridLines.marks(0))
+    @Test fun nothingForAnEmptySideOrStep() {
+        assertEquals(emptyList(), GridLines.marks(0, 200))
+        assertEquals(emptyList(), GridLines.marks(1080, 0))
     }
 }

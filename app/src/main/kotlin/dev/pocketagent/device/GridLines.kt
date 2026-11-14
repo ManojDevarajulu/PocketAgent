@@ -7,10 +7,10 @@ package dev.pocketagent.device
 object GridLines {
     private val STEPS = listOf(50, 100, 200, 250, 500, 1000)
 
-    /** Real pixel positions of the lines for a side of [extent] pixels: round numbers, about [target] of them. */
-    fun marks(extent: Int, target: Int = 8): List<Int> {
-        if (extent <= 0) return emptyList()
-        val step = STEPS.firstOrNull { extent / it <= target } ?: STEPS.last()
-        return (step until extent step step).toList()
-    }
+    /** One round step for both axes, so the squares are square: the largest of [STEPS] that still gives about [target] lines on the long side. */
+    fun stepFor(longSide: Int, target: Int = 12): Int = STEPS.firstOrNull { longSide / it <= target } ?: STEPS.last()
+
+    /** Real pixel positions of the lines for a side of [extent] pixels, every [step] pixels. */
+    fun marks(extent: Int, step: Int): List<Int> =
+        if (extent <= 0 || step <= 0) emptyList() else (step until extent step step).toList()
 }
