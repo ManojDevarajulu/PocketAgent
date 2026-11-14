@@ -1,13 +1,13 @@
 # Contributing to Pocket Agent
 
-Thanks for helping. Pocket Agent is a small, bring-your-own-key Android app with no server, so changes should stay simple and safe.
+Thanks for helping. Pocket Agent is a small, bring-your-own-key Android app with no server of its own (the optional Computer Link only listens on your local network while the user has it switched on), so changes should stay simple and safe.
 
 ## Ground rules
 
 - **Safety first.** Changes that touch `safety/`, the blocked-app list, risky-action confirmation or key storage need extra care and tests. Do not weaken them to make a task easier.
 - **No secrets.** Never commit API keys, keystores, `local.properties` or screenshots that show a key or personal data.
 - **No new dependencies** without a clear reason in the pull request.
-- **Core packages stay pure.** `agent`, `device`, `llm`, `safety`, `playbook` and `setup` must not import Android framework classes. `ArchitectureTest` enforces this.
+- **Core packages stay pure.** `agent`, `bridge`, `device`, `llm`, `safety`, `playbook` and `setup` must not import Android framework classes. `ArchitectureTest` enforces this.
 - Follow the existing code style and keep changes small and focused.
 
 ## Build and test

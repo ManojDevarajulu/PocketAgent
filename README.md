@@ -76,6 +76,11 @@ You bring your own API key (Anthropic, OpenRouter, OpenAI, Gemini, DeepSeek, Gro
   * API keys are encrypted on-device with **Android Keystore AES-256 GCM** and protected with `FLAG_SECURE`.
 * 🔊 **Hands-Free Voice Loop**: With *Talk back* enabled, tasks can be run completely by voice. The agent speaks action captions aloud and requests confirmations verbally; only an unambiguous *"yes"* (or the screen Approve button) continues execution.
 * ⚡ **Pull-Down Quick Settings Tile**: Access Pocket Agent instantly from Android's notification pull-down shade without keeping the floating bubble on screen.
+* 🚀 **One-Step Shortcuts**: Where Android has a direct route, the agent uses it instead of tapping through apps: directions, a call or text with the number and words filled in, a web search, an alarm or timer, opening a link, or a calendar event with the details filled in. Sending, calling and saving are still a separate tap that you confirm.
+* 🎬 **Record My Routine**: Do a task once with **Record my routine** and get a playbook draft. It keeps only the buttons you tapped and the screens that opened. Anything you typed, password fields, personal-looking labels and blocked apps are never recorded, and you review the draft before sharing it.
+* 👁️ **Sees What Accessibility Can't**: For games and custom-drawn apps that expose almost nothing to read, vision models get a screenshot with a grid labelled in real pixels, so they can tap accurately.
+* 🖥️ **Computer Link (optional)**: Let Claude Code, Cursor or any MCP app on your own computer hand tasks to your phone over your Wi-Fi. Every task needs your approval on the phone. See [below](#computer-link-optional-off-by-default).
+* 🪶 **Lighter Mode (experimental)**: Sends the AI only what changed on the screen each step, so tasks can be quicker. Off by default.
 * 📖 **Community Playbooks**: App navigation heuristics are written as concise Markdown guides bundled inside the APK. Anyone can contribute a playbook for their favorite app via a standard GitHub Pull Request.
 
 ---
@@ -168,7 +173,7 @@ Pocket Agent communicates directly with provider endpoints using a hardened OkHt
 ## Building from Source
 
 ### Prerequisites
-* Android phone running **Android 11 or newer** (API 30+). Reference test device: Android 16.
+* Android phone running **Android 11 or newer** (API 30+). Tested on a physical Android 16 phone and an Android 17 emulator.
 * Java 17+ / Android Studio SDK with Build-Tools.
 
 ### 1. Clone the repository
@@ -211,16 +216,17 @@ app/src/main/
   assets/playbooks/        Bundled Markdown navigation guides per app package
   kotlin/dev/pocketagent/
     agent/                 AgentLoop, AgentRunner, StuckDetector, Tools, Captions
+    bridge/                McpHandler, McpHttpServer, PairingToken (the optional Computer Link)
     device/                DevicePort, ScreenNode, ScreenSerializer, Settler, Revalidator
     llm/                   AnthropicClient, OpenAiCompatClient, OkHttpTransport, ProviderConfig
     safety/                SafetyGate, BlockedApps, RiskyLabels
-    playbook/              Playbook, PlaybookStore
+    playbook/              Playbook, PlaybookStore, RoutineRecorder
     setup/                 SetupModel, StoredConfigRepository
-    android/               PocketAccessibilityService, PocketNotificationListener, AccessibilityDevice
+    android/               PocketAccessibilityService, PocketNotificationListener, PocketTileService, AccessibilityDevice
     ui/                    BubbleOverlay, CaptionView, ConfirmCard, SummaryCard, SetupActivity
 ```
 
-> **Clean Architecture Guarantee**: Core packages (`agent`, `device`, `llm`, `safety`, `playbook`, and `setup`) contain **zero Android framework dependencies**. All core decision logic is verified via fast JVM unit tests with deterministic fakes.
+> **Clean Architecture Guarantee**: Core packages (`agent`, `bridge`, `device`, `llm`, `safety`, `playbook`, and `setup`) contain **zero Android framework dependencies**. All core decision logic is verified via fast JVM unit tests with deterministic fakes.
 
 ---
 
@@ -236,6 +242,7 @@ Contributions are welcome! You can contribute code, documentation, or **App Play
 ## Documentation
 
 * [Architecture Deep Dive](docs/ARCHITECTURE.md): Agent loop, accessibility tree serializer, and overlay system
+* [Computer Link](docs/COMPUTER_LINK.md): Connect Claude Code or another MCP app on your computer, and how it is locked down
 * [Security Model](docs/SECURITY_MODEL.md): Threat model, blocked apps, Keystore encryption, and safety gate
 * [Acceptable Use Policy](ACCEPTABLE_USE.md): Strict guidelines and prohibited activities
 * [Testing Checklist](docs/TESTING.md): JVM unit tests and physical-device verification procedure
