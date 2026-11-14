@@ -232,6 +232,8 @@ class ArchitectureTest {
                 "android.intent.action.WEB_SEARCH" to "",
                 "android.intent.action.SET_ALARM" to "",
                 "android.intent.action.SET_TIMER" to "",
+                "android.intent.action.VIEW" to "android.intent.category.BROWSABLE,https",
+                "android.intent.action.INSERT" to "",
                 "android.intent.action.TTS_SERVICE" to "",
             ),
             declared.toSet(),

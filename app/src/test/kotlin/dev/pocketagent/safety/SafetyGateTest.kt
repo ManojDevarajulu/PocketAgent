@@ -342,6 +342,8 @@ class SafetyGateTest {
             dev.pocketagent.device.Shortcut.WebSearch("news"),
             dev.pocketagent.device.Shortcut.SetAlarm(6, 30),
             dev.pocketagent.device.Shortcut.SetTimer(600),
+            dev.pocketagent.device.Shortcut.OpenUrl("https://example.com"),
+            dev.pocketagent.device.Shortcut.AddEvent("Dentist", java.time.LocalDateTime.of(2026, 11, 20, 15, 30), 45),
         ).forEach { assertEquals(Verdict.Allow, gate.check(DeviceAction.OpenShortcut(it), screen, false), "$it") }
     }
 

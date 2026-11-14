@@ -674,6 +674,27 @@ class AgentLoopTest {
         assertTrue(ui.confirmRequests.isEmpty())
     }
 
+    @Test fun urlAndCalendarEventReachTheDeviceAsOneActionEachWithoutAsking() = runTest {
+        val device = FakeDevice(listOf(start, distinctScreen("web"), distinctScreen("cal")))
+        val ui = FakeUi()
+        val llm = FakeLlm(
+            listOf(
+                call("open_url", "url" to "https://example.com"),
+                call("add_calendar_event", "title" to "Dentist", "date" to "2026-11-20", "time" to "15:30", "duration_minutes" to 45),
+                done(),
+            ),
+        )
+        loop(llm, device, ui).run("t", start)
+        assertEquals(
+            listOf<DeviceAction>(
+                DeviceAction.OpenShortcut(dev.pocketagent.device.Shortcut.OpenUrl("https://example.com")),
+                DeviceAction.OpenShortcut(dev.pocketagent.device.Shortcut.AddEvent("Dentist", java.time.LocalDateTime.of(2026, 11, 20, 15, 30), 45)),
+            ),
+            device.actions,
+        )
+        assertTrue(ui.confirmRequests.isEmpty())
+    }
+
     @Test fun aPrefilledTextShowsOnTheSendConfirmation() = runTest {
         val sms = screenOf(node("a1", role = "button", text = "Send", clickable = true))
         val ui = FakeUi()

@@ -39,6 +39,15 @@
         <intent>
             <action android:name="android.intent.action.SET_TIMER" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.INSERT" />
+            <data android:mimeType="vnd.android.cursor.dir/event" />
+        </intent>
         <!-- Lets Talk back bind the phone's text-to-speech engine. -->
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />

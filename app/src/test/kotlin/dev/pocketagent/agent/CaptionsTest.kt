@@ -87,5 +87,7 @@ class CaptionsTest {
         assertEquals("Searching the web", Captions.forAction(ToolCall.WebSearch("secret"), null))
         assertEquals("Setting an alarm for 06:30", Captions.forAction(ToolCall.SetAlarm(6, 30), null))
         assertEquals("Starting a timer", Captions.forAction(ToolCall.SetTimer(600), null))
+        assertEquals("Opening a web link", Captions.forAction(ToolCall.OpenUrl("https://secret.example"), null))
+        assertEquals("Adding a calendar event", Captions.forAction(ToolCall.AddEvent("secret", java.time.LocalDateTime.of(2026, 1, 1, 9, 0), 30), null))
     }
 }

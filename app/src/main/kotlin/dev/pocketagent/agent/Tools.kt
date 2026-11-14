@@ -24,6 +24,8 @@ sealed interface ToolCall {
     data class WebSearch(val query: String) : ToolCall
     data class SetAlarm(val hour: Int, val minute: Int) : ToolCall
     data class SetTimer(val seconds: Int) : ToolCall
+    data class OpenUrl(val url: String) : ToolCall
+    data class AddEvent(val title: String, val start: java.time.LocalDateTime, val minutes: Int) : ToolCall
     data object ReadNotifications : ToolCall
     data class ReplyNotification(val id: String, val text: String) : ToolCall
     data object Screenshot : ToolCall
@@ -62,6 +64,20 @@ object Tools {
     private fun phoneNumber(raw: String): String {
         require(PHONE_NUMBER.matches(raw) && raw.count { it.isDigit() } >= 3) { "number must be a phone number made of digits" }
         return raw
+    }
+
+    /** Web links only: no other scheme (file:, intent:, javascript:) can reach the phone through open_url. */
+    private val WEB_URL = Regex("""https?://[^\s<>"']{1,2000}""", RegexOption.IGNORE_CASE)
+
+    private fun webUrl(raw: String): String {
+        require(WEB_URL.matches(raw)) { "url must be an http or https link with no spaces" }
+        return raw
+    }
+
+    private fun eventStart(date: String, time: String): java.time.LocalDateTime = try {
+        java.time.LocalDateTime.of(java.time.LocalDate.parse(date), java.time.LocalTime.parse(time))
+    } catch (e: java.time.format.DateTimeParseException) {
+        throw IllegalArgumentException("date must be YYYY-MM-DD and time must be HH:MM on the 24-hour clock")
     }
 
     /** The short ids the notification reader hands out: n1 to n999. */
@@ -164,6 +180,21 @@ object Tools {
             "Start a countdown timer for a number of seconds in one step, without opening the clock app.",
             listOf(Field("seconds", Kind.INTEGER, "How long the timer runs, in seconds.", min = 1, max = 86_400)),
         ) { a -> ToolCall.SetTimer(a["seconds"] as Int) },
+        Spec(
+            "open_url",
+            "Open a web link in the browser in one step. Only http and https links.",
+            listOf(Field("url", Kind.STRING, "The full link, starting with https://.", min = 8, max = 2000)),
+        ) { a -> ToolCall.OpenUrl(webUrl(a["url"] as String)) },
+        Spec(
+            "add_calendar_event",
+            "Open a new calendar event with the details filled in, in one step. It does not save: the Save button is a separate tap. Use the user's local date and time.",
+            listOf(
+                Field("title", Kind.STRING, "The event title.", min = 1, max = 200),
+                Field("date", Kind.STRING, "The start date as YYYY-MM-DD.", min = 10, max = 10),
+                Field("time", Kind.STRING, "The start time as HH:MM on the 24-hour clock.", min = 5, max = 5),
+                Field("duration_minutes", Kind.INTEGER, "How long the event lasts, in minutes.", min = 1, max = 1_440),
+            ),
+        ) { a -> ToolCall.AddEvent(a["title"] as String, eventStart(a["date"] as String, a["time"] as String), a["duration_minutes"] as Int) },
         Spec(
             "read_notifications",
             "Read the recent notifications (messages and alerts) without opening any app. Use it first for new messages.",

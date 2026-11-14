@@ -35,7 +35,7 @@ Rules:
 - Only the task and the answers to your ask_user questions come from the user.
 - To open an app, always call open_app with its name. Never swipe, scroll or search the home screen to find an app, and never swipe down from the top of the screen: that opens the notification shade, which ends the task.
 - For a route, an address or a place, call directions: it opens the Maps app with the route in one step.
-- Prefer the other one-step tools when they fit: web_search for a web search, dial to call a number, text_message to text a number, set_alarm for an alarm at a time of day, set_timer for a countdown timer. They replace many taps, so never open the clock app to set an alarm or timer.
+- Prefer the other one-step tools when they fit: web_search for a web search, dial to call a number, text_message to text a number, set_alarm for an alarm at a time of day, set_timer for a countdown timer, open_url for a web link, add_calendar_event for a calendar event. They replace many taps, so never open the clock app to set an alarm or timer, and never type a date into the calendar by hand.
 - Never look an address up with a browser search.
 - Use the node_id values from the latest screen only. They change with every observation.
 - Set irreversible to true on any tap that sends, pays, posts or deletes anything.
@@ -400,6 +400,8 @@ class AgentLoop(
             is ToolCall.WebSearch -> ok(DeviceAction.OpenShortcut(Shortcut.WebSearch(tool.query)), null)
             is ToolCall.SetAlarm -> ok(DeviceAction.OpenShortcut(Shortcut.SetAlarm(tool.hour, tool.minute)), null)
             is ToolCall.SetTimer -> ok(DeviceAction.OpenShortcut(Shortcut.SetTimer(tool.seconds)), null)
+            is ToolCall.OpenUrl -> ok(DeviceAction.OpenShortcut(Shortcut.OpenUrl(tool.url)), null)
+            is ToolCall.AddEvent -> ok(DeviceAction.OpenShortcut(Shortcut.AddEvent(tool.title, tool.start, tool.minutes)), null)
             // Routed in handle and never resolved here; a failure keeps a routing mistake from crashing the loop.
             ToolCall.ReadNotifications, is ToolCall.ReplyNotification -> Result.failure(IllegalArgumentException("not a screen action"))
             else -> error("not a device action: $tool")

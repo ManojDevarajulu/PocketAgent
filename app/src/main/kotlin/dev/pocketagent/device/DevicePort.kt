@@ -50,6 +50,12 @@ sealed interface Shortcut {
 
     /** Starts a countdown timer of [seconds] without opening the clock app. */
     data class SetTimer(val seconds: Int) : Shortcut
+
+    /** Opens a web link ([url] is http or https) in the default browser. */
+    data class OpenUrl(val url: String) : Shortcut
+
+    /** Opens a new calendar event with these details filled in, in local time. It does not save. */
+    data class AddEvent(val title: String, val start: java.time.LocalDateTime, val minutes: Int) : Shortcut
 }
 
 sealed interface ActionResult {

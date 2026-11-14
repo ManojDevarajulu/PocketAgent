@@ -152,12 +152,12 @@ class ToolParserTest {
     @Test
     fun definitionNamesMatchSpec() {
         val names = Tools.definitions.map { it.name }
-        assertEquals(18, names.size)
+        assertEquals(20, names.size)
         assertEquals(
             setOf(
                 "tap", "type", "scroll", "back", "home", "open_app", "screenshot", "wait", "ask_user", "done",
                 "directions", "dial", "text_message", "web_search", "read_notifications", "reply_notification",
-                "set_alarm", "set_timer",
+                "set_alarm", "set_timer", "open_url", "add_calendar_event",
             ),
             names.toSet(),
         )
@@ -211,6 +211,23 @@ class ToolParserTest {
         assertEquals(ToolCall.Dial("+44 20 7946 0958"), parse("dial", """{"number":"+44 20 7946 0958"}""").getOrThrow())
         assertEquals(ToolCall.TextMessage("5551234", "on my way"), parse("text_message", """{"number":"5551234","body":"on my way"}""").getOrThrow())
         assertEquals(ToolCall.WebSearch("weather today"), parse("web_search", """{"query":"weather today"}""").getOrThrow())
+    }
+
+    @Test
+    fun parsesOpenUrlOnlyForWebLinks() {
+        assertEquals(ToolCall.OpenUrl("https://example.com/a?b=1"), parse("open_url", """{"url":"https://example.com/a?b=1"}""").getOrThrow())
+        listOf("file:///sdcard/x.txt", "intent://x#Intent;end", "javascript:alert(1)", "https://a.com/x y", "example.com/page").forEach {
+            assertTrue(parse("open_url", """{"url":"$it"}""").isFailure, it)
+        }
+    }
+
+    @Test
+    fun parsesCalendarEvent() {
+        val ok = parse("add_calendar_event", """{"title":"Dentist","date":"2026-11-20","time":"15:30","duration_minutes":45}""").getOrThrow()
+        assertEquals(ToolCall.AddEvent("Dentist", java.time.LocalDateTime.of(2026, 11, 20, 15, 30), 45), ok)
+        assertTrue(parse("add_calendar_event", """{"title":"x","date":"2026-13-40","time":"15:30","duration_minutes":45}""").isFailure)
+        assertTrue(parse("add_calendar_event", """{"title":"x","date":"2026-11-20","time":"25:61","duration_minutes":45}""").isFailure)
+        assertTrue(parse("add_calendar_event", """{"title":"x","date":"2026-11-20","time":"15:30","duration_minutes":0}""").isFailure)
     }
 
     @Test

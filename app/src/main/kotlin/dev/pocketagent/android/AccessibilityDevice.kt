@@ -343,6 +343,18 @@ class AccessibilityDevice(
                     .putExtra(AlarmClock.EXTRA_LENGTH, shortcut.seconds)
                     .putExtra(AlarmClock.EXTRA_SKIP_UI, true),
             ) to "start a timer"
+            is Shortcut.OpenUrl -> listOf(
+                Intent(Intent.ACTION_VIEW, Uri.parse(shortcut.url)).addCategory(Intent.CATEGORY_BROWSABLE),
+            ) to "open a web link"
+            is Shortcut.AddEvent -> {
+                val begin = shortcut.start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                listOf(
+                    Intent(Intent.ACTION_INSERT, android.provider.CalendarContract.Events.CONTENT_URI)
+                        .putExtra(android.provider.CalendarContract.Events.TITLE, shortcut.title)
+                        .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, begin)
+                        .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, begin + shortcut.minutes * 60_000L),
+                ) to "add a calendar event"
+            }
         }
         val pm = service.packageManager
         for (intent in candidates) {
