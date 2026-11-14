@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/logo.png" alt="Pocket Agent Logo" width="108" height="108" />
+  <img src="docs/assets/logo.png" alt="Pocket Agent Logo" width="180" height="180" />
   <h1>Pocket Agent</h1>
   <p><strong>Zero-PC, on-device autonomous mobile AI agent for Android.</strong></p>
   <p><em>Tap the bubble on anything. Say what to do. Your phone does it.</em></p>
