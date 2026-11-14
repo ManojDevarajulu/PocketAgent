@@ -51,6 +51,9 @@ interface TaskScreenHost {
     fun completeAnswer(answer: String?)
     fun startSetupTask(text: String)
 
+    /** Starts recording the user's own taps as a playbook draft; the bubble becomes the stop button. */
+    fun startRecording()
+
     companion object {
         @Volatile
         var current: TaskScreenHost? = null
@@ -192,9 +195,9 @@ class TaskInputActivity : ThemedActivity() {
         if (q == null) {
             val list = Kit.vstack(c).apply { setPadding(0, dp(c, 10), 0, 0) }
             // One icon and hue per tile, in QuickTasks.all order: Catch me up, Reply to this, Take me to an address,
-            // What's this?, Latest OTP.
-            val icons = listOf(R.drawable.ic_chat, R.drawable.ic_send, R.drawable.ic_pin, R.drawable.ic_search, R.drawable.ic_key)
-            val hues = listOf(R.color.pa_t_green, R.color.pa_t_indigo, R.color.pa_t_blue, R.color.pa_t_orange, R.color.pa_t_gray)
+            // What's this?, Latest OTP, Record my routine.
+            val icons = listOf(R.drawable.ic_chat, R.drawable.ic_send, R.drawable.ic_pin, R.drawable.ic_search, R.drawable.ic_key, R.drawable.ic_doc)
+            val hues = listOf(R.color.pa_t_green, R.color.pa_t_indigo, R.color.pa_t_blue, R.color.pa_t_orange, R.color.pa_t_gray, R.color.pa_t_indigo)
             QuickTasks.all.forEachIndexed { index, quick ->
                 // Defensive only: a tile added without an icon gets a plain chat icon rather than another tile's.
                 val icon = icons.getOrElse(index) { R.drawable.ic_chat }
@@ -214,6 +217,10 @@ class TaskInputActivity : ThemedActivity() {
                     row.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     if (quick.onPhone == OnPhone.LATEST_OTP) {
                         showLatestOtp()
+                    } else if (quick.onPhone == OnPhone.RECORD_ROUTINE) {
+                        handled = true
+                        TaskScreenHost.current?.startRecording()
+                        closeSheet()
                     } else {
                         input.setText(quick.task)
                         input.setSelection(input.text.length)

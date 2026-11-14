@@ -4,7 +4,7 @@ package dev.pocketagent.agent
 data class QuickTask(val title: String, val subtitle: String, val task: String, val onPhone: OnPhone? = null)
 
 /** A quick task that runs on the phone itself, with no AI. */
-enum class OnPhone { LATEST_OTP }
+enum class OnPhone { LATEST_OTP, RECORD_ROUTINE }
 
 /**
  * The suggestions on the task screen. The title is a short label, but the task is written out in full: a model
@@ -45,6 +45,12 @@ object QuickTasks {
             subtitle = "Shows the newest code",
             task = "",
             onPhone = OnPhone.LATEST_OTP,
+        ),
+        QuickTask(
+            title = "Record my routine",
+            subtitle = "Do it once, get a playbook draft",
+            task = "",
+            onPhone = OnPhone.RECORD_ROUTINE,
         ),
     )
 }

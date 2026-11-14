@@ -9,7 +9,7 @@ class QuickTasksTest {
     @Test
     fun keepsTheSuggestionsInOrder() {
         assertEquals(
-            listOf("Catch me up", "Reply to this", "Take me to an address", "What's this?", "Latest OTP"),
+            listOf("Catch me up", "Reply to this", "Take me to an address", "What's this?", "Latest OTP", "Record my routine"),
             QuickTasks.all.map { it.title },
         )
     }
@@ -51,11 +51,11 @@ class QuickTasksTest {
     }
 
     @Test
-    fun onlyLatestOtpRunsOnThePhoneWithNoTaskText() {
+    fun onlyTheOnPhoneTilesHaveNoTaskText() {
         val onPhone = QuickTasks.all.filter { it.onPhone != null }
-        assertEquals(listOf("Latest OTP"), onPhone.map { it.title })
-        assertEquals(OnPhone.LATEST_OTP, onPhone.single().onPhone)
-        assertEquals("", onPhone.single().task)
+        assertEquals(listOf("Latest OTP", "Record my routine"), onPhone.map { it.title })
+        assertEquals(listOf(OnPhone.LATEST_OTP, OnPhone.RECORD_ROUTINE), onPhone.map { it.onPhone })
+        assertTrue(onPhone.all { it.task.isEmpty() })
         assertTrue(QuickTasks.all.filter { it.onPhone == null }.all { it.task.isNotBlank() })
     }
 

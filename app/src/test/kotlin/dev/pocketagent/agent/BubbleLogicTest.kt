@@ -108,4 +108,16 @@ class BubbleLogicTest {
     fun resultDelayIsThreeSeconds() {
         assertEquals(3_000L, BUBBLE_RESULT_MS)
     }
+
+    @Test
+    fun recordingMakesTheBubbleAStopButtonAndIgnoresTaskState() {
+        val logic = logic(AgentState.Idle).apply { setRecording(true) }
+        assertEquals(BubbleMode.RECORDING, logic.mode)
+        assertEquals(BubbleCommand.STOP_RECORDING, logic.onTap())
+        assertEquals(BubbleCommand.NONE, logic.onLongPress())
+        logic.onState(AgentState.Running)
+        assertEquals(BubbleMode.RECORDING, logic.mode)
+        logic.setRecording(false)
+        assertEquals(BubbleMode.IDLE, logic.mode)
+    }
 }

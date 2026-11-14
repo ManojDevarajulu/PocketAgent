@@ -221,6 +221,7 @@ class BubbleOverlay(
                 BubbleMode.WAITING -> Kit.color(context, R.color.pa_accent)
                 BubbleMode.DONE -> Kit.color(context, R.color.pa_good)
                 BubbleMode.ERROR -> Kit.color(context, R.color.pa_bad)
+                BubbleMode.RECORDING -> Kit.color(context, R.color.pa_bad)
             }
             // Navy with a white rim reads on a light app and on a dark one; frosted white vanished on light backgrounds.
             if (mode == BubbleMode.IDLE) {
@@ -292,6 +293,10 @@ class BubbleOverlay(
                     }
                     ink.strokeWidth = 3.2f * u
                     canvas.drawPath(p, ink)
+                }
+                BubbleMode.RECORDING -> {
+                    // a stop square: tapping the bubble ends the recording
+                    canvas.drawRoundRect(c - 6f * u, c - 6f * u, c + 6f * u, c + 6f * u, 2f * u, 2f * u, fillInk)
                 }
                 BubbleMode.ERROR -> {
                     ink.strokeWidth = 3.2f * u

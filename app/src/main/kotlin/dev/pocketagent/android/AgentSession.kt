@@ -3,6 +3,12 @@ package dev.pocketagent.android
 import android.accessibilityservice.AccessibilityService
 import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.pm.PackageManager
+import android.view.accessibility.AccessibilityEvent
+import dev.pocketagent.playbook.RoutineRecorder
+import java.io.File
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
@@ -202,7 +208,7 @@ class AgentSession(
      * what gets read, then do what a bubble tap does.
      */
     fun startFromTile() {
-        if (closed || taskIsLive()) return
+        if (closed || taskIsLive() || recorder != null) return
         val shade = if (Build.VERSION.SDK_INT >= 31) {
             AccessibilityService.GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE
         } else {
@@ -262,7 +268,7 @@ class AgentSession(
 
     private fun begin(task: String, screen: Screen, client: LlmClient, fromSetup: Boolean, spoken: Boolean = false) {
         // Every start runs on the main thread and the runner refuses a second task, so a live task keeps its UI.
-        if (taskIsLive()) return
+        if (taskIsLive() || recorder != null) return
         pendingClient = client
         setupTaskRunning = fromSetup
         // A new task silences whatever the previous one was still saying.
@@ -447,8 +453,77 @@ class AgentSession(
                 runner.cancel()
                 stopVoice()
             }
+            BubbleCommand.STOP_RECORDING -> stopRecording()
             BubbleCommand.NONE -> Unit
         }
+    }
+
+    // --- Record my routine ---
+
+    private var recorder: RoutineRecorder? = null
+
+    override fun startRecording() {
+        savedScreen = null
+        logic.taskScreenOpen = false
+        if (closed || taskIsLive() || recorder != null) return
+        summaryCard.close()
+        recorder = RoutineRecorder(blocked, ownPackage)
+        service.subscribeToRecordingEvents(true)
+        logic.setRecording(true)
+        bubble.render(logic.mode)
+        Toast.makeText(service.applicationContext, R.string.recording_started, Toast.LENGTH_LONG).show()
+    }
+
+    /**
+     * Called for every event while recording. A click keeps only its label, never a field's text, and a new screen
+     * keeps only its class name, which names the screen but, unlike a window title, never holds a contact or a message.
+     */
+    fun onRecordingEvent(event: AccessibilityEvent) {
+        val active = recorder ?: return
+        val pkg = event.packageName?.toString().orEmpty()
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_VIEW_CLICKED -> {
+                val source = event.source
+                val label = source?.text?.toString() ?: source?.contentDescription?.toString() ?: event.contentDescription?.toString()
+                active.tap(pkg, label, editable = source == null || source.isEditable || source.isPassword)
+            }
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                val name = event.className?.toString()?.substringAfterLast('.').orEmpty()
+                if (name.length >= MIN_SCREEN_NAME && !event.className.toString().startsWith("android.")) active.screen(pkg, name)
+            }
+        }
+    }
+
+    private fun stopRecording() {
+        val active = recorder ?: return
+        recorder = null
+        service.subscribeToRecordingEvents(false)
+        logic.setRecording(false)
+        bubble.render(logic.mode)
+        val pm = service.packageManager
+        val draft = active.build(
+            appLabel = { pkg -> try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch (e: PackageManager.NameNotFoundException) { pkg } },
+            version = { pkg -> try { pm.getPackageInfo(pkg, 0).versionName.orEmpty() } catch (e: PackageManager.NameNotFoundException) { "" } },
+        )
+        val result = draft.getOrNull()
+        if (result == null) {
+            summaryCard.show(service.getString(R.string.recording_failed_title), draft.exceptionOrNull()?.message.orEmpty())
+            return
+        }
+        // Private storage only; the user decides whether it is ever shared, after checking it for anything personal.
+        val saved = try {
+            val dir = File(service.filesDir, RECORDED_DIR).apply { mkdirs() }
+            File(dir, "${result.packageName}.md").writeText(result.text)
+            true
+        } catch (e: IOException) {
+            false
+        }
+        service.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Pocket Agent playbook draft", result.text))
+        val note = if (saved) "Saved in the app and copied." else "Copied (it could not be saved)."
+        summaryCard.show(
+            service.getString(R.string.recording_done_title, result.app),
+            "${result.steps} steps. $note Read it for anything personal before you share it as a playbook; see CONTRIBUTING.md.",
+        )
     }
 
     /** Hides (true) or shows (false) the bubble and caption on the main thread; does nothing once closed. */
@@ -541,6 +616,8 @@ class AgentSession(
         const val MAX_SCREEN_CHARS = 12_000
         const val LOCK_POLL_MS = 500L
         const val TILE_SETTLE_MS = 450L
+        const val MIN_SCREEN_NAME = 4
+        const val RECORDED_DIR = "recorded"
         const val PLAYBOOK_DIR = "playbooks"
         const val SPEECH_UNAVAILABLE_NOTE = "Speech isn't available on this phone, so Pocket Agent stayed silent."
     }

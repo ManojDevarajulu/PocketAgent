@@ -21,7 +21,9 @@ class PocketAccessibilityService : AccessibilityService() {
 
     /** Events arrive only while a task runs; each one only restarts the settle timer. */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        session?.onEvent()
+        val current = session ?: return
+        current.onEvent()
+        if (event != null) current.onRecordingEvent(event)
     }
 
     override fun onInterrupt() {
@@ -42,6 +44,15 @@ class PocketAccessibilityService : AccessibilityService() {
     internal fun subscribeToTaskEvents(on: Boolean) {
         val info = serviceInfo ?: return
         val types = if (on) TASK_EVENT_TYPES else 0
+        if (info.eventTypes == types) return
+        info.eventTypes = types
+        serviceInfo = info
+    }
+
+    /** Only while a routine is recorded: clicks and screen changes, nothing else, and none once recording stops. */
+    internal fun subscribeToRecordingEvents(on: Boolean) {
+        val info = serviceInfo ?: return
+        val types = if (on) AccessibilityEvent.TYPE_VIEW_CLICKED or AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED else 0
         if (info.eventTypes == types) return
         info.eventTypes = types
         serviceInfo = info
