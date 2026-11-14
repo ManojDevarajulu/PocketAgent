@@ -202,7 +202,7 @@ Needs Talk back switched on (Settings screen, Bubble section). All items are sti
 - [ ] **Typed task.** Type a task. Expected: it stays silent.
 - [ ] **Talk back off.** Turn Talk back off and run a mic task. Expected: it stays silent.
 - [ ] **Phone call.** Take a call mid-sentence. Expected: speech stops and the task carries on; a confirmation
-  during a call waits for the card (does not auto-decline).
+  during a call declines or waits for the card; it must never approve.
 
 Known device-pass items:
 
