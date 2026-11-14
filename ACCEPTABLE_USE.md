@@ -1,62 +1,61 @@
-# Acceptable Use Policy (AUP)
+# Safety & Ethical Guidelines
 
 **Project:** Pocket Agent  
-**Last Updated:** November 2026
+**License:** GNU Affero General Public License v3.0 (AGPL-3.0)
 
-Pocket Agent is an autonomous assistive on-device AI agent designed to empower individuals by operating their own Android devices through voice and accessibility automation. Because the software interacts with system accessibility and notification APIs, this Acceptable Use Policy outlines the strict rules and ethical boundaries governing its use, distribution, and modification.
+Pocket Agent is an autonomous assistive on-device AI agent designed to empower individuals by operating their own Android devices through voice and accessibility automation. Because the software interacts with system accessibility and notification APIs, these guidelines outline our community expectations, intended use cases, and design safeguards.
 
 ---
 
 ## 1. Intended Purpose
 
-Pocket Agent is intended exclusively for:
-* Personal device assistance, accessibility enhancement, and task automation on hardware owned or explicitly authorized by the user.
-* Open-source research, developer experimentation, and evaluation of on-device LLM reasoning and mobile accessibility frameworks.
+Pocket Agent is built for:
+* **Personal Automation**: Hands-free device assistance, voice task completion, and routine automation on hardware owned and controlled by the user.
+* **Accessibility**: Empowering users with visual, motor, or situational impairments to navigate complex mobile interfaces.
+* **Open-Source Research**: Transparent evaluation of on-device LLM reasoning, mobile UI grounding, and privacy-preserving agent architectures.
 
 ---
 
-## 2. Prohibited Activities
+## 2. Responsible Development & Prohibited Uses
 
-You may **not** use, modify, redistribute, or incorporate Pocket Agent (in whole or in part) for any of the following purposes:
+Pocket Agent is distributed under the GNU AGPL-3.0 in the spirit of open-source collaboration. Contributors and downstream developers are expected to uphold ethical standards:
 
-### A. Surveillance & Spyware
-* Installing or running Pocket Agent on any device without the device owner's explicit, informed consent.
-* Repackaging the app to secretly monitor screens, intercept private messages, or log user behavior (stalkerware / spyware).
+### A. Respect User Consent & Privacy (No Spyware)
+* Do not install or operate Pocket Agent without the device owner's explicit knowledge and ongoing consent.
+* Do not weaponize accessibility services for unauthorized surveillance, clandestine background tracking, or stalkerware.
 
-### B. Financial Fraud & Credential Theft
-* Disabling, weakening, or circumventing the deterministic safety mechanisms (including `SafetyGate`, `BlockedApps`, or confirmation prompts) to execute unauthorized financial transactions, money transfers, or e-commerce purchases.
-* Harvesting passwords, PINs, cryptographic keys, two-factor authentication tokens, or payment card details.
+### B. Protect Financial Integrity & Credentials
+* Do not circumvent or disable the deterministic safety mechanisms (`SafetyGate`, `BlockedApps`, Keystore encryption) to execute unauthorized transactions, fund transfers, or automated purchases.
+* Do not repurpose the screen parser or accessibility hooks to harvest passwords, PINs, 2FA tokens, or credit card numbers.
 
-### C. Malware & Unauthorized Device Control
-* Distributing modified versions disguised as benign software or trojans.
-* Weaponizing accessibility gestures to inject adware, spam, bulk messaging, or denial-of-service actions.
-* Exfiltrating private screen or notification contents to unauthorized third-party servers.
-
-### D. Harassment, Impersonation & Abuse
-* Generating deceptive, abusive, harassing, or defamatory communications through automated messaging or social platforms.
-* Impersonating another person or organization without authorization.
+### C. Prevent Malware & Harmful Automation
+* Do not package Pocket Agent into deceptive apps, adware, or trojans.
+* Do not utilize the automation engine for bulk spamming, phishing, or automated harassment.
 
 ---
 
-## 3. Preservation of Safety Safeguards
+## 3. Core Safety Safeguards
 
-When creating derivative works or distributing builds:
-* The core safety boundaries (blocking sensitive financial/banking applications, masking authentication codes, and requiring explicit human-in-the-loop confirmation for irreversible actions) should not be removed or bypassed in builds distributed to general users.
-* If testing modifications in development environments, developers must maintain equivalent safeguards to protect end-user security.
+Pocket Agent implements deterministic on-device safety gates in code:
+1. **App Blocklist**: Banking, financial, crypto, and credential management packages are strictly refused by default.
+2. **Human-in-the-Loop Confirmation**: Irreversible actions (*Pay*, *Send*, *Delete*, *Order*) require explicit human approval.
+3. **Local Encryption**: All API credentials are encrypted with Android Keystore AES-256 GCM.
+4. **Data Isolation**: Untrusted UI content is sanitized to prevent prompt injection.
 
----
-
-## 4. Disclaimer of Liability & Indemnification
-
-The authors and contributors of Pocket Agent:
-1. Provide the software "as is", without warranty of any kind.
-2. Are not responsible for any damage, loss of data, unauthorized transactions, or legal violations arising from modified versions, unauthorized distributions, or malicious use of this software.
-3. Strongly condemn any malicious repurposing of mobile accessibility technologies.
-
-Any person or entity utilizing this software agrees to assume full legal responsibility for their actions and compliance with applicable local and international laws.
+Downstream maintainers and contributors are strongly encouraged to retain these protective boundaries in all user-facing distributions.
 
 ---
 
-## 5. Reporting Violations & Vulnerabilities
+## 4. Disclaimer of Liability
 
-To report misuse, malicious repackaging, or security vulnerabilities, please refer to [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) or open a confidential security advisory on GitHub.
+Pocket Agent is provided "as is", without warranty of any kind, express or implied, as detailed in the [AGPL-3.0 License](LICENSE). The authors and contributors:
+1. Disclaim all liability for any damages, unauthorized actions, or legal violations resulting from third-party modifications, unauthorized repackaging, or misuse of this software.
+2. Strongly condemn any malicious repurposing of mobile accessibility technologies.
+
+Users and developers assume full responsibility for compliance with all applicable local and international laws.
+
+---
+
+## 5. Responsible Disclosure
+
+To report security vulnerabilities or safety concerns, please follow our disclosure process in [SECURITY.md](SECURITY.md).

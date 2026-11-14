@@ -13,7 +13,7 @@ It works directly through a floating bubble on your screen—zero PC, zero ADB, 
 <a href="https://github.com/ManojDevarajulu/PocketAgent/stargazers"><img src="https://img.shields.io/github/stars/ManojDevarajulu/PocketAgent?style=flat&logo=github&label=Star&color=1f6feb" alt="stars" /></a>
 <a href="https://github.com/ManojDevarajulu/PocketAgent/releases/latest"><img src="https://img.shields.io/github/v/release/ManojDevarajulu/PocketAgent?label=version&color=FF8544" alt="version" /></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-lightgrey" alt="license" /></a>
-<a href="ACCEPTABLE_USE.md"><img src="https://img.shields.io/badge/AUP-enforced-success" alt="AUP" /></a>
+<a href="ACCEPTABLE_USE.md"><img src="https://img.shields.io/badge/safety-guidelines-success" alt="Safety Guidelines" /></a>
 
 <br/>
 <br/>
@@ -244,7 +244,9 @@ Contributions are welcome! You can contribute code, documentation, or **App Play
 * [Architecture Deep Dive](docs/ARCHITECTURE.md): Agent loop, accessibility tree serializer, and overlay system
 * [Computer Link](docs/COMPUTER_LINK.md): Connect Claude Code or another MCP app on your computer, and how it is locked down
 * [Security Model](docs/SECURITY_MODEL.md): Threat model, blocked apps, Keystore encryption, and safety gate
-* [Acceptable Use Policy](ACCEPTABLE_USE.md): Strict guidelines and prohibited activities
+* [Safety & Ethical Guidelines](ACCEPTABLE_USE.md): Community guidelines, intended use, and responsible development
+* [Third-Party Notices](THIRD_PARTY_NOTICES.md): Licenses for bundled fonts and libraries
+* [Changelog](CHANGELOG.md): Release history and version updates
 * [Testing Checklist](docs/TESTING.md): JVM unit tests and physical-device verification procedure
 
 ---
@@ -252,6 +254,6 @@ Contributions are welcome! You can contribute code, documentation, or **App Play
 ## License
 
 Licensed under the **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)**.  
-All use, development, and distribution are subject to our **[Acceptable Use Policy](ACCEPTABLE_USE.md)**.
+Please review our community **[Safety & Ethical Guidelines](ACCEPTABLE_USE.md)**.
 
 Copyright (c) 2026 Manoj Devarajulu and Pocket Agent contributors.
