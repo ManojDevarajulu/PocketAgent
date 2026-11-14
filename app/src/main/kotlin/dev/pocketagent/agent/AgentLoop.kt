@@ -226,17 +226,17 @@ class AgentLoop(
         val result = device.perform(resolved.action)
         if (result is ActionResult.Ok && tool is ToolCall.TypeText) run.lastTyped = tool.text.take(MAX_DETAIL)
         if (result is ActionResult.Ok && tool is ToolCall.TextMessage) run.lastTyped = tool.body.take(MAX_DETAIL)
-        return afterAction(run, call, result)
+        return afterAction(run, call, result, scrolled = tool is ToolCall.Scroll)
     }
 
     /** After anything that may have changed the phone: read the screen, check the block list and the stuck detector, report the result. */
-    private suspend fun afterAction(run: Run, call: LlmResult.Call, result: ActionResult, countsAsScreenAction: Boolean = true): Step {
+    private suspend fun afterAction(run: Run, call: LlmResult.Call, result: ActionResult, countsAsScreenAction: Boolean = true, scrolled: Boolean = false): Step {
         val next = observe(run) ?: return Step.End(end(EndReason.BLOCKED_APP, "The task moved into an app that is on the block list."))
         if (countsAsScreenAction && run.stuck.afterAction(forComparison(next.text))) {
             return Step.End(end(EndReason.STUCK, "The screen did not change after $STUCK_LIMIT actions."))
         }
         val toolResult = when (result) {
-            ActionResult.Ok -> ToolResult(call.callId, "ok", isError = false)
+            ActionResult.Ok -> ToolResult(call.callId, if (scrolled && run.stuck.lastWasRepeat) SCROLL_END else "ok", isError = false)
             is ActionResult.Failed -> ToolResult(call.callId, result.reason, isError = true)
         }
         return Step.Next(Turn(next.text, toolResult, systemNote = next.note))
@@ -414,6 +414,7 @@ class AgentLoop(
         const val MAX_DETAIL = 200
         const val MAX_TARGET = 60
         const val STUCK_LIMIT = 3
+        const val SCROLL_END = "ok, but the screen did not change: you are at the end of the list, so nothing more can be read by scrolling"
         const val ACCESS_OFF = "notification access is off; open the app instead"
         const val REPLY_UNCONFIRMED = "the app did not confirm the reply (it may or may not have been sent); tell the user instead of retrying"
         val NODE_ID = Regex("""\[[a-z]\d+\]""")

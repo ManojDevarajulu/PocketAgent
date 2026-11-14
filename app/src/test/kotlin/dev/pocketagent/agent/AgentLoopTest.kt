@@ -136,6 +136,24 @@ class AgentLoopTest {
         assertEquals(3, device.actions.size)
     }
 
+    @Test fun aScrollThatChangesNothingTellsTheModelItIsTheEnd() = runTest {
+        // A short chat or list: scrolling leaves the screen as it was. The model must be told, or it keeps scrolling until STUCK.
+        fun same(letter: Char) = screenOf(node("${letter}1", role = "button", text = "Next", clickable = true))
+        val llm = FakeLlm(listOf(scroll(), done()))
+        val outcome = loop(llm, FakeDevice(listOf(same('b'), same('c')))).run("read", same('a'))
+        assertEquals(EndReason.DONE, outcome.reason)
+        val result = llm.turns[1].toolResult!!
+        assertFalse(result.isError)
+        assertTrue(result.text.contains("did not change"), result.text)
+        assertTrue(result.text.contains("end"), result.text)
+    }
+
+    @Test fun aScrollThatMovesTheScreenStillJustSaysOk() = runTest {
+        val llm = FakeLlm(listOf(scroll(), done()))
+        loop(llm, FakeDevice(manyScreens(3))).run("scroll", start)
+        assertEquals("ok", llm.turns[1].toolResult!!.text)
+    }
+
     @Test fun aChangingScreenIsNotStuck() = runTest {
         val llm = FakeLlm(List(4) { scroll() } + done())
         val outcome = loop(llm, FakeDevice(manyScreens(6))).run("scroll", start)
