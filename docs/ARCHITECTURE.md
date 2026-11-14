@@ -26,12 +26,12 @@ Bubble / task screen / setup
 
 | Package | Role |
 | --- | --- |
-| `agent/` | `AgentLoop`, `AgentRunner`, `StuckDetector`, tool definitions, captions, `OtpQuickAction` ("Latest OTP", no AI) |
+| `agent/` | `AgentLoop`, `AgentRunner`, `StuckDetector`, tool definitions, captions, `OtpQuickAction` ("Latest OTP", no AI), and the voice loop: `VoiceUi`, the `Speaker` and `Listener` interfaces, `SpokenText`, `YesNo`, `ReadRequest` (no Android types) |
 | `llm/` | `LlmClient` and its two implementations, provider presets and validation. The only package that touches the network |
 | `safety/` | `SafetyGate`, `BlockedApps`, `RiskyLabels`, `NotificationFilter`, `MoneyMessages`, `CodeFinder`. Plain rules, no Android types |
 | `playbook/` | Loads and validates the per-app Markdown playbooks in `assets/playbooks/` |
 | `device/` | `DevicePort`, screen model, `ScreenSerializer`, settle logic, re-validation, `NotificationPort`, `NotificationSerializer` |
-| `android/` | The accessibility service, `AccessibilityDevice`, the notification listener (`PocketNotificationListener`, `AndroidNotifications`), Keystore storage |
+| `android/` | The accessibility service, `AccessibilityDevice`, the notification listener (`PocketNotificationListener`, `AndroidNotifications`), Keystore storage, `TtsSpeaker` and `RecognizerListener` (the Android voice engines) |
 | `setup/` | Setup state and settings storage |
 | `ui/` | Bubble, caption, confirmation card, task screen, setup screen (platform Views, no Compose) |
 
@@ -99,6 +99,26 @@ locked. Taps by coordinate inside any of Pocket Agent's own windows are rejected
 `SetupActivity` is a single checklist that detects each step's state: privacy notice, provider and key,
 model test, accessibility, optional microphone, bubble toggle, test task. The API key is stored encrypted
 (see [SECURITY_MODEL.md](SECURITY_MODEL.md)). There is no build-time provider config.
+
+## Voice loop
+
+With the Talk back setting on, a task started from the mic runs through `VoiceUi`, an `AgentUi` that wraps the
+normal overlay UI. A typed task, or Talk back off, uses the overlay UI alone and stays silent.
+
+- `VoiceUi` speaks captions (`sayLatest`, which never blocks and is held back during a confirmation or question),
+  speaks "On it." at the start and a short ending line, and answers `ask_user` by voice.
+- A confirmation races the confirmation card against a spoken answer. The first to finish wins and the loser is
+  cancelled. If the speaker is unavailable, only the card is used; if the listener is unavailable, the card decides.
+- `Speaker` and `Listener` (in `Voice.kt`) are the only voice interfaces `agent/` knows. `TtsSpeaker` (Android
+  text-to-speech) and `RecognizerListener` (`SpeechRecognizer`, with a 100 ms `ToneGenerator` beep before
+  listening) implement them in `android/`. The JVM tests use fakes.
+- `SpokenText` builds the sentences (capped at 200 characters, control characters removed). `YesNo` parses an
+  answer into yes, no, read or unclear (English and Hindi). `ReadRequest` decides whether the task asked to hear
+  the result read out.
+- `AgentSession` creates the engines the first time Talk back may be needed and stops them on cancel, a new task
+  or when the service closes.
+- The manifest `<queries>` allowlist includes the `TTS_SERVICE` action so Android 11+ lets the app bind the
+  phone's speech engine. A `RecognitionService` query has not been added (see TESTING.md).
 
 ## Playbooks
 

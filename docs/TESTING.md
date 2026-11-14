@@ -184,5 +184,42 @@ The provider and key are entered in the app's setup screen. There is no build-ti
 - [ ] **Catch me up without access.** With access off, run "Catch me up". Expected: the agent opens your
   messaging apps instead of reporting a notification access error.
 
+### Voice loop
+
+Needs Talk back switched on in setup. All items are still to be run on a device.
+
+- [ ] **Bluetooth headphones.** Run the WhatsApp reply task from the mic. Expected: it finishes without touching
+  the screen after the mic.
+- [ ] **Read it.** Say "Reply to Mom I'm on my way". Expected: the confirmation does not speak the text; "read
+  it" does; the end line is just "Done."
+- [ ] **Unclear then silence.** Say "maybe" at a confirmation, then nothing. Expected: it declines after the
+  re-ask.
+- [ ] **Card beats voice.** Tap Approve while the prompt is still speaking. Expected: it approves at once and
+  speech stops.
+- [ ] **Cancel mid-sentence.** Cancel from the bubble while it speaks. Expected: silence immediately.
+- [ ] **Hindi.** Set the phone language to Hindi. Expected: prompts are spoken by the Hindi voice and "haan"
+  approves.
+- [ ] **Typed task.** Type a task. Expected: it stays silent.
+- [ ] **Talk back off.** Turn Talk back off and run a mic task. Expected: it stays silent.
+- [ ] **Phone call.** Take a call mid-sentence. Expected: speech stops and the task carries on.
+
+Known device-pass items:
+
+- [ ] **Recognizer from the service (gate).** A `SpeechRecognizer` created from the accessibility service must
+  produce a result while another app is in front. If Android blocks it, confirmations fall back to the card only
+  and the setup copy must say so.
+- [ ] **TTS warm-up.** Text-to-speech may be unavailable in the first second after the bubble tap, so a task
+  sent immediately runs silent. Check how often this happens.
+- [ ] **Bubble tap while speaking.** The bubble tap does not stop the previous task's last spoken line. Check
+  whether this is noticeable.
+
+Open questions from the design, not settled without a device:
+
+- **`RecognitionService` query.** Whether Android 11+ needs a `<queries>` entry for
+  `android.speech.RecognitionService`. It has not been added because it is unverified; the current mic works
+  without it. Add it (and extend `ArchitectureTest`) only if a device shows the recognizer is not found.
+- **Start tone.** The kept tone is `ToneGenerator` `TONE_PROP_BEEP` for 100 ms, as in the code. It is not yet
+  judged on a device.
+
 When you report a failure, include the phone model, Android version, app version and provider. Never paste an
 API key.
