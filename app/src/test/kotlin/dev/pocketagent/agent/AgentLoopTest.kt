@@ -136,6 +136,28 @@ class AgentLoopTest {
         assertEquals(3, device.actions.size)
     }
 
+    @Test fun stuckOnAnUnreadableScreenSaysASystemDialogMayBeBlocking() = runTest {
+        // A system dialog (such as an app's first notification prompt) can come back as an empty screen with no
+        // package, so the model can only tap positions. The user needs to hear that, not "the screen did not change".
+        fun unreadable() = screenOf(packageName = "", appLabel = null)
+        val llm = FakeLlm(List(5) { call("tap", "x" to 540, "y" to 1300) })
+        val device = FakeDevice(List(5) { unreadable() })
+        val outcome = loop(llm, device).run("open an app", unreadable())
+        assertEquals(EndReason.STUCK, outcome.reason)
+        assertEquals(
+            "A system dialog may be blocking the screen. Answer it on the phone, then run the task again.",
+            outcome.summary,
+        )
+    }
+
+    @Test fun stuckOnAReadableScreenKeepsTheGenericMessage() = runTest {
+        fun same(letter: Char) = screenOf(node("${letter}1", role = "button", text = "Next", clickable = true))
+        val llm = FakeLlm(listOf(tap("a1"), tap("b1"), tap("c1"), tap("d1"), tap("e1")))
+        val device = FakeDevice(listOf(same('b'), same('c'), same('d'), same('e'), same('f')))
+        val outcome = loop(llm, device).run("tap", same('a'))
+        assertEquals("The screen did not change after 3 actions.", outcome.summary)
+    }
+
     @Test fun aChangingScreenIsNotStuck() = runTest {
         val llm = FakeLlm(List(4) { scroll() } + done())
         val outcome = loop(llm, FakeDevice(manyScreens(6))).run("scroll", start)

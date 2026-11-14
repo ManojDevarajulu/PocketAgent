@@ -233,7 +233,10 @@ class AgentLoop(
     private suspend fun afterAction(run: Run, call: LlmResult.Call, result: ActionResult, countsAsScreenAction: Boolean = true): Step {
         val next = observe(run) ?: return Step.End(end(EndReason.BLOCKED_APP, "The task moved into an app that is on the block list."))
         if (countsAsScreenAction && run.stuck.afterAction(forComparison(next.text))) {
-            return Step.End(end(EndReason.STUCK, "The screen did not change after $STUCK_LIMIT actions."))
+            // An unreadable screen (no package) is usually a system dialog Android keeps from us, such as an app's
+            // first notification prompt. Say so, because "did not change" would send the user looking in the wrong place.
+            val reason = if (run.screen.packageName.isEmpty()) UNREADABLE_SCREEN else "The screen did not change after $STUCK_LIMIT actions."
+            return Step.End(end(EndReason.STUCK, reason))
         }
         val toolResult = when (result) {
             ActionResult.Ok -> ToolResult(call.callId, "ok", isError = false)
@@ -414,7 +417,8 @@ class AgentLoop(
         const val MAX_DETAIL = 200
         const val MAX_TARGET = 60
         const val STUCK_LIMIT = 3
-        const val ACCESS_OFF = "notification access is off; open the app instead"
+        const val UNREADABLE_SCREEN = "A system dialog may be blocking the screen. Answer it on the phone, then run the task again."
+        const val ACCESS_OFF ="notification access is off; open the app instead"
         const val REPLY_UNCONFIRMED = "the app did not confirm the reply (it may or may not have been sent); tell the user instead of retrying"
         val NODE_ID = Regex("""\[[a-z]\d+\]""")
     }
