@@ -32,6 +32,13 @@ class SetupSettingsTest {
     }
 
     @Test
+    fun shortScreensIsOffUntilTurnedOnAndRoundTrips() {
+        assertFalse(settings.shortScreens)
+        settings.shortScreens = true
+        assertTrue(SetupSettings(store).shortScreens)
+    }
+
+    @Test
     fun talkBackDefaultsToOn() {
         assertTrue(settings.talkBack)
     }

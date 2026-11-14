@@ -22,6 +22,11 @@ class SetupSettings(private val store: KeyValueStore) {
         get() = store.getBoolean(TALK_BACK, true)
         set(value) = store.putBoolean(TALK_BACK, value)
 
+    /** Send the model only what changed on the screen. Off unless the user turns it on: it saves tokens, but small models may cope less well. */
+    var shortScreens: Boolean
+        get() = store.getBoolean(SHORT_SCREENS, false)
+        set(value) = store.putBoolean(SHORT_SCREENS, value)
+
     /** "system", "light" or "dark". */
     var theme: String
         get() = store.getString(THEME)?.takeIf { it in setOf("system", "light", "dark") } ?: "system"
@@ -38,6 +43,7 @@ class SetupSettings(private val store: KeyValueStore) {
         const val MIC_ASKED = "settings.micAsked"
         const val BUBBLE = "settings.bubble"
         const val TALK_BACK = "settings.talkBack"
+        const val SHORT_SCREENS = "settings.shortScreens"
         const val THEME = "settings.theme"
         const val SHORTCUTS = "settings.shortcuts"
     }

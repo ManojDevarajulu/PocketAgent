@@ -3,6 +3,7 @@ package dev.pocketagent.agent
 import dev.pocketagent.device.ActionResult
 import dev.pocketagent.device.DeviceAction
 import dev.pocketagent.device.DevicePort
+import dev.pocketagent.device.ScreenDiff
 import dev.pocketagent.device.DeviceUnavailable
 import dev.pocketagent.device.NotificationPort
 import dev.pocketagent.device.NotificationSerializer
@@ -36,6 +37,7 @@ Rules:
 - To open an app, always call open_app with its name. Never swipe, scroll or search the home screen to find an app, and never swipe down from the top of the screen: that opens the notification shade, which ends the task.
 - For a route, an address or a place, call directions: it opens the Maps app with the route in one step.
 - Prefer the other one-step tools when they fit: web_search for a web search, dial to call a number, text_message to text a number, set_alarm for an alarm at a time of day, set_timer for a countdown timer, open_url for a web link, add_calendar_event for a calendar event. They replace many taps, so never open the clock app to set an alarm or timer, and never type a date into the calendar by hand.
+- When <screen_data> has diff="true", plain text lines that did not change since the previous screen are replaced by a count. Everything you can tap, type into or scroll is always listed in full, so use the ids shown.
 - Never look an address up with a browser search.
 - Use the node_id values from the latest screen only. They change with every observation.
 - Set irreversible to true on any tap that sends, pays, posts or deletes anything.
@@ -98,6 +100,8 @@ class AgentLoop(
     private val notificationFilter: NotificationFilter? = null,
     /** The wall clock, in epoch milliseconds, that notification ages are measured against. */
     private val wallMs: () -> Long = System::currentTimeMillis,
+    /** Send only what changed since the last screen (see [ScreenDiff]). Off unless the user turns it on. */
+    private val shortenScreens: Boolean = false,
 ) {
     private val notificationSerializer = NotificationSerializer()
 
@@ -116,6 +120,9 @@ class AgentLoop(
         var lastTyped: String? = null
         var steps = 0
         var modelMs = 0L
+
+        /** The last full screen text the model was shown, for [ScreenDiff]. */
+        var lastScreenText: String? = null
 
         /** Id to notification from the latest read_notifications only. A new read replaces it, so older ids stop working. */
         var notificationKeys: Map<String, PhoneNotification> = emptyMap()
@@ -139,6 +146,7 @@ class AgentLoop(
         val prompt = if (notificationsOn) SYSTEM_PROMPT + NOTIFICATION_RULES else SYSTEM_PROMPT
         val run = Run(llm.newSession(prompt, tools), initialScreen)
         val serialized = serializer.serialize(initialScreen)
+        run.lastScreenText = serialized
         run.stuck.afterAction(forComparison(serialized))
         val startMs = nowMs()
         val outcome = runSteps(run, task, serialized, initialScreen)
@@ -242,7 +250,7 @@ class AgentLoop(
             ActionResult.Ok -> ToolResult(call.callId, if (scrolled && run.stuck.lastWasRepeat) SCROLL_END else "ok", isError = false)
             is ActionResult.Failed -> ToolResult(call.callId, result.reason, isError = true)
         }
-        return Step.Next(Turn(next.text, toolResult, systemNote = next.note))
+        return Step.Next(Turn(next.shown, toolResult, systemNote = next.note))
     }
 
     /** The port, if notification access is on right now. Access can be turned off while a task runs. */
@@ -361,14 +369,19 @@ class AgentLoop(
         return Step.Next(Turn(next.text, ToolResult(call.callId, answer ?: "(no answer)", isError = false), systemNote = next.note))
     }
 
-    private class Observation(val text: String, val note: String?)
+    /** [text] is always the full screen; [shown] is what the model gets, which may be shortened. */
+    private class Observation(val text: String, val note: String?, val shown: String = text)
 
     /** Reads the screen, makes it the latest one, and returns its text, or null if the foreground app is blocked. */
     private suspend fun observe(run: Run): Observation? {
         val screen = device.readScreen()
         run.screen = screen
         if (gate.checkApp(screen) is Verdict.Block) return null
-        return Observation(serializer.serialize(screen), listOfNotNull(firstVisitNote(run, screen.packageName), sparseNote(screen)).joinToString("\n").ifEmpty { null })
+        val text = serializer.serialize(screen)
+        val shown = if (shortenScreens) ScreenDiff.shorten(run.lastScreenText, text) ?: text else text
+        run.lastScreenText = text
+        val note = listOfNotNull(firstVisitNote(run, screen.packageName), sparseNote(screen)).joinToString("\n").ifEmpty { null }
+        return Observation(text, note, shown)
     }
 
     /**

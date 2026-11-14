@@ -83,11 +83,13 @@ class AgentLoopTest {
         wallMs: () -> Long = { WALL },
         gateBlocks: BlockedApps = BlockedApps(),
         filterBlocks: BlockedApps = BlockedApps(),
+        shortenScreens: Boolean = false,
     ) = AgentLoop(
         llm, device, SafetyGate(gateBlocks, own), playbooks, ScreenSerializer(own), ui, maxSteps, confirmTimeoutMs, nowMs,
         notifications = notifications,
         notificationFilter = notifications?.let { NotificationFilter(filterBlocks, own) },
         wallMs = wallMs,
+        shortenScreens = shortenScreens,
     )
 
     /** Timing depends on the clock, so outcomes are compared without it unless a test is about timing. */
@@ -400,6 +402,29 @@ class AgentLoopTest {
         val text = FakeLlm(listOf(scroll(), done()), supportsImages = false)
         loop(text, FakeDevice(listOf(sparse, sparse)), playbooks = playbookFor("com.x.app", "unused")).run("t", start)
         assertNull(text.turns[1].systemNote)
+    }
+
+    private fun busyScreen(vararg extra: dev.pocketagent.device.ScreenNode) = screenOf(
+        *Array(12) { node("t$it", role = "text", text = "Row number $it of the list") },
+        node("b1", role = "button", text = "Go", clickable = true),
+        *extra,
+        appLabel = "App",
+    )
+
+    @Test fun shortenedScreensKeepTappableNodesAndTheFullScreenIsSentWhenOff() = runTest {
+        val first = busyScreen()
+        val second = busyScreen(node("n1", role = "text", text = "Saved"))
+        val on = FakeLlm(listOf(tap("b1"), done()), supportsImages = false)
+        loop(on, FakeDevice(listOf(second, second)), shortenScreens = true).run("t", first)
+        val shown = on.turns[1].text
+        assertTrue(shown.contains("diff=\"true\""), shown)
+        assertTrue(shown.contains("button \"Go\" clickable"), shown)
+        assertTrue(shown.contains("unchanged text lines omitted"), shown)
+
+        val off = FakeLlm(listOf(tap("b1"), done()), supportsImages = false)
+        loop(off, FakeDevice(listOf(second, second))).run("t", first)
+        assertTrue(!off.turns[1].text.contains("diff="), off.turns[1].text)
+        assertTrue(off.turns[1].text.contains("Row number 0 of the list"))
     }
 
     @Test fun playbookAddedOnceOnFirstVisit() = runTest {

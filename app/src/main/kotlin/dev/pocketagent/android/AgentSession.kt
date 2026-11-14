@@ -178,6 +178,7 @@ class AgentSession(
                 checkNotNull(pendingClient), device, gate, playbooks, serializer, ui,
                 notifications = AndroidNotifications,
                 notificationFilter = NotificationFilter(blocked, ownPackage),
+                shortenScreens = settings.shortScreens,
             )
         },
         guardedUi,

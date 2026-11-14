@@ -228,6 +228,8 @@ class MainActivity : ThemedActivity() {
             onBubble = { settings.bubbleOn = it },
             talkBackOn = settings.talkBack,
             onTalkBack = { settings.talkBack = it },
+            shortScreensOn = settings.shortScreens,
+            onShortScreens = { settings.shortScreens = it },
             onProvider = { openSetup() },
             onAccessibility = { openAccessibility() },
             onMic = { requestMic() },

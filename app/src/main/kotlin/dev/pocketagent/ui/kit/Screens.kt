@@ -53,6 +53,8 @@ data class SettingsState(
     val onBubble: (Boolean) -> Unit = {},
     val talkBackOn: Boolean = true,
     val onTalkBack: (Boolean) -> Unit = {},
+    val shortScreensOn: Boolean = false,
+    val onShortScreens: (Boolean) -> Unit = {},
     val onProvider: () -> Unit = {},
     val onAccessibility: () -> Unit = {},
     val onMic: () -> Unit = {},
@@ -606,6 +608,13 @@ object Screens {
             Kit.row(c, "Talk back", trailing = Kit.toggle(c, state.talkBackOn, state.onTalkBack)),
         ), 16), Kit.lp())
         p.addView(Kit.footnote(c, "Pocket Agent speaks and listens when you start a task with the mic."))
+        p.addView(gap(c, 26))
+
+        p.addView(Kit.section(c, "Experimental"))
+        p.addView(Kit.group(c, listOf(
+            Kit.row(c, "Save tokens", trailing = Kit.toggle(c, state.shortScreensOn, state.onShortScreens)),
+        ), 16), Kit.lp())
+        p.addView(Kit.footnote(c, "Sends the AI only what changed on the screen. Cheaper and a little faster; if a task gets confused, turn it off."))
         p.addView(gap(c, 26))
 
         p.addView(Kit.section(c, "Appearance"))
