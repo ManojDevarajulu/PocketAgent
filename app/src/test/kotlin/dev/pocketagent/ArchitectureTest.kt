@@ -65,7 +65,9 @@ class ArchitectureTest {
         assertTrue(!manifest.contains("<provider"), "no content providers")
         val exportedBlocks = Regex("""<(activity|service)\b[^>]*android:exported="true"[^>]*>.*?</\1>""", RegexOption.DOT_MATCHES_ALL).findAll(manifest)
         exportedBlocks.forEach {
-            assertTrue(it.value.startsWith("<activity") && it.value.contains("android.intent.category.LAUNCHER"), "only the launcher activity may be exported: ${it.value.take(80)}")
+            val launcher = it.value.startsWith("<activity") && it.value.contains("android.intent.category.LAUNCHER")
+            val tile = it.value.contains("android.permission.BIND_QUICK_SETTINGS_TILE")
+            assertTrue(launcher || tile, "only the launcher activity and the permission-guarded tile may be exported: ${it.value.take(80)}")
         }
     }
 
@@ -158,12 +160,15 @@ class ArchitectureTest {
     @Test
     fun onlyTheLauncherIsExported() {
         val exported = components().filter { it.getAttribute("android:exported") == "true" }.map { it.getAttribute("android:name") }
-        assertEquals(listOf(".ui.MainActivity"), exported)
+        assertEquals(listOf(".ui.MainActivity", ".android.PocketTileService"), exported)
+        val tile = component(".android.PocketTileService")
+        assertEquals("android.permission.BIND_QUICK_SETTINGS_TILE", tile.getAttribute("android:permission"))
+        assertEquals(listOf("android.service.quicksettings.action.QS_TILE"), tile.children("action").map { it.getAttribute("android:name") })
         val launcher = component(".ui.MainActivity")
         val categories = launcher.children("category").map { it.getAttribute("android:name") }
         assertTrue("android.intent.category.LAUNCHER" in categories, "the launcher needs the LAUNCHER category")
         // Every other component states exported="false" explicitly.
-        components().filter { it.getAttribute("android:name") != ".ui.MainActivity" }.forEach {
+        components().filter { it.getAttribute("android:name") !in setOf(".ui.MainActivity", ".android.PocketTileService") }.forEach {
             assertEquals("false", it.getAttribute("android:exported"), "${it.getAttribute("android:name")} must not be exported")
         }
     }

@@ -1,8 +1,10 @@
 package dev.pocketagent.android
 
+import android.accessibilityservice.AccessibilityService
 import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -194,6 +196,21 @@ class AgentSession(
     }
 
     fun onEvent() = settler.onEvent()
+
+    /**
+     * The Quick Settings tile: close the notification shade, give the screen a moment to settle so the shade is not
+     * what gets read, then do what a bubble tap does.
+     */
+    fun startFromTile() {
+        if (closed || taskIsLive()) return
+        val shade = if (Build.VERSION.SDK_INT >= 31) {
+            AccessibilityService.GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE
+        } else {
+            AccessibilityService.GLOBAL_ACTION_BACK
+        }
+        service.performGlobalAction(shade)
+        main.postDelayed({ startBubbleTap() }, TILE_SETTLE_MS)
+    }
 
     /** Hide the bubble, read the screen without settling, show the bubble, keep the screen, open the task screen. */
     fun startBubbleTap() {
@@ -523,6 +540,7 @@ class AgentSession(
     private companion object {
         const val MAX_SCREEN_CHARS = 12_000
         const val LOCK_POLL_MS = 500L
+        const val TILE_SETTLE_MS = 450L
         const val PLAYBOOK_DIR = "playbooks"
         const val SPEECH_UNAVAILABLE_NOTE = "Speech isn't available on this phone, so Pocket Agent stayed silent."
     }

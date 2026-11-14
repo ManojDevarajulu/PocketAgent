@@ -16,6 +16,7 @@
     <string name="answer_submit">Submit</string>
     <string name="answer_skip">Skip</string>
     <string name="service_label">Pocket Agent</string>
+    <string name="tile_label">Ask Pocket</string>
     <string name="service_description">Pocket Agent reads the screen and acts on it (taps, typing, scrolling, opening apps) only when you start a task from its bubble. What it reads is sent to the AI provider you set up. It asks before actions that may send, pay, post or delete. While no task runs it receives no screen events. It stores nothing.</string>
     <string name="service_stopped">Pocket Agent stopped: accessibility was turned off</string>
     <string name="launcher_intro">Pocket Agent works through an accessibility service. Turn on Pocket Agent in the accessibility settings, then tap the bubble to give it a task.</string>

@@ -15,6 +15,7 @@ class PocketAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         session?.close()
         subscribeToTaskEvents(false)
+        running = this
         session = AgentSession(this, SetupStores.repository(this), SetupStores.settings(this), SetupStores.history(this)).also { it.showBubble() }
     }
 
@@ -46,13 +47,23 @@ class PocketAccessibilityService : AccessibilityService() {
         serviceInfo = info
     }
 
+    /** Quick Settings tile entry: the same as a bubble tap, after the shade is out of the way. */
+    internal fun startFromTile() {
+        session?.startFromTile()
+    }
+
     private fun closeSession() {
+        if (running === this) running = null
         session?.close()
         session = null
     }
 
-    private companion object {
-        const val TASK_EVENT_TYPES = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+    companion object {
+        /** The connected service, for the Quick Settings tile. Main thread only. */
+        @Volatile
+        internal var running: PocketAccessibilityService? = null
+
+        private const val TASK_EVENT_TYPES = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
             AccessibilityEvent.TYPE_WINDOWS_CHANGED or
             AccessibilityEvent.TYPE_VIEW_SCROLLED

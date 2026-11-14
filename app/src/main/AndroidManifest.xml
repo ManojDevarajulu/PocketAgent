@@ -98,6 +98,18 @@
                 android:resource="@xml/accessibility_config" />
         </service>
 
+        <!-- The Quick Settings tile. Exported only because the system must bind it; the permission lets nothing else. -->
+        <service
+            android:name=".android.PocketTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_pocket"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Notification access: only the system can bind it, and it keeps no notification content. -->
         <service
             android:name=".android.PocketNotificationListener"
