@@ -2,9 +2,7 @@
 
 **Tap the bubble on anything. Say what to do. Your phone does it.**
 
-<p align="center">
-  <video src="docs/assets/demo-directions-edit.mp4" controls autoplay loop muted playsinline width="100%"></video>
-</p>
+https://github.com/user-attachments/assets/aa526b6e-5141-4ffa-a8f2-4bac0141167a
 
 ---
 
