@@ -226,6 +226,8 @@ class MainActivity : ThemedActivity() {
             micOn = micOn(),
             bubbleOn = settings.bubbleOn,
             onBubble = { settings.bubbleOn = it },
+            talkBackOn = settings.talkBack,
+            onTalkBack = { settings.talkBack = it },
             onProvider = { openSetup() },
             onAccessibility = { openAccessibility() },
             onMic = { requestMic() },
