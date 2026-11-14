@@ -37,7 +37,7 @@ It works directly through a floating bubble on your screen—zero PC, zero ADB, 
 
 > [!TIP]
 > **Ready to try it on your phone?**  
-> Download the pre-built standalone APK directly from **[GitHub Releases (v0.1.0)](https://github.com/ManojDevarajulu/PocketAgent/releases/latest)** — zero development tools or PC required.
+> Download the pre-built standalone APK directly from **[GitHub Releases (v0.2.0)](https://github.com/ManojDevarajulu/PocketAgent/releases/latest)** — zero development tools or PC required.
 
 ---
 
@@ -164,7 +164,7 @@ Pocket Agent communicates directly with provider endpoints using a hardened OkHt
 ## Quick Install (APK)
 
 1. Open **[Releases](https://github.com/ManojDevarajulu/PocketAgent/releases/latest)** on your phone.
-2. Download `pocket-agent-v0.1.0.apk`.
+2. Download `pocket-agent-v0.2.0.apk`.
 3. Tap the downloaded file to install *(enable "Install unknown apps" if prompted)*.
 4. Launch **Pocket Agent** and follow the guided setup checklist.
 
