@@ -49,7 +49,7 @@ class PreviewActivity : Activity() {
             insets
         }
         setContentView(host)
-        shell = Shell(this, content) { name, nav -> build(name, nav) }
+        shell = Shell(this, content, build = { name, nav -> build(name, nav) })
         applyBars()
         open(intent.getStringExtra("screen") ?: "home")
     }
@@ -75,6 +75,7 @@ class PreviewActivity : Activity() {
         open(intent.getStringExtra("screen") ?: "home")
     }
 
+    @android.annotation.SuppressLint("GestureBackNavigation") // Debug-only preview screen.
     @Deprecated("Preview only")
     override fun onBackPressed() {
         if (!shell.pop()) super.onBackPressed()

@@ -1,5 +1,6 @@
 package dev.pocketagent.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -9,10 +10,12 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
 import android.provider.Settings
 import android.view.View
+import android.window.OnBackInvokedDispatcher
 import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -64,8 +67,15 @@ class MainActivity : ThemedActivity() {
             insets
         }
         setContentView(host)
-        shell = Shell(this, content, ::build)
-        shell.reset(savedInstanceState?.getString("screen") ?: if (settings.noticeAccepted) "home" else "welcome")
+        shell = Shell(this, content, ::parentOf, ::build)
+        val restored = savedInstanceState?.getString("screen")
+        // A restored screen (after a theme change or rotation) comes back without animating and at the same scroll position.
+        shell.reset(restored ?: if (settings.noticeAccepted) "home" else "welcome", settle = restored == null)
+        savedInstanceState?.getInt("scrollY")?.let { shell.scrollTo(it) }
+        // Android 13 and later send the back gesture here and never call onBackPressed.
+        if (Build.VERSION.SDK_INT >= 33) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) { goBack() }
+        }
     }
 
     override fun onResume() {
@@ -76,11 +86,26 @@ class MainActivity : ThemedActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         shell.current?.let { outState.putString("screen", it) }
+        outState.putInt("scrollY", shell.scrollY())
     }
 
-    @Deprecated("The shell handles back for pushed screens")
-    override fun onBackPressed() {
-        if (!shell.pop()) super.onBackPressed()
+    /** Back: one pushed screen at a time, then Settings and Activity go to Home, then the app closes. */
+    private fun goBack() {
+        if (!shell.pop()) finish()
+    }
+
+    /** Only reached below Android 13; later versions use the callback registered in onCreate. */
+    @SuppressLint("GestureBackNavigation") // Android 13+ goes through the callback registered in onCreate; this serves older phones.
+    @Deprecated("Android 13 and later use the registered back callback")
+    override fun onBackPressed() = goBack()
+
+    /** The screen a screen belongs under, for Back when nothing is stacked beneath it. */
+    private fun parentOf(name: String): String? = when {
+        name == "activity" || name == "settings" -> "home"
+        name == "blocked" || name == "licences" -> "settings"
+        name.startsWith("detail") -> "activity"
+        name == "notice" -> "welcome"
+        else -> null
     }
 
     // --- screens ---

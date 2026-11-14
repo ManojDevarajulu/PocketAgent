@@ -11,7 +11,16 @@ import android.widget.ScrollView
  * Shows one screen at a time with iOS-style motion: tabs cross-fade, a pushed screen slides in over the old one
  * (which drifts left behind it), and going back slides it out. Used by the app and by the debug preview.
  */
-class Shell(private val context: Context, private val content: FrameLayout, private val build: (String, Nav) -> View) {
+class Shell(
+    private val context: Context,
+    private val content: FrameLayout,
+    /**
+     * Where Back goes from a screen when nothing is stacked beneath it, for example after the activity was recreated
+     * (null means there is nowhere: Back leaves the app). Settings and Activity go to Home, as in most apps.
+     */
+    private val parentOf: (String) -> String? = { null },
+    private val build: (String, Nav) -> View,
+) {
     enum class Transition { NONE, FADE, PUSH }
 
     private companion object {
@@ -25,17 +34,32 @@ class Shell(private val context: Context, private val content: FrameLayout, priv
     val depth: Int get() = stack.size
     val current: String? get() = stack.lastOrNull()?.first
 
-    fun reset(name: String, kind: Transition = Transition.NONE) {
+    /** [settle] is false when the same screen is being put back (after a theme change), so it does not animate in again. */
+    fun reset(name: String, kind: Transition = Transition.NONE, settle: Boolean = true) {
         stack.clear()
         content.removeAllViews()
-        show(name, kind, replace = true)
+        show(name, kind, replace = true, settle = settle)
     }
+
+    /** How far the visible page is scrolled, to be put back with [scrollTo] after the activity is recreated. */
+    fun scrollY(): Int = stack.lastOrNull()?.second?.let { scrollerIn(it)?.scrollY } ?: 0
+
+    fun scrollTo(y: Int) {
+        val view = stack.lastOrNull()?.second ?: return
+        if (y > 0) {
+            pendingScroll = y
+            restoreScroll(view, y)
+        }
+    }
+
+    /** A position waiting for the first frame. A [refresh] before then must carry it over instead of reading 0 from the unscrolled page. */
+    private var pendingScroll: Int? = null
 
     /** Rebuilds the visible screen in place, for when the data behind it changed. */
     fun refresh() {
         val top = stack.lastOrNull() ?: return
         // A rebuilt page starts at the top. Without this, flipping a switch halfway down Settings threw the user back up.
-        val scrolledTo = scrollerIn(top.second)?.scrollY ?: 0
+        val scrolledTo = pendingScroll ?: scrollerIn(top.second)?.scrollY ?: 0
         val view = build(top.first, nav)
         content.removeView(top.second)
         stack[stack.lastIndex] = top.first to view
@@ -63,6 +87,7 @@ class Shell(private val context: Context, private val content: FrameLayout, priv
             override fun onPreDraw(): Boolean {
                 scroller.viewTreeObserver.removeOnPreDrawListener(this)
                 scroller.scrollTo(0, y)
+                if (pendingScroll == y) pendingScroll = null
                 return true
             }
         })
@@ -75,14 +100,14 @@ class Shell(private val context: Context, private val content: FrameLayout, priv
         return null
     }
 
-    fun show(name: String, kind: Transition, replace: Boolean = false) {
+    fun show(name: String, kind: Transition, replace: Boolean = false, settle: Boolean = true) {
         val view = build(name, nav)
         val old = stack.lastOrNull()?.second
         if (replace && stack.isNotEmpty()) stack.removeAt(stack.lastIndex)
         stack.add(name to view)
         content.addView(view, FrameLayout.LayoutParams(-1, -1))
         // Home runs its own, livelier reveal. Every other screen rises in quietly, so the whole app moves alike.
-        if (name != "home") settle(view)
+        if (settle && name != "home") settle(view)
         val w = content.width.toFloat().coerceAtLeast(1f)
         when (kind) {
             Transition.NONE -> old?.let { content.removeView(it) }
@@ -105,7 +130,12 @@ class Shell(private val context: Context, private val content: FrameLayout, priv
 
     /** Returns false when there is nothing to go back to. */
     fun pop(): Boolean {
-        if (stack.size < 2) return false
+        if (stack.size < 2) {
+            // Nothing is stacked beneath, so go to the screen this one belongs under, if it has one.
+            val parent = stack.lastOrNull()?.first?.let(parentOf) ?: return false
+            reset(parent, Transition.FADE)
+            return true
+        }
         val top = stack.removeAt(stack.lastIndex).second
         val below = stack.last().second
         val w = content.width.toFloat()

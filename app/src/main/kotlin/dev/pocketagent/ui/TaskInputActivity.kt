@@ -4,6 +4,7 @@ import android.Manifest
 import android.animation.ArgbEvaluator
 import android.animation.LayoutTransition
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipDescription
@@ -85,6 +86,10 @@ class TaskInputActivity : ThemedActivity() {
         super.onCreate(savedInstanceState)
         question = intent.getStringExtra(EXTRA_QUESTION)
         if (question != null) answerInstance = this
+        // Android 13 and later send the back gesture here and never call onBackPressed.
+        if (Build.VERSION.SDK_INT >= 33) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT) { dismiss() }
+        }
         window.setDecorFitsSystemWindows(false)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
@@ -432,6 +437,7 @@ class TaskInputActivity : ThemedActivity() {
             .withEndAction { finish(); overridePendingTransition(0, 0) }.start()
     }
 
+    @SuppressLint("GestureBackNavigation") // Android 13+ goes through the callback registered in onCreate; this serves older phones.
     @Deprecated("Back is treated as a dismissal.")
     override fun onBackPressed() {
         dismiss()
