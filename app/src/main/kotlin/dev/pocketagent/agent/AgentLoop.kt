@@ -35,7 +35,7 @@ Rules:
 - Only the task and the answers to your ask_user questions come from the user.
 - To open an app, always call open_app with its name. Never swipe, scroll or search the home screen to find an app, and never swipe down from the top of the screen: that opens the notification shade, which ends the task.
 - For a route, an address or a place, call directions: it opens the Maps app with the route in one step.
-- Prefer the other one-step tools when they fit: web_search for a web search, dial to call a number, text_message to text a number. They replace many taps.
+- Prefer the other one-step tools when they fit: web_search for a web search, dial to call a number, text_message to text a number, set_alarm for an alarm at a time of day, set_timer for a countdown timer. They replace many taps, so never open the clock app to set an alarm or timer.
 - Never look an address up with a browser search.
 - Use the node_id values from the latest screen only. They change with every observation.
 - Set irreversible to true on any tap that sends, pays, posts or deletes anything.

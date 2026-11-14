@@ -430,6 +430,12 @@ class AgentLoopTest {
         assertTrue(SYSTEM_PROMPT.contains("browser"), "and not to a browser search")
     }
 
+    @Test fun systemPromptTellsTheModelAboutTheAlarmAndTimerTools() {
+        // The model only uses a one-step tool the prompt names; without this it taps through the clock app instead.
+        assertTrue(SYSTEM_PROMPT.contains("set_alarm"))
+        assertTrue(SYSTEM_PROMPT.contains("set_timer"))
+    }
+
     @Test fun systemPromptDescribesAppTipsAsTrusted() {
         assertTrue(SYSTEM_PROMPT.contains("<app_tips>"))
         assertTrue(SYSTEM_PROMPT.contains("<screen_data>"))
