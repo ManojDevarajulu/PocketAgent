@@ -19,7 +19,6 @@ data class ActivityRow(val id: Long, val ok: Boolean, val title: String, val sub
 
 class ActivityDetail(
     val ok: Boolean, val title: String, val whenText: String, val result: String,
-    val duration: String, val tokens: String,
     val onRun: () -> Unit = {}, val onDelete: () -> Unit = {},
 )
 
@@ -81,7 +80,7 @@ object Samples {
         RecentItem(true, "Summarise this screen", "Chrome · 12 s", "1 h"),
         RecentItem(false, "Order my usual from the app", "Stopped by you", "Mon"),
     )
-    val home = HomeState("Model works · Accessibility on", null, recent, "Today: 3 tasks, about 18k tokens used.")
+    val home = HomeState("Model works · Accessibility on", null, recent, "Today: 3 tasks.")
     val fix = home.copy(
         attention = Attention("Accessibility is off", "Pocket Agent can't tap or read the screen until you turn it back on.", "Turn it on") {},
     )
@@ -476,7 +475,7 @@ object Screens {
     }
 
     fun activityDetail(c: Context, nav: Nav = Nav(), d: ActivityDetail? = null): View {
-        val detail = d ?: ActivityDetail(true, "Take me to the address in this message", "Today, 6:42 pm", "Maps is showing directions to 14 Park Street.", "41 s", "6.2k")
+        val detail = d ?: ActivityDetail(true, "Take me to the address in this message", "Today, 6:42 pm", "Maps is showing directions to 14 Park Street.")
         val p = page(c, 20)
         val back = Kit.hstack(c, 2).apply { setPadding(0, 0, 0, dp(c, 14)) }
         back.addView(Kit.icon(c, R.drawable.ic_back, 22, R.color.pa_blue))
@@ -496,14 +495,6 @@ object Screens {
         } else {
             res.addView(View(c), Kit.lp(h = dp(c, 12)))
         }
-        val stats = Kit.hstack(c)
-        listOf(detail.duration to "time", detail.tokens to "tokens").forEach { (v, l) ->
-            val col = Kit.vstack(c).apply { gravity = Gravity.CENTER_HORIZONTAL }
-            col.addView(Kit.text(c, v, 20f, 600).apply { gravity = Gravity.CENTER })
-            col.addView(Kit.text(c, l, 13f, 400, R.color.pa_muted).apply { gravity = Gravity.CENTER; setPadding(0, dp(c, 2), 0, 0) })
-            stats.addView(col, Kit.weight())
-        }
-        res.addView(stats)
         p.addView(res, Kit.lp())
         p.addView(gap(c, 22))
         p.addView(Kit.primary(c, "Run again", onClick = detail.onRun), Kit.lp())
@@ -629,9 +620,9 @@ object Screens {
 
         p.addView(Kit.section(c, "Experimental"))
         p.addView(Kit.group(c, listOf(
-            Kit.row(c, "Save tokens", trailing = Kit.toggle(c, state.shortScreensOn, state.onShortScreens)),
+            Kit.row(c, "Lighter mode", trailing = Kit.toggle(c, state.shortScreensOn, state.onShortScreens)),
         ), 16), Kit.lp())
-        p.addView(Kit.footnote(c, "Sends the AI only what changed on the screen. Cheaper and a little faster; if a task gets confused, turn it off."))
+        p.addView(Kit.footnote(c, "Sends the AI less on each step, so tasks can be quicker. If a task gets confused, turn this off."))
         p.addView(gap(c, 26))
 
         p.addView(Kit.section(c, "Appearance"))

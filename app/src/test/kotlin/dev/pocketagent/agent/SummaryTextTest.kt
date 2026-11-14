@@ -48,38 +48,28 @@ class SummaryTextTest {
     }
 
     @Test
-    fun bodyCutsTheSummaryAt300Characters() {
-        val body = SummaryText.body(outcome(summary = "a".repeat(400)))
-        assertEquals("Agent's summary: " + "a".repeat(300) + "\nTokens: 10 in, 5 out", body)
+    fun bodyIsJustTheSummaryCutAt300Characters() {
+        assertEquals("a".repeat(300), SummaryText.body(outcome(summary = "a".repeat(400))))
     }
 
     @Test
     fun bodyReplacesLineBreaks() {
-        val body = SummaryText.body(outcome(summary = "one\ntwo\r\nthree\tfour"))
-        assertEquals("Agent's summary: one two  three four\nTokens: 10 in, 5 out", body)
+        assertEquals("one two  three four", SummaryText.body(outcome(summary = "one\ntwo\r\nthree\tfour")))
     }
 
     @Test
-    fun bodyShowsTokenTotals() {
-        val body = SummaryText.body(outcome(usage = TokenUsage(1200, 34, 500)))
-        assertEquals("Agent's summary: ok\nTokens: 1200 in, 34 out, 500 cached", body)
+    fun bodyIsEmptyWhenThereIsNoSummary() {
+        assertEquals("", SummaryText.body(outcome(summary = "")))
     }
 
     @Test
-    fun bodyOmitsEmptySummary() {
-        assertEquals("Tokens: 10 in, 5 out", SummaryText.body(outcome(summary = "")))
-    }
-
-    @Test
-    fun bodyShowsTimeWhenTheModelWasCalled() {
-        val body = SummaryText.body(outcome().copy(stats = TaskStats(steps = 7, modelMs = 29_400, totalMs = 34_200)))
-        assertEquals("Agent's summary: ok\nTime: 34 s, 7 steps, 29 s of it waiting for the model\nTokens: 10 in, 5 out", body)
-    }
-
-    @Test
-    fun shortTimesKeepOneDecimal() {
-        assertEquals("Time: 4.3 s, 1 step, 3.0 s of it waiting for the model", SummaryText.time(TaskStats(1, 2_960, 4_260)))
-        assertEquals(null, SummaryText.time(TaskStats()))
+    fun bodyNeverMentionsTokensCostTimeOrSteps() {
+        val busy = outcome(usage = TokenUsage(1200, 34, 500)).copy(stats = TaskStats(steps = 7, modelMs = 29_400, totalMs = 34_200))
+        val body = SummaryText.body(busy).lowercase()
+        listOf("token", "cost", "cached", "step", "waiting for the model", "agent's summary").forEach {
+            assertTrue(it !in body, "\"$it\" should not be shown to the user: $body")
+        }
+        assertEquals("ok", SummaryText.body(busy))
     }
 
     @Test
@@ -105,6 +95,6 @@ class SummaryTextTest {
 
     @Test
     fun bodyStillShowsFullSummaryWhenNotificationsWereUsed() {
-        assertEquals("Agent's summary: Mom: dinner at 8\nTokens: 10 in, 5 out", SummaryText.body(outcome(usedNotifications = true, summary = "Mom: dinner at 8")))
+        assertEquals("Mom: dinner at 8", SummaryText.body(outcome(usedNotifications = true, summary = "Mom: dinner at 8")))
     }
 }

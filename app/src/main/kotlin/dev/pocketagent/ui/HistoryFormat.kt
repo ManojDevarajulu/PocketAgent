@@ -22,32 +22,18 @@ object HistoryFormat {
         title = e.task,
         whenText = SimpleDateFormat(if (day(e.startedAt, now) == "Today") "'Today,' h:mm a" else "d MMMM, h:mm a", Locale.getDefault()).format(Date(e.startedAt)),
         result = e.summary,
-        duration = duration(e.durationMs),
-        tokens = tokens(e.tokens),
         onRun = onRun,
         onDelete = onDelete,
     )
 
-    /** "Today: 3 tasks, about 18k tokens used." for the foot of Home, or null when nothing ran today. */
+    /** "Today: 3 tasks." for the foot of Home, or null when nothing ran today. */
     fun todayLine(entries: List<HistoryEntry>, now: Long = System.currentTimeMillis()): String? {
         val today = entries.filter { day(it.startedAt, now) == "Today" }
         if (today.isEmpty()) return null
-        val t = today.sumOf { it.tokens }
-        return "Today: ${today.size} ${if (today.size == 1) "task" else "tasks"}" + if (t > 0) ", about ${tokens(t)} tokens used." else "."
+        return "Today: ${today.size} ${if (today.size == 1) "task" else "tasks"}."
     }
 
-    private fun sub(e: HistoryEntry): String = e.summary.ifBlank { duration(e.durationMs) }
-
-    fun duration(ms: Long): String {
-        val s = (ms / 1000).coerceAtLeast(0)
-        return if (s < 60) "$s s" else "${s / 60} min ${s % 60} s"
-    }
-
-    fun tokens(n: Long): String = when {
-        n <= 0 -> "none"
-        n < 1000 -> n.toString()
-        else -> String.format(Locale.US, "%.1fk", n / 1000.0)
-    }
+    private fun sub(e: HistoryEntry): String = e.summary.ifBlank { if (e.ok) "Done" else "Stopped" }
 
     private fun relative(t: Long, now: Long): String {
         val d = (now - t).coerceAtLeast(0)
