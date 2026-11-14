@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 * **Autonomous Floating Bubble**: On-device overlay that executes accessibility actions over any Android app with zero PC and zero ADB.
-* **Bring-Your-Own-Key (BYOK) Engine**: Support for Anthropic Claude, OpenAI GPT-4o, OpenRouter, Gemini, DeepSeek, Groq, and Ollama running on your own machine.
+* **Bring-Your-Own-Key (BYOK) Engine**: Support for Anthropic Claude, OpenAI, OpenRouter, Gemini, DeepSeek, Groq, and Ollama running on your own machine.
 * **Deterministic Safety Gate**: Android Keystore AES-256 GCM key encryption, blocked banking/auth apps, and mandatory human confirmation for irreversible actions (*Pay*, *Send*, *Delete*, *Order*).
 * **Hands-Free Voice Loop**: Speech-to-text input, spoken action captions, and voice confirmations with *Talk back*.
 * **Private Notification Listener**: On-device OTP lookup with automatic 6-digit code masking (`••••••`) and safe notification replies.

@@ -135,14 +135,14 @@ Pocket Agent communicates directly with provider endpoints using a hardened OkHt
 |---|---|---|
 | **Anthropic** | Messages API | Prompt caching and thinking-block preservation |
 | **OpenRouter** | OpenAI-compatible | Access 100+ models with one API key |
-| **OpenAI** | OpenAI-compatible | GPT-4o, GPT-4o-mini |
+| **OpenAI** | OpenAI-compatible | Any current OpenAI model that supports tool calling |
 | **Gemini** | OpenAI-compatible endpoint | High-speed multimodal inference |
-| **DeepSeek** | OpenAI-compatible | DeepSeek-V3 and DeepSeek-R1 |
+| **DeepSeek** | OpenAI-compatible | Use the current model names from DeepSeek's docs (older names get retired) |
 | **Groq** | OpenAI-compatible | Ultra-low latency inference |
 | **Ollama** | Local OpenAI-compatible | Runs on your own computer or network, so nothing goes to a cloud service; plain `http` is allowed for local LAN |
 | **Custom** | OpenAI-compatible | Any custom or self-hosted endpoint |
 
-> **Model Compatibility**: Pocket Agent does not restrict you to a hardcoded model list. Type any model identifier that supports **tool calling** and tap **"Test the model"** during setup to verify with a lightweight probe.
+> **Model Compatibility**: Pocket Agent has no built-in model list, so new models work the day a provider releases them, and old names are never the app's problem. Type any model identifier that supports **tool calling** and tap **"Test the model"** during setup to verify with a lightweight probe.
 
 ---
 
