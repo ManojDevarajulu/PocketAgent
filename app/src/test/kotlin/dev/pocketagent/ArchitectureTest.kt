@@ -230,6 +230,7 @@ class ArchitectureTest {
                 "android.intent.action.DIAL" to "tel",
                 "android.intent.action.SENDTO" to "smsto",
                 "android.intent.action.WEB_SEARCH" to "",
+                "android.intent.action.TTS_SERVICE" to "",
             ),
             declared.toSet(),
         )
