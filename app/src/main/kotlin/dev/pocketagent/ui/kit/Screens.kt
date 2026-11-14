@@ -53,6 +53,12 @@ data class SettingsState(
     val onBubble: (Boolean) -> Unit = {},
     val talkBackOn: Boolean = true,
     val onTalkBack: (Boolean) -> Unit = {},
+    val linkOn: Boolean = false,
+    val onLink: (Boolean) -> Unit = {},
+    /** "192.168.1.5:8765" while the link is on and the phone has a local address, else null. */
+    val linkAddress: String? = null,
+    val onCopyLink: () -> Unit = {},
+    val onResetLink: () -> Unit = {},
     val shortScreensOn: Boolean = false,
     val onShortScreens: (Boolean) -> Unit = {},
     val onProvider: () -> Unit = {},
@@ -608,6 +614,17 @@ object Screens {
             Kit.row(c, "Talk back", trailing = Kit.toggle(c, state.talkBackOn, state.onTalkBack)),
         ), 16), Kit.lp())
         p.addView(Kit.footnote(c, "Pocket Agent speaks and listens when you start a task with the mic."))
+        p.addView(gap(c, 26))
+
+        p.addView(Kit.section(c, "Computer link"))
+        val linkRows = arrayListOf<View>(Kit.row(c, "Let my computer send tasks", trailing = Kit.toggle(c, state.linkOn, state.onLink)))
+        if (state.linkOn) {
+            linkRows.add(Kit.row(c, "Address", trailing = Kit.value(c, state.linkAddress ?: "No Wi-Fi", withChevron = false)))
+            linkRows.add(Kit.row(c, "Copy connect command", trailing = Kit.chevron(c), onClick = state.onCopyLink))
+            linkRows.add(Kit.row(c, "Reset pairing code", trailing = Kit.chevron(c), onClick = state.onResetLink))
+        }
+        p.addView(Kit.group(c, linkRows, 16), Kit.lp())
+        p.addView(Kit.footnote(c, "Claude Code, Cursor and other MCP apps on your computer can ask this phone to do things. Same Wi-Fi only. You approve every task on the phone first, and anything that sends, calls or pays is checked again."))
         p.addView(gap(c, 26))
 
         p.addView(Kit.section(c, "Experimental"))

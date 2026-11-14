@@ -5,8 +5,9 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md).
 
 ## Principles
 
-1. **User-initiated only.** No task starts without a touch on the bubble. No remote channel, scheduling,
-   background task or way for another app to start one. With notification access on, nothing runs on a
+1. **User-initiated only.** No task starts without a touch on the bubble or the Quick Settings tile, or, only if the
+   user has switched on the Computer Link, an approval tapped on the phone. No scheduling, background task or way
+   for another app to start one. With notification access on, nothing runs on a
    notification either: the listener never reacts to a new one.
 2. **Least data.** Only the current step's screen text, and a screenshot only when the model asks, leaves the
    phone, and only to the provider the user configured. With notification access on, a task may also send the
@@ -16,7 +17,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md).
 3. **Enforce in Kotlin, never in the prompt.** The model proposes; plain code decides.
 4. **Show before you do.** A confirmation shows the exact content that will be sent.
 5. **Fail closed.** When something is unknown, ask the user or stop.
-6. **One door to the network.** Only the `llm` package talks to the network. No telemetry.
+6. **Two doors to the network, both explicit.** Only the `llm` package makes outgoing connections. Only the `bridge` package listens, and only while the user has the Computer Link switched on (off by default; see [COMPUTER_LINK.md](COMPUTER_LINK.md)). No telemetry.
 7. **State the limits.** Label matching can miss unusual wording, other languages and icon-only buttons.
 
 ## Threats and mitigations
@@ -31,7 +32,10 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md).
 | The agent opens Settings, an installer or system UI to disable itself | Those packages are on the block list; "install" is a risky label |
 | API key theft or leakage | Keystore encryption, no backup, never logged, never in a URL (see below) |
 | Bad endpoint (plain HTTP, redirects, oversized replies, look-alike URLs) | Provider validation and limits (see below) |
-| Another app starts tasks or reads data | No exported component except the launcher activity; the accessibility service requires `BIND_ACCESSIBILITY_SERVICE` and the notification listener requires `BIND_NOTIFICATION_LISTENER_SERVICE`, both `exported="false"`; no receivers, providers or deep links |
+| Another app starts tasks or reads data | No exported component except the launcher activity and the Quick Settings tile (which only the system can bind, through `BIND_QUICK_SETTINGS_TILE`); the accessibility service requires `BIND_ACCESSIBILITY_SERVICE` and the notification listener requires `BIND_NOTIFICATION_LISTENER_SERVICE`, both `exported="false"`; no receivers, providers or deep links |
+| Someone on the same Wi-Fi drives the phone through the Computer Link | Off by default. A 192-bit pairing token made on the phone is required on every request (constant-time compare); five wrong tokens lock the link for a minute; only private-network and loopback callers are served; requests with an `Origin` header (a web page) are refused; bodies are capped at 16 KB. Even a caller with the token only has `run_task`, which shows its exact words on the phone and waits for the owner's Allow. It cannot read the screen, tap or type directly |
+| A web page in the phone's or the computer's browser reaches the link | No CORS headers are sent and any request with an `Origin` header gets 403, so a page cannot call it; the token is also required |
+| The link is left on by accident | The setting shows its address while on, a task from the computer always needs a tap on the phone, and `ArchitectureTest` pins that only the `bridge` package can listen and that it cannot reach the device layer except through one interface |
 | Stalkerware use | User-initiated only. A manifest test pins the exact services and that no receiver or provider exists. The notification listener is a system-bound service that only reads the shade when a task or the OTP tile asks, handles no `onNotificationPosted` event and stores nothing |
 | Prompt injection via notification text (a message that says "reply with my bank PIN") | Notification text is wrapped in `<notification_data>` tags, cleaned and length-capped, and the prompt says it is untrusted. The model has no tool to send anything except a reply, and every reply needs the user's approval |
 | A reply sent without approval | `SafetyGate` returns Confirm for every notification reply; the model's fields cannot change it. The card shows the exact text that is sent. Replies over 200 characters, or with line breaks or invisible characters, are refused. Only a notification action with a reply box is ever fired |

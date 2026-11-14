@@ -2,19 +2,26 @@ package dev.pocketagent.ui
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.provider.Settings
 import android.view.View
 import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.Toast
+import dev.pocketagent.android.LocalAddress
 import dev.pocketagent.android.PocketAccessibilityService
 import dev.pocketagent.android.PocketNotificationListener
 import dev.pocketagent.android.SetupStores
+import dev.pocketagent.bridge.McpHttpServer
+import dev.pocketagent.bridge.PairingToken
 import dev.pocketagent.llm.CheckResult
 import dev.pocketagent.setup.AccessibilityState
 import dev.pocketagent.setup.MicState
@@ -211,6 +218,22 @@ class MainActivity : ThemedActivity() {
         )
     }
 
+    /** The one-line command that connects Claude Code to this phone. It holds the pairing token, so it is marked sensitive. */
+    private fun copyLinkCommand() {
+        val address = LocalAddress.find()
+        val token = settings.linkToken
+        if (address == null || token == null) {
+            Toast.makeText(this, "Connect this phone to Wi-Fi first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val command = "claude mcp add --transport http pocket-agent http://$address:${McpHttpServer.DEFAULT_PORT}/mcp " +
+            "--header \"Authorization: Bearer $token\""
+        val clip = ClipData.newPlainText("Pocket Agent connect command", command)
+        clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+        getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+        Toast.makeText(this, "Copied. Paste it in a terminal on your computer.", Toast.LENGTH_LONG).show()
+    }
+
     private fun settingsState(): SettingsState {
         val config = repository.load()
         val version = try {
@@ -228,6 +251,20 @@ class MainActivity : ThemedActivity() {
             onBubble = { settings.bubbleOn = it },
             talkBackOn = settings.talkBack,
             onTalkBack = { settings.talkBack = it },
+            linkOn = settings.computerLink,
+            onLink = {
+                settings.computerLink = it
+                if (it && !PairingToken.looksValid(settings.linkToken)) settings.linkToken = PairingToken.generate()
+                shell.refresh()
+            },
+            linkAddress = if (settings.computerLink) LocalAddress.find()?.let { "$it:${McpHttpServer.DEFAULT_PORT}" } else null,
+            onCopyLink = { copyLinkCommand() },
+            onResetLink = {
+                SheetDialogs.confirm(this, "Reset pairing code?", "Computers already connected will stop working until you copy the new connect command.", "Reset") {
+                    settings.linkToken = PairingToken.generate()
+                    Toast.makeText(this, "New pairing code made.", Toast.LENGTH_SHORT).show()
+                }
+            },
             shortScreensOn = settings.shortScreens,
             onShortScreens = { settings.shortScreens = it },
             onProvider = { openSetup() },

@@ -68,7 +68,7 @@ You bring your own API key (Anthropic, OpenRouter, OpenAI, Gemini, DeepSeek, Gro
 ## Key Differentiators
 
 * 🎯 **Contextual Trigger over Chat**: You never leave your current app to open a chat window. Tap the bubble directly over whatever is on screen, speak or type your instruction, and the agent acts immediately.
-* ⚡ **Zero-PC, Zero-Backend Privacy**: No tethered laptops, no background servers, and no telemetry. The app runs locally on your phone and calls your chosen AI provider directly. Screen content is sent only to your chosen provider.
+* ⚡ **Zero-PC, Zero-Backend Privacy**: No tethered laptops, no cloud backend, and no telemetry. (The optional [Computer Link](docs/COMPUTER_LINK.md) is the one exception, and it is off until you switch it on.) The app runs locally on your phone and calls your chosen AI provider directly. Screen content is sent only to your chosen provider.
 * 🛡️ **Deterministic Safety Gate**: Hardware-backed Kotlin rules protect your privacy before any action runs:
   * Sensitive apps (banking, payments, crypto, password managers, system settings) are **strictly blocked**.
   * Irreversible actions (*"Pay"*, *"Send"*, *"Delete"*, *"Order"*) pause execution and require explicit user confirmation.
@@ -77,6 +77,12 @@ You bring your own API key (Anthropic, OpenRouter, OpenAI, Gemini, DeepSeek, Gro
 * 🔊 **Hands-Free Voice Loop**: With *Talk back* enabled, tasks can be run completely by voice. The agent speaks action captions aloud and requests confirmations verbally; only an unambiguous *"yes"* (or the screen Approve button) continues execution.
 * ⚡ **Pull-Down Quick Settings Tile**: Access Pocket Agent instantly from Android's notification pull-down shade without keeping the floating bubble on screen.
 * 📖 **Community Playbooks**: App navigation heuristics are written as concise Markdown guides bundled inside the APK. Anyone can contribute a playbook for their favorite app via a standard GitHub Pull Request.
+
+---
+
+## Computer Link (Optional, off by default)
+
+Let Claude Code, Cursor or any MCP app on your own computer hand tasks to your phone over your home Wi-Fi. Switch it on in **Settings > Computer link**, tap **Copy connect command**, and paste it in a terminal. Every task shows its exact words on the phone and waits for your *Allow* before anything runs; anything that sends, calls or pays is still confirmed again. It exposes one tool, `run_task`, and never lets the computer read or tap the screen directly. See [docs/COMPUTER_LINK.md](docs/COMPUTER_LINK.md).
 
 ---
 

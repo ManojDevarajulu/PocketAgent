@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 
 /** Guards the rules in docs/SECURITY_MODEL.md that a compiler cannot enforce. */
 class ArchitectureTest {
-    private val corePackages = listOf("agent", "llm", "safety", "playbook", "device", "setup")
+    private val corePackages = listOf("agent", "llm", "safety", "playbook", "device", "setup", "bridge")
     private val mainRoot = File("src/main/kotlin/dev/pocketagent")
 
     /** Every shipped source set (main, debug, release); test and androidTest sets are left out. */
@@ -43,6 +43,28 @@ class ArchitectureTest {
             .filterNot { it.invariantSeparatorsPath.contains("/dev/pocketagent/llm/") }
             .filter { f -> codeLines(f).any { network.containsMatchIn(it) } }
         assertEquals(emptyList(), offenders.map { it.path })
+    }
+
+    /** The phone listens on the local network only for the computer link, and only from this one package. */
+    @Test
+    fun onlyBridgePackageListensOnAPort() {
+        val listening = Regex("""ServerSocket|DatagramSocket|\.bind\(|InetSocketAddress""")
+        val offenders = mainSources()
+            .filterNot { it.invariantSeparatorsPath.contains("/dev/pocketagent/bridge/") }
+            .filter { f -> codeLines(f).any { listening.containsMatchIn(it) } }
+        assertEquals(emptyList(), offenders.map { it.path })
+    }
+
+    /** The bridge answers callers; it never calls out, and it reaches the phone only through [PhoneTasks]. */
+    @Test
+    fun bridgeMakesNoOutgoingConnectionAndTouchesNoDevice() {
+        val outgoing = Regex("""^import (okhttp3|java\.net\.http|java\.net\.HttpURLConnection|java\.net\.URL)|Socket\(""")
+        val reachesPhone = Regex("""^import dev\.pocketagent\.(device|android|ui)\.""")
+        val bridge = File(mainRoot, "bridge").walk().filter { it.extension == "kt" }.toList()
+        val dialing = bridge.filter { f -> codeLines(f).any { outgoing.containsMatchIn(it) && !it.contains("ServerSocket(") } }
+        assertEquals(emptyList(), dialing.map { it.path }, "bridge must not connect out")
+        val touching = bridge.filter { f -> codeLines(f).any { reachesPhone.containsMatchIn(it) } }
+        assertEquals(emptyList(), touching.map { it.path }, "bridge reaches the phone only through PhoneTasks")
     }
 
     @Test

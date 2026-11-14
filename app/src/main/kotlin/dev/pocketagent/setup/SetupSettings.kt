@@ -27,6 +27,16 @@ class SetupSettings(private val store: KeyValueStore) {
         get() = store.getBoolean(SHORT_SCREENS, false)
         set(value) = store.putBoolean(SHORT_SCREENS, value)
 
+    /** Lets the user's own computer send tasks to this phone over the local network. Off until the user turns it on. */
+    var computerLink: Boolean
+        get() = store.getBoolean(COMPUTER_LINK, false)
+        set(value) = store.putBoolean(COMPUTER_LINK, value)
+
+    /** The pairing token for the computer link, or null until the link is first turned on. */
+    var linkToken: String?
+        get() = store.getString(LINK_TOKEN)
+        set(value) = store.putString(LINK_TOKEN, value)
+
     /** "system", "light" or "dark". */
     var theme: String
         get() = store.getString(THEME)?.takeIf { it in setOf("system", "light", "dark") } ?: "system"
@@ -44,6 +54,8 @@ class SetupSettings(private val store: KeyValueStore) {
         const val BUBBLE = "settings.bubble"
         const val TALK_BACK = "settings.talkBack"
         const val SHORT_SCREENS = "settings.shortScreens"
+        const val COMPUTER_LINK = "settings.computerLink"
+        const val LINK_TOKEN = "settings.linkToken"
         const val THEME = "settings.theme"
         const val SHORTCUTS = "settings.shortcuts"
     }

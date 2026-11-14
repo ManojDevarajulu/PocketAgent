@@ -17,6 +17,7 @@
     <string name="answer_skip">Skip</string>
     <string name="service_label">Pocket Agent</string>
     <string name="tile_label">Ask Pocket</string>
+    <string name="link_port_busy">Could not start the computer link: port 8765 is in use.</string>
     <string name="recording_started">Recording. Do your routine, then tap the bubble to stop.</string>
     <string name="recording_failed_title">Nothing to save</string>
     <string name="recording_done_title">Routine recorded: %1$s</string>

@@ -7,7 +7,13 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.view.accessibility.AccessibilityEvent
+import dev.pocketagent.bridge.McpHandler
+import dev.pocketagent.bridge.McpHttpServer
+import dev.pocketagent.bridge.PairingToken
+import dev.pocketagent.bridge.TaskReply
 import dev.pocketagent.playbook.RoutineRecorder
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import android.content.Intent
 import android.os.Build
@@ -92,6 +98,7 @@ class AgentSession(
         override fun run() {
             if (closed) return
             syncBubble()
+            syncLink()
             val locked = keyguard?.isKeyguardLocked == true
             if (locked != hiddenForLock) {
                 hiddenForLock = locked
@@ -357,6 +364,8 @@ class AgentSession(
         val taskWasLive = taskIsLive()
         closed = true
         main.removeCallbacks(lockPoll)
+        link?.stop()
+        link = null
         runner.cancel()
         scope.cancel()
         stopVoice()
@@ -456,6 +465,70 @@ class AgentSession(
             }
             BubbleCommand.STOP_RECORDING -> stopRecording()
             BubbleCommand.NONE -> Unit
+        }
+    }
+
+    // --- Computer link ---
+
+    private var link: McpHttpServer? = null
+    private var remoteInFlight = false
+    private val linkHandler = McpHandler { task -> runFromComputer(task) }
+
+    /** Starts or stops the listener to match the setting. Cheap enough to call from the poll that already runs. */
+    private fun syncLink() {
+        if (closed) return
+        if (settings.computerLink) {
+            if (link != null) return
+            if (!PairingToken.looksValid(settings.linkToken)) settings.linkToken = PairingToken.generate()
+            val server = McpHttpServer(McpHttpServer.DEFAULT_PORT, { settings.linkToken.orEmpty() }, linkHandler, scope)
+            if (server.start()) {
+                link = server
+            } else {
+                // Port taken: say so once and switch the setting off so this does not retry every half second.
+                settings.computerLink = false
+                Toast.makeText(service.applicationContext, R.string.link_port_busy, Toast.LENGTH_LONG).show()
+            }
+        } else {
+            link?.stop()
+            link = null
+        }
+    }
+
+    /**
+     * A task sent from the user's computer. It always asks on the phone first and shows the exact words, then runs
+     * like any other task, so the safety gate and the confirmation of anything that sends, calls or pays still apply.
+     */
+    private suspend fun runFromComputer(task: String): TaskReply = withContext(Dispatchers.Main) {
+        if (closed) return@withContext TaskReply.Refused("Pocket Agent is stopping.")
+        if (remoteInFlight || taskIsLive() || recorder != null || tapJob?.isActive == true || logic.taskScreenOpen) {
+            return@withContext TaskReply.Refused("The phone is busy with something else.")
+        }
+        if (keyguard?.isKeyguardLocked == true) return@withContext TaskReply.Refused("The phone is locked.")
+        val client = currentClient() ?: return@withContext TaskReply.Refused("No AI provider is set up on the phone.")
+        remoteInFlight = true
+        try {
+            val request = ConfirmRequest("Run a task sent from your computer", task.take(CONFIRM_TASK_CHARS), "Pocket Agent")
+            val approved = withTimeoutOrNull(CONFIRM_LINK_MS) { overlayUi.confirm(request) } ?: false
+            if (!approved) return@withContext TaskReply.Refused("The phone's owner did not approve the task.")
+            val screen = try {
+                setOverlaysHidden(true)
+                try {
+                    device.readScreenNow()
+                } finally {
+                    withContext(NonCancellable) { setOverlaysHidden(false) }
+                }
+            } catch (e: DeviceUnavailable) {
+                return@withContext TaskReply.Refused(e.reason)
+            }
+            begin(task, screen, client, fromSetup = false)
+            if (!taskIsLive()) return@withContext TaskReply.Refused("The task could not start.")
+            val end = runner.state.first { it is AgentState.Finished || it is AgentState.Stopped }
+            when (end) {
+                is AgentState.Finished -> TaskReply.Done(end.outcome.success, end.outcome.summary)
+                else -> TaskReply.Done(false, "The task was stopped on the phone.")
+            }
+        } finally {
+            remoteInFlight = false
         }
     }
 
@@ -619,6 +692,8 @@ class AgentSession(
         const val LOCK_POLL_MS = 500L
         const val TILE_SETTLE_MS = 450L
         const val MIN_SCREEN_NAME = 4
+        const val CONFIRM_LINK_MS = 60_000L
+        const val CONFIRM_TASK_CHARS = 300
         const val RECORDED_DIR = "recorded"
         const val PLAYBOOK_DIR = "playbooks"
         const val SPEECH_UNAVAILABLE_NOTE = "Speech isn't available on this phone, so Pocket Agent stayed silent."
