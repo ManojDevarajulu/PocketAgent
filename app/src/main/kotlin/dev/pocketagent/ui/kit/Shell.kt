@@ -2,7 +2,10 @@ package dev.pocketagent.ui.kit
 
 import android.content.Context
 import android.view.View
+import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import android.widget.ScrollView
 
 /**
  * Shows one screen at a time with iOS-style motion: tabs cross-fade, a pushed screen slides in over the old one
@@ -27,10 +30,32 @@ class Shell(private val context: Context, private val content: FrameLayout, priv
     /** Rebuilds the visible screen in place, for when the data behind it changed. */
     fun refresh() {
         val top = stack.lastOrNull() ?: return
+        // A rebuilt page starts at the top. Without this, flipping a switch halfway down Settings threw the user back up.
+        val scrolledTo = scrollerIn(top.second)?.scrollY ?: 0
         val view = build(top.first, nav)
         content.removeView(top.second)
         stack[stack.lastIndex] = top.first to view
         content.addView(view, FrameLayout.LayoutParams(-1, -1))
+        if (scrolledTo > 0) restoreScroll(view, scrolledTo)
+    }
+
+    /** Puts the new page back where the old one was, before its first frame so nothing visibly jumps. */
+    private fun restoreScroll(view: View, y: Int) {
+        val scroller = scrollerIn(view) ?: return
+        scroller.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                scroller.viewTreeObserver.removeOnPreDrawListener(this)
+                scroller.scrollTo(0, y)
+                return true
+            }
+        })
+    }
+
+    /** The first scrolling container in [view], which is the page body for every screen the shell builds. */
+    private fun scrollerIn(view: View): ScrollView? {
+        if (view is ScrollView) return view
+        if (view is ViewGroup) for (i in 0 until view.childCount) scrollerIn(view.getChildAt(i))?.let { return it }
+        return null
     }
 
     fun show(name: String, kind: Transition, replace: Boolean = false) {
