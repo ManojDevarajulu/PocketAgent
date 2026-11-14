@@ -368,7 +368,17 @@ class AgentLoop(
         val screen = device.readScreen()
         run.screen = screen
         if (gate.checkApp(screen) is Verdict.Block) return null
-        return Observation(serializer.serialize(screen), firstVisitNote(run, screen.packageName))
+        return Observation(serializer.serialize(screen), listOfNotNull(firstVisitNote(run, screen.packageName), sparseNote(screen)).joinToString("\n").ifEmpty { null })
+    }
+
+    /**
+     * Games, canvases and some custom-drawn apps expose almost nothing to read. Say so and point at the screenshot,
+     * which a model that can see images can tap by coordinates; one that cannot is not told to use it.
+     */
+    private fun sparseNote(screen: Screen): String? {
+        if (!llm.supportsImages) return null
+        val readable = screen.all().count { it.clickable || !it.text.isNullOrBlank() || !it.description.isNullOrBlank() }
+        return if (readable < SPARSE_NODES) SPARSE_SCREEN else null
     }
 
     /** The playbook for a package the first time it is seen in this task. */
@@ -421,6 +431,8 @@ class AgentLoop(
         const val MAX_DETAIL = 200
         const val MAX_TARGET = 60
         const val STUCK_LIMIT = 3
+        const val SPARSE_NODES = 3
+        const val SPARSE_SCREEN = "This screen shows almost nothing readable (a game or a custom-drawn app). Call screenshot, then tap by the x and y pixel labels on its grid."
         const val UNREADABLE_SCREEN = "A system dialog may be blocking the screen. Answer it on the phone, then run the task again."
         const val SCROLL_END = "ok, but the screen did not change: you are at the end of the list, so nothing more can be read by scrolling"
         const val ACCESS_OFF = "notification access is off; open the app instead"

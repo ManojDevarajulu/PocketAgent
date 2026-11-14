@@ -9,6 +9,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
 import android.net.Uri
@@ -29,6 +31,7 @@ import dev.pocketagent.device.DevicePort
 import dev.pocketagent.device.DeviceUnavailable
 import dev.pocketagent.device.Direction
 import dev.pocketagent.device.GesturePlanner
+import dev.pocketagent.device.GridLines
 import dev.pocketagent.device.LauncherApp
 import dev.pocketagent.device.LiveNodeState
 import dev.pocketagent.device.Point
@@ -483,13 +486,47 @@ class AccessibilityDevice(
             } else {
                 bitmap
             }
+            val gridded = withGrid(scaled, realWidth = bitmap.width, realHeight = bitmap.height)
             val out = ByteArrayOutputStream()
-            val ok = scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
+            val ok = gridded.compress(Bitmap.CompressFormat.PNG, 100, out)
+            if (gridded !== scaled) gridded.recycle()
             if (scaled !== bitmap) scaled.recycle()
             if (ok) out.toByteArray() else null
         } finally {
             bitmap.recycle()
         }
+    }
+
+    /**
+     * A copy of [picture] with a faint grid whose labels are real screen pixels. The picture is scaled down but taps
+     * use real pixels, so the model can read a position straight off a line instead of converting between the two.
+     * Falls back to the plain picture if a copy cannot be made.
+     */
+    private fun withGrid(picture: Bitmap, realWidth: Int, realHeight: Int): Bitmap {
+        val canvasBitmap = picture.copy(Bitmap.Config.ARGB_8888, true) ?: return picture
+        val canvas = Canvas(canvasBitmap)
+        val sx = picture.width.toFloat() / realWidth
+        val sy = picture.height.toFloat() / realHeight
+        val density = (picture.width / 540f).coerceAtLeast(1f)
+        val line = Paint().apply { color = 0x66FF2D55; strokeWidth = density }
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); textSize = 11f * density }
+        val backing = Paint().apply { color = 0xCCC2185B.toInt() }
+        fun label(s: String, x: Float, y: Float) {
+            val w = text.measureText(s)
+            canvas.drawRect(x - 1f, y - text.textSize, x + w + 1f, y + 3f * density, backing)
+            canvas.drawText(s, x, y, text)
+        }
+        for (x in GridLines.marks(realWidth)) {
+            val px = x * sx
+            canvas.drawLine(px, 0f, px, picture.height.toFloat(), line)
+            label(x.toString(), px + 2f, text.textSize + 2f)
+        }
+        for (y in GridLines.marks(realHeight)) {
+            val py = y * sy
+            canvas.drawLine(0f, py, picture.width.toFloat(), py, line)
+            label(y.toString(), 2f, py - 2f)
+        }
+        return canvasBitmap
     }
 
     // --- Helpers ---

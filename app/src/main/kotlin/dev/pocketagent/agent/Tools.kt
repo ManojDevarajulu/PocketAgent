@@ -210,7 +210,7 @@ object Tools {
                 Field("text", Kind.STRING, "The reply text, at most 200 characters.", min = 1, max = 200),
             ),
         ) { a -> ToolCall.ReplyNotification(notificationId(a["id"] as String), a["text"] as String) },
-        Spec("screenshot", "Get a screenshot of the current screen. Use it only when the screen data lacks what you need.", emptyList()) { ToolCall.Screenshot },
+        Spec("screenshot", "Get a screenshot of the current screen. Use it only when the screen data lacks what you need. The picture has a grid labelled with real pixel positions: tap by the x and y you read from its lines.", emptyList()) { ToolCall.Screenshot },
         Spec(
             "wait",
             "Wait for slow content to load.",

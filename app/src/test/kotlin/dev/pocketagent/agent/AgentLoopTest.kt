@@ -392,11 +392,21 @@ class AgentLoopTest {
 
     // ---- playbooks and prompt ----
 
+    @Test fun aScreenWithAlmostNothingReadablePointsAVisionModelAtTheScreenshot() = runTest {
+        val sparse = distinctScreen("canvas")
+        val vision = FakeLlm(listOf(scroll(), done()), supportsImages = true)
+        loop(vision, FakeDevice(listOf(sparse, sparse)), playbooks = playbookFor("com.x.app", "unused")).run("t", start)
+        assertTrue(vision.turns[1].systemNote.orEmpty().contains("Call screenshot"), vision.turns[1].systemNote.orEmpty())
+        val text = FakeLlm(listOf(scroll(), done()), supportsImages = false)
+        loop(text, FakeDevice(listOf(sparse, sparse)), playbooks = playbookFor("com.x.app", "unused")).run("t", start)
+        assertNull(text.turns[1].systemNote)
+    }
+
     @Test fun playbookAddedOnceOnFirstVisit() = runTest {
         val x = "com.x.app"
         val store = playbookFor(x, "Use the search bar.")
         val inX = List(3) { distinctScreen("x$it", x) }
-        val llm = FakeLlm(listOf(tap("a1"), scroll(), done()))
+        val llm = FakeLlm(listOf(tap("a1"), scroll(), done()), supportsImages = false)
         loop(llm, FakeDevice(inX), playbooks = store).run("t", start)
         assertNull(llm.turns[0].systemNote)
         assertEquals("Use the search bar.", llm.turns[1].systemNote)
@@ -405,7 +415,7 @@ class AgentLoopTest {
 
     @Test fun playbookOfTheInitialAppGoesWithTheFirstTurnOnly() = runTest {
         val store = playbookFor("com.app", "Initial tips.")
-        val llm = FakeLlm(listOf(scroll(), done()))
+        val llm = FakeLlm(listOf(scroll(), done()), supportsImages = false)
         loop(llm, FakeDevice(manyScreens(2)), playbooks = store).run("t", start)
         assertEquals("Initial tips.", llm.turns[0].systemNote)
         assertNull(llm.turns[1].systemNote)
