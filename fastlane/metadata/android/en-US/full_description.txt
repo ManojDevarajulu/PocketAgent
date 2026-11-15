@@ -1,0 +1,7 @@
+Pocket Agent is an autonomous, on-device mobile AI agent for Android. It operates directly on your phone using an AccessibilityService overlay bubble, requiring zero PC tethering, zero ADB commands, and zero external backend infrastructure.
+
+Key Features:
+- Fully On-Device Execution: Captures the active UI hierarchy, reasons via LLM, and dispatches taps, swipes, and text input natively.
+- Bring Your Own Key (BYOK): Supports OpenAI (GPT-4o), Anthropic (Claude), Google (Gemini), DeepSeek, Groq, and local Ollama instances over LAN/Wi-Fi.
+- Floating Bubble Interface: A lightweight floating overlay allows starting tasks, pausing execution, stopping immediately, or reviewing live step-by-step action logs.
+- Privacy & Transparency: Built under GNU AGPLv3 with zero trackers, zero analytics, and zero telemetry. All network calls go directly to your chosen LLM endpoint.
