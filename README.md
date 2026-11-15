@@ -162,6 +162,7 @@ Android's Play Protect may block a Pocket Agent APK that you download in a brows
 
 ### Other ways
 
+* **F-Droid / Neo Store / Droid-ify:** Add our F-Droid repository: `https://manojdevarajulu.github.io/PocketAgent/repo` or visit the **[F-Droid Repository page](https://manojdevarajulu.github.io/PocketAgent/)** to scan the QR code.
 * **Direct APK:** download `pocket-agent-v0.2.0.apk` from **[Releases](https://github.com/ManojDevarajulu/PocketAgent/releases/latest)** and tap it. If Play Protect shows **More details**, you can choose **Install anyway**. If it blocks the install with no such option, use Obtainium or `adb` instead. We don't recommend turning Play Protect off.
 * **From a computer:** `adb install -r pocket-agent-v0.2.0.apk` with USB debugging enabled. Installs made this way aren't treated as downloads from the internet.
 

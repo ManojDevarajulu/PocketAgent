@@ -1,0 +1,214 @@
+name: Deploy F-Droid Repository
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  deploy-fdroid:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install fdroidserver & dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apksigner
+          pip install --upgrade pip
+          pip install fdroidserver
+
+      - name: Build F-Droid Repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p fdroid_site/repo
+          
+          # Download latest release APKs from GitHub releases
+          gh release download -R ManojDevarajulu/PocketAgent --pattern "*.apk" --dir fdroid_site/repo/
+          
+          # Setup fastlane metadata for fdroid
+          mkdir -p fdroid_site/metadata/dev.pocketagent
+          if [ -d "fastlane/metadata/android/en-US" ]; then
+            cp -r fastlane/metadata/android/en-US/* fdroid_site/metadata/dev.pocketagent/
+          fi
+          
+          # Generate F-Droid config
+          cat << 'EOF' > fdroid_site/config.yml
+          repo_name: "Pocket Agent F-Droid Repository"
+          repo_icon: "icon.png"
+          repo_description: "Official F-Droid repository for Pocket Agent — autonomous on-device mobile AI agent for Android."
+          repo_url: "https://manojdevarajulu.github.io/PocketAgent/repo"
+          archive_older: 0
+          EOF
+          
+          # Copy icon if present
+          if [ -f "docs/assets/logo.png" ]; then
+            cp docs/assets/logo.png fdroid_site/icon.png
+          fi
+          
+          cd fdroid_site
+          fdroid update --create-key --create-metadata -v
+          cd ..
+
+      - name: Generate Landing Page
+        run: |
+          cat << 'EOF' > fdroid_site/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Pocket Agent — F-Droid Repository</title>
+            <style>
+              :root {
+                --bg: #090a0f;
+                --card: #13151f;
+                --border: #222638;
+                --text: #f0f3f6;
+                --muted: #8b949e;
+                --accent: #3b82f6;
+                --accent-hover: #2563eb;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                background-color: var(--bg);
+                color: var(--text);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+              }
+              .container {
+                max-width: 480px;
+                width: 90%;
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 20px;
+                padding: 36px 28px;
+                text-align: center;
+                box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+              }
+              .logo {
+                width: 88px;
+                height: 88px;
+                border-radius: 20px;
+                margin-bottom: 16px;
+                box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25);
+              }
+              h1 {
+                font-size: 24px;
+                margin: 0 0 8px 0;
+                font-weight: 700;
+              }
+              p {
+                color: var(--muted);
+                font-size: 14px;
+                line-height: 1.5;
+                margin: 0 0 24px 0;
+              }
+              .qr-box {
+                background: #ffffff;
+                padding: 12px;
+                border-radius: 14px;
+                display: inline-block;
+                margin-bottom: 24px;
+              }
+              .qr-box img {
+                display: block;
+                width: 160px;
+                height: 160px;
+              }
+              .btn-primary {
+                display: block;
+                background: var(--accent);
+                color: #ffffff;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 15px;
+                padding: 14px;
+                border-radius: 12px;
+                transition: background 0.2s;
+                margin-bottom: 12px;
+              }
+              .btn-primary:hover {
+                background: var(--accent-hover);
+              }
+              .btn-secondary {
+                display: block;
+                background: transparent;
+                border: 1px solid var(--border);
+                color: var(--text);
+                text-decoration: none;
+                font-weight: 500;
+                font-size: 14px;
+                padding: 12px;
+                border-radius: 12px;
+                transition: border-color 0.2s;
+              }
+              .btn-secondary:hover {
+                border-color: var(--muted);
+              }
+              .repo-url {
+                margin-top: 20px;
+                background: rgba(255,255,255,0.04);
+                border: 1px dashed var(--border);
+                border-radius: 8px;
+                padding: 10px;
+                font-family: monospace;
+                font-size: 11px;
+                color: var(--muted);
+                word-break: break-all;
+                user-select: all;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <img src="icon.png" alt="Pocket Agent Logo" class="logo">
+              <h1>Pocket Agent F-Droid Repository</h1>
+              <p>Autonomous, on-device mobile AI agent for Android.<br>Scan or tap below to add this repository to F-Droid, Neo Store, or Droid-ify.</p>
+              
+              <div class="qr-box">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https://manojdevarajulu.github.io/PocketAgent/repo" alt="Repository QR Code">
+              </div>
+
+              <a href="fdroidrepos://manojdevarajulu.github.io/PocketAgent/repo" class="btn-primary">Add to F-Droid / Neo Store</a>
+              <a href="https://github.com/ManojDevarajulu/PocketAgent/releases/latest" class="btn-secondary">Download APK Directly (v0.2.0)</a>
+
+              <div class="repo-url">
+                https://manojdevarajulu.github.io/PocketAgent/repo
+              </div>
+            </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'fdroid_site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
